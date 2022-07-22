@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.0.2 (2022-07-22)
+### Fix
+* Push a new release now that pypi is working again ([#5](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/5)) ([`3480e22`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/3480e225e8567e6b4a75d166c6a5b3e4661ebb46))
+
 ## v1.0.1 (2022-07-22)
 ### Fix
 * Add comments ([#4](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/4)) ([`4bc5563`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/4bc5563c23bc8cdb9ae44ede0d2ea86693968610))
