@@ -26,6 +26,7 @@ MAX_TRANSIENT_ERRORS = 9
 MAX_CONNECT_ATTEMPTS = 5
 BLEAK_TIMEOUT = 10
 
+# These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
 
 
