@@ -6,6 +6,7 @@ __version__ = "1.0.2"
 import asyncio
 import logging
 from collections.abc import Callable
+from typing import Any
 
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
@@ -44,6 +45,7 @@ async def establish_connection(
     name: str,
     disconnected_callback: Callable[[BleakClient], None] | None = None,
     max_attempts: int = MAX_CONNECT_ATTEMPTS,
+    **kwargs: Any,
 ) -> BleakClient:
     """Establish a connection to the accessory."""
     timeouts = 0
@@ -51,7 +53,7 @@ async def establish_connection(
     transient_errors = 0
     attempt = 0
 
-    client = client_class(device)
+    client = client_class(device, **kwargs)
     if disconnected_callback:
         client.set_disconnected_callback(disconnected_callback)
 
