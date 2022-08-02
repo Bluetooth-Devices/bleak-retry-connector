@@ -8,6 +8,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+import async_timeout
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 
@@ -26,6 +27,12 @@ MAX_TRANSIENT_ERRORS = 9
 
 MAX_CONNECT_ATTEMPTS = 5
 BLEAK_TIMEOUT = 10
+
+# Bleak may not always timeout
+# since the dbus connection can stall
+# so we have an additional timeout to
+# be sure we do not block forever
+BLEAK_SAFETY_TIMEOUT = 12
 
 # These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
@@ -74,7 +81,8 @@ async def establish_connection(
         attempt += 1
         _LOGGER.debug("%s: Connecting (attempt: %s)", name, attempt)
         try:
-            await client.connect(timeout=BLEAK_TIMEOUT)
+            async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
+                await client.connect(timeout=BLEAK_TIMEOUT)
         except asyncio.TimeoutError as exc:
             timeouts += 1
             _LOGGER.debug(

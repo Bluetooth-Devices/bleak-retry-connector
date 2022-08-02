@@ -7,6 +7,14 @@ optional = true
 python-versions = "*"
 
 [[package]]
+name = "async-timeout"
+version = "4.0.2"
+description = "Timeout context manager for asyncio programs"
+category = "main"
+optional = false
+python-versions = ">=3.6"
+
+[[package]]
 name = "atomicwrites"
 version = "1.4.1"
 description = "Atomic file writes."
@@ -598,10 +606,11 @@ docs = ["myst-parser", "Sphinx", "sphinx-rtd-theme"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "a24e9b512cac18aece90187cc8258f8ab7c91579a0a5b070412246e8553ff25e"
+content-hash = "16eb9d514d3d4b7075225db3f8b8ebba339af5fa2df3681e921e3a164c01ba89"
 
 [metadata.files]
 alabaster = []
+async-timeout = []
 atomicwrites = []
 attrs = []
 babel = []

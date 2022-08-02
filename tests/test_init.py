@@ -1,9 +1,10 @@
 import asyncio
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from bleak import BleakClient, BleakError
 
+import bleak_retry_connector
 from bleak_retry_connector import (
     MAX_TRANSIENT_ERRORS,
     BleakConnectionError,
@@ -131,4 +132,22 @@ async def test_establish_connection_has_one_many_error():
             pass
 
     with pytest.raises(BleakConnectionError):
+        await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+
+@pytest.mark.asyncio
+async def test_bleak_connect_overruns_timeout():
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            await asyncio.sleep(40)
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch.object(bleak_retry_connector, "BLEAK_SAFETY_TIMEOUT", 0), pytest.raises(
+        BleakNotFoundError
+    ):
         await establish_connection(FakeBleakClient, MagicMock(), "test")
