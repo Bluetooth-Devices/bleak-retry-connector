@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.1.1 (2022-08-02)
+### Fix
+* Add back the bleak overall safety timeout ([#7](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/7)) ([`f3f8ded`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f3f8ded4082bb155d2626a3ec3c693b11bbc355b))
+
 ## v1.1.0 (2022-07-24)
 ### Feature
 * Pass additional kwargs to the client class ([#6](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/6)) ([`808e05b`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/808e05bc2d831307f3e093a9d9d42a2409a0a681))
