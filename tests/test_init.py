@@ -89,6 +89,30 @@ async def test_establish_connection_has_transient_error():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_has_transient_broken_pipe_error():
+
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts < MAX_TRANSIENT_ERRORS:
+                raise BrokenPipeError
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 9
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_has_one_unknown_error():
 
     attempts = 0

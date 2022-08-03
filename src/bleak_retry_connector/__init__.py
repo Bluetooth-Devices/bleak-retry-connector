@@ -89,6 +89,22 @@ async def establish_connection(
                 "%s: Timed out trying to connect (attempt: %s)", name, attempt
             )
             _raise_if_needed(name, exc)
+        except BrokenPipeError as exc:
+            # BrokenPipeError is raised by dbus-next when the device disconnects
+            #
+            # bleak.exc.BleakDBusError: [org.bluez.Error] le-connection-abort-by-local
+            # During handling of the above exception, another exception occurred:
+            # Traceback (most recent call last):
+            # File "bleak/backends/bluezdbus/client.py", line 177, in connect
+            #   reply = await self._bus.call(
+            # File "dbus_next/aio/message_bus.py", line 63, in write_callback
+            #   self.offset += self.sock.send(self.buf[self.offset:])
+            # BrokenPipeError: [Errno 32] Broken pipe
+            transient_errors += 1
+            _LOGGER.debug(
+                "%s: Failed to connect: %s (attempt: %s)", name, str(exc), attempt
+            )
+            _raise_if_needed(name, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
             if any(error in bleak_error for error in TRANSIENT_ERRORS):
