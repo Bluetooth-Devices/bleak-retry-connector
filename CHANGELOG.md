@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.2.0 (2022-08-03)
+### Feature
+* Handle BrokenPipeError from dbus-next via bleak ([#8](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/8)) ([`21da55d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/21da55dcc37754bcbf904c6ab8162cd4f091e2c4))
+
 ## v1.1.1 (2022-08-02)
 ### Fix
 * Add back the bleak overall safety timeout ([#7](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/7)) ([`f3f8ded`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f3f8ded4082bb155d2626a3ec3c693b11bbc355b))
