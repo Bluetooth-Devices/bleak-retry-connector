@@ -26,13 +26,13 @@ MAX_TRANSIENT_ERRORS = 9
 # to finish in < 60s or declare we cannot connect
 
 MAX_CONNECT_ATTEMPTS = 5
-BLEAK_TIMEOUT = 10
+BLEAK_TIMEOUT = 12
 
 # Bleak may not always timeout
 # since the dbus connection can stall
 # so we have an additional timeout to
 # be sure we do not block forever
-BLEAK_SAFETY_TIMEOUT = 12
+BLEAK_SAFETY_TIMEOUT = 13
 
 # These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
