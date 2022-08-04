@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.3.0 (2022-08-04)
+### Feature
+* Improve chance of connecting with poor signal ([#9](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/9)) ([`f0322e7`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f0322e73d450eaf0d088f0dd26a934f3fff40907))
+
 ## v1.2.0 (2022-08-03)
 ### Feature
 * Handle BrokenPipeError from dbus-next via bleak ([#8](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/8)) ([`21da55d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/21da55dcc37754bcbf904c6ab8162cd4f091e2c4))
