@@ -7,6 +7,7 @@ from bleak import BleakClient, BleakError
 import bleak_retry_connector
 from bleak_retry_connector import (
     MAX_TRANSIENT_ERRORS,
+    BleakAbortedError,
     BleakConnectionError,
     BleakNotFoundError,
     establish_connection,
@@ -110,6 +111,34 @@ async def test_establish_connection_has_transient_broken_pipe_error():
     client = await establish_connection(FakeBleakClient, MagicMock(), "test")
     assert isinstance(client, FakeBleakClient)
     assert attempts == 9
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_has_transient_error_had_advice():
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakError("le-connection-abort-by-local")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    try:
+        await establish_connection(FakeBleakClient, MagicMock(), "test")
+    except BleakError as e:
+        exc = e
+
+    assert isinstance(exc, BleakAbortedError)
+    assert str(exc) == (
+        "test: "
+        "Failed to connect: "
+        "le-connection-abort-by-local: "
+        "Interference/range; "
+        "External Bluetooth adapter w/extension may help; "
+        "Extension cables reduce USB 3 port interference"
+    )
 
 
 @pytest.mark.asyncio
