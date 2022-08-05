@@ -37,6 +37,15 @@ BLEAK_SAFETY_TIMEOUT = 13
 # These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
 
+# Currently the same as transient error
+ABORT_ERRORS = TRANSIENT_ERRORS
+
+ABORT_ADVICE = (
+    "Interference/range; "
+    "External Bluetooth adapter w/extension may help; "
+    "Extension cables reduce USB 3 port interference"
+)
+
 
 class BleakNotFoundError(BleakError):
     """The device was not found."""
@@ -44,6 +53,10 @@ class BleakNotFoundError(BleakError):
 
 class BleakConnectionError(BleakError):
     """The device was not found."""
+
+
+class BleakAbortedError(BleakError):
+    """The connection was aborted."""
 
 
 async def establish_connection(
@@ -75,6 +88,10 @@ async def establish_connection(
         # Sure would be nice if bleak gave us typed exceptions
         if isinstance(exc, asyncio.TimeoutError) or "not found" in str(exc):
             raise BleakNotFoundError(msg) from exc
+        if isinstance(exc, BleakError) and any(
+            error in str(exc) for error in ABORT_ERRORS
+        ):
+            raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
         raise BleakConnectionError(msg) from exc
 
     while True:
