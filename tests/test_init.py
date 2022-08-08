@@ -142,6 +142,39 @@ async def test_establish_connection_has_transient_error_had_advice():
 
 
 @pytest.mark.asyncio
+async def test_device_disappeared_error():
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakError(
+                '[org.freedesktop.DBus.Error.UnknownObject] Method "Connect" with '
+                'signature "" on interface '
+                '"org.bluez.Device1" '
+                "doesn't exist"
+            )
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    try:
+        await establish_connection(FakeBleakClient, MagicMock(), "test")
+    except BleakError as e:
+        exc = e
+
+    assert isinstance(exc, BleakNotFoundError)
+    assert str(exc) == (
+        "test: "
+        "Failed to connect: "
+        "[org.freedesktop.DBus.Error.UnknownObject] "
+        'Method "Connect" with signature "" on interface "org.bluez.Device1" '
+        "doesn't exist: The device disappeared; "
+        "Try restarting the scanner or moving the device closer"
+    )
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_has_one_unknown_error():
 
     attempts = 0
