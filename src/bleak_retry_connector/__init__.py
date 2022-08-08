@@ -37,6 +37,8 @@ BLEAK_SAFETY_TIMEOUT = 13
 # These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
 
+DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
+
 # Currently the same as transient error
 ABORT_ERRORS = TRANSIENT_ERRORS
 
@@ -44,6 +46,10 @@ ABORT_ADVICE = (
     "Interference/range; "
     "External Bluetooth adapter w/extension may help; "
     "Extension cables reduce USB 3 port interference"
+)
+
+DEVICE_MISSING_ADVICE = (
+    "The device disappeared; " "Try restarting the scanner or moving the device closer"
 )
 
 
@@ -92,6 +98,10 @@ async def establish_connection(
             error in str(exc) for error in ABORT_ERRORS
         ):
             raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
+        if isinstance(exc, BleakError) and any(
+            error in str(exc) for error in DEVICE_MISSING_ERRORS
+        ):
+            raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         raise BleakConnectionError(msg) from exc
 
     while True:
