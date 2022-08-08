@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.5.0 (2022-08-08)
+### Feature
+* Rethrow UnknownObject as BleakNotFoundError ([#12](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/12)) ([`a07c50e`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/a07c50e8a910aadc6cec806c0e8888a00def97f6))
+
 ## v1.4.0 (2022-08-05)
 ### Feature
 * Improve error reporting when there is a poor connection ([#10](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/10)) ([`d022777`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/d0227773ff01b4d665fd7bd3e94a330d61214f88))
