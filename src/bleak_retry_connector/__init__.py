@@ -129,6 +129,19 @@ class BleakClientWithServiceCache(BleakClient):
         self._cached_services = services
 
 
+def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
+    """Check if the device has changed."""
+    if original.address != new.address:
+        return True
+    if (
+        isinstance(original.details, dict)
+        and "path" in original.details
+        and original.details["path"] != new.details["path"]
+    ):
+        return True
+    return False
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
