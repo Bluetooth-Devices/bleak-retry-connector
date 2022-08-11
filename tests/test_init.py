@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from bleak import BleakClient, BleakError
+from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 
 import bleak_retry_connector
@@ -12,6 +13,7 @@ from bleak_retry_connector import (
     BleakClientWithServiceCache,
     BleakConnectionError,
     BleakNotFoundError,
+    ble_device_has_changed,
     establish_connection,
 )
 
@@ -390,3 +392,19 @@ async def test_bleak_connect_overruns_timeout():
         BleakNotFoundError
     ):
         await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+
+def test_ble_device_has_changed():
+    """Test that the BLEDevice has changed when the underlying device has changed."""
+    assert not ble_device_has_changed(
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+    )
+    assert ble_device_has_changed(
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+        BLEDevice("ab:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+    )
+    assert ble_device_has_changed(
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/2"}),
+    )
