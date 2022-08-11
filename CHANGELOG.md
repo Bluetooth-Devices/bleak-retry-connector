@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.0 (2022-08-11)
+### Feature
+* Add ble_device_has_changed helper ([#13](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/13)) ([`0a23bb8`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/0a23bb8bbd2c8d0fafc20f3d2da36415ed4759be))
+
 ## v1.6.0 (2022-08-11)
 ### Feature
 * Cached services ([#11](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/11)) ([`1fe23d6`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1fe23d6397a7ac2b5994778a9ddc06e687de5ba3))
