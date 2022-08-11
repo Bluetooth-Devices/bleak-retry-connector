@@ -4,15 +4,29 @@ __version__ = "1.5.0"
 
 
 import asyncio
+import inspect
 import logging
+import platform
 from collections.abc import Callable
 from typing import Any
 
 import async_timeout
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
+from bleak.backends.service import BleakGATTServiceCollection
 
-__all__ = ["establish_connection", "BleakNotFoundError", "BleakDisconnectedError"]
+CAN_CACHE_SERVICES = platform.system() == "Linux"
+BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
+    "dangerous_use_bleak_cache" in inspect.signature(BleakClient.connect).parameters
+)
+
+__all__ = [
+    "establish_connection",
+    "BleakClientWithServiceCache",
+    "BleakAbortedError",
+    "BleakNotFoundError",
+    "BleakDisconnectedError",
+]
 
 BLEAK_EXCEPTIONS = (AttributeError, BleakError)
 
@@ -65,12 +79,63 @@ class BleakAbortedError(BleakError):
     """The connection was aborted."""
 
 
+class BleakClientWithServiceCache(BleakClient):
+    """A BleakClient that implements service caching."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        """Initialize the BleakClientWithServiceCache."""
+        super().__init__(*args, **kwargs)
+        self._cached_services: BleakGATTServiceCollection | None = None
+
+    async def connect(
+        self, *args: Any, dangerous_use_bleak_cache: bool = False, **kwargs: Any
+    ) -> bool:
+        """Connect to the specified GATT server.
+
+        Returns:
+            Boolean representing connection status.
+
+        """
+        connected = await super().connect(
+            *args, dangerous_use_bleak_cache=dangerous_use_bleak_cache, **kwargs
+        )
+        if (
+            connected
+            and not dangerous_use_bleak_cache
+            and not BLEAK_HAS_SERVICE_CACHE_SUPPORT
+        ):
+            self.set_cached_services(self.services)
+        return connected
+
+    async def get_services(
+        self, *args: Any, dangerous_use_bleak_cache: bool = False, **kwargs: Any
+    ) -> BleakGATTServiceCollection:
+        """Get the services."""
+        if (
+            not BLEAK_HAS_SERVICE_CACHE_SUPPORT
+            and CAN_CACHE_SERVICES
+            and self._cached_services
+        ):
+            _LOGGER.debug("Cached services found: %s", self._cached_services)
+            self.services = self._cached_services
+            self._services_resolved = True
+            return self._cached_services
+        return await super().get_services(
+            *args, dangerous_use_bleak_cache=dangerous_use_bleak_cache, **kwargs
+        )
+
+    def set_cached_services(self, services: BleakGATTServiceCollection | None) -> None:
+        """Set the cached services."""
+        self._cached_services = services
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
     name: str,
     disconnected_callback: Callable[[BleakClient], None] | None = None,
     max_attempts: int = MAX_CONNECT_ATTEMPTS,
+    cached_services: BleakGATTServiceCollection | None = None,
     **kwargs: Any,
 ) -> BleakClient:
     """Establish a connection to the accessory."""
@@ -82,6 +147,9 @@ async def establish_connection(
     client = client_class(device, **kwargs)
     if disconnected_callback:
         client.set_disconnected_callback(disconnected_callback)
+
+    if cached_services and isinstance(client, BleakClientWithServiceCache):
+        client.set_cached_services(cached_services)
 
     def _raise_if_needed(name: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
@@ -109,7 +177,10 @@ async def establish_connection(
         _LOGGER.debug("%s: Connecting (attempt: %s)", name, attempt)
         try:
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
-                await client.connect(timeout=BLEAK_TIMEOUT)
+                await client.connect(
+                    timeout=BLEAK_TIMEOUT,
+                    dangerous_use_bleak_cache=bool(cached_services),
+                )
         except asyncio.TimeoutError as exc:
             timeouts += 1
             _LOGGER.debug(

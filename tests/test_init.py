@@ -3,11 +3,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from bleak import BleakClient, BleakError
+from bleak.backends.service import BleakGATTServiceCollection
 
 import bleak_retry_connector
 from bleak_retry_connector import (
     MAX_TRANSIENT_ERRORS,
     BleakAbortedError,
+    BleakClientWithServiceCache,
     BleakConnectionError,
     BleakNotFoundError,
     establish_connection,
@@ -30,6 +32,157 @@ async def test_establish_connection_works_first_time():
         FakeBleakClient, MagicMock(), "test", disconnected_callback=MagicMock()
     )
     assert isinstance(client, FakeBleakClient)
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_with_cached_services():
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            return True
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
+        """Fake BleakClientWithServiceCache."""
+
+    collection = BleakGATTServiceCollection()
+
+    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
+        client = await establish_connection(
+            FakeBleakClientWithServiceCache,
+            MagicMock(),
+            "test",
+            disconnected_callback=MagicMock(),
+            cached_services=collection,
+        )
+
+    assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is collection
+    await client.get_services() is collection
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_can_cache_services_always_patched():
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            return True
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
+        """Fake BleakClientWithServiceCache."""
+
+    collection = BleakGATTServiceCollection()
+
+    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
+        client = await establish_connection(
+            FakeBleakClientWithServiceCache,
+            MagicMock(),
+            "test",
+            disconnected_callback=MagicMock(),
+            cached_services=collection,
+        )
+
+        assert isinstance(client, FakeBleakClientWithServiceCache)
+        assert client._cached_services is collection
+        await client.get_services() is collection
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_can_cache_services_newer_bleak():
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            return True
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
+        """Fake BleakClientWithServiceCache."""
+
+    collection = BleakGATTServiceCollection()
+
+    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True), patch.object(
+        bleak_retry_connector, "BLEAK_HAS_SERVICE_CACHE_SUPPORT", True
+    ):
+        client = await establish_connection(
+            FakeBleakClientWithServiceCache,
+            MagicMock(),
+            "test",
+            disconnected_callback=MagicMock(),
+            cached_services=collection,
+        )
+
+        assert isinstance(client, FakeBleakClientWithServiceCache)
+        assert client._cached_services is collection
+        await client.get_services() is collection
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_with_dangerous_use_cached_services():
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            return True
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
+        """Fake BleakClientWithServiceCache."""
+
+    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
+        client = await establish_connection(
+            FakeBleakClientWithServiceCache,
+            MagicMock(),
+            "test",
+            disconnected_callback=MagicMock(),
+        )
+
+    assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is not None
+    await client.get_services() is client._cached_services
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_without_dangerous_use_cached_services():
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            return True
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
+        """Fake BleakClientWithServiceCache."""
+
+    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", False):
+        client = await establish_connection(
+            FakeBleakClientWithServiceCache,
+            MagicMock(),
+            "test",
+            disconnected_callback=MagicMock(),
+        )
+
+    assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is not None
+    await client.get_services() is not client._cached_services
 
 
 @pytest.mark.asyncio
