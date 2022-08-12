@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.2 (2022-08-12)
+### Fix
+* Handle device going in and out of range frequently ([#16](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/16)) ([`89b8c1b`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/89b8c1ba63151043d0d6977b0c4a173cb616a9a5))
+
 ## v1.7.1 (2022-08-12)
 ### Fix
 * Race during disconnect error ([#14](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/14)) ([`dccbbb1`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/dccbbb1e34028dbd3e3b155502bb70d1ffaa11a8))
