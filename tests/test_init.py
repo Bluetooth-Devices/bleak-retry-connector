@@ -1,8 +1,9 @@
 import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from bleak import BleakClient, BleakError
+from bleak.backends.bluezdbus import defs
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 
@@ -39,6 +40,10 @@ async def test_establish_connection_works_first_time():
 @pytest.mark.asyncio
 async def test_establish_connection_with_cached_services():
     class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._device_path = "/dev/test"
+
         async def connect(self, *args, **kwargs):
             return True
 
@@ -51,7 +56,26 @@ async def test_establish_connection_with_cached_services():
     class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
         """Fake BleakClientWithServiceCache."""
 
+        async def get_services(self, *args, **kwargs):
+            return []
+
     collection = BleakGATTServiceCollection()
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/dev/test/service/1": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.defs = defs
 
     with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
         client = await establish_connection(
@@ -68,8 +92,61 @@ async def test_establish_connection_with_cached_services():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_with_cached_services_that_have_vanished():
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._device_path = "/dev/test"
+
+        async def connect(self, *args, **kwargs):
+            return True
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
+        """Fake BleakClientWithServiceCache."""
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    collection = BleakGATTServiceCollection()
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {}
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.defs = defs
+
+    with patch.object(
+        bleak_retry_connector, "BLEAK_HAS_SERVICE_CACHE_SUPPORT", False
+    ), patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
+        client = await establish_connection(
+            FakeBleakClientWithServiceCache,
+            MagicMock(),
+            "test",
+            disconnected_callback=MagicMock(),
+            cached_services=collection,
+        )
+
+    assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is None
+    await client.get_services() is collection
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_can_cache_services_always_patched():
     class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._device_path = "/dev/test"
+
         async def connect(self, *args, **kwargs):
             return True
 
@@ -84,6 +161,22 @@ async def test_establish_connection_can_cache_services_always_patched():
 
     collection = BleakGATTServiceCollection()
 
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/dev/test/service/1": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.defs = defs
+
     with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
@@ -95,6 +188,56 @@ async def test_establish_connection_can_cache_services_always_patched():
 
         assert isinstance(client, FakeBleakClientWithServiceCache)
         assert client._cached_services is collection
+        await client.get_services() is collection
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_can_cache_services_services_missing():
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._device_path = "/dev/test"
+
+        async def connect(self, *args, **kwargs):
+            return True
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
+        """Fake BleakClientWithServiceCache."""
+
+    collection = BleakGATTServiceCollection()
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/dev/test2/service/1": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                },
+            }
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.defs = defs
+
+    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
+        client = await establish_connection(
+            FakeBleakClientWithServiceCache,
+            MagicMock(),
+            "test",
+            disconnected_callback=MagicMock(),
+            cached_services=collection,
+        )
+
+        assert isinstance(client, FakeBleakClientWithServiceCache)
+        assert client._cached_services is None
         await client.get_services() is collection
 
 
