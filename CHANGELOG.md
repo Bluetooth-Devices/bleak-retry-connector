@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.7.1 (2022-08-12)
+### Fix
+* Race during disconnect error ([#14](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/14)) ([`dccbbb1`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/dccbbb1e34028dbd3e3b155502bb70d1ffaa11a8))
+
 ## v1.7.0 (2022-08-11)
 ### Feature
 * Add ble_device_has_changed helper ([#13](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/13)) ([`0a23bb8`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/0a23bb8bbd2c8d0fafc20f3d2da36415ed4759be))
