@@ -39,14 +39,14 @@ MAX_TRANSIENT_ERRORS = 9
 # is happy either way. Ideally we want everything
 # to finish in < 60s or declare we cannot connect
 
-MAX_CONNECT_ATTEMPTS = 5
-BLEAK_TIMEOUT = 12
+MAX_CONNECT_ATTEMPTS = 4
+BLEAK_TIMEOUT = 14.25
 
 # Bleak may not always timeout
 # since the dbus connection can stall
 # so we have an additional timeout to
 # be sure we do not block forever
-BLEAK_SAFETY_TIMEOUT = 13
+BLEAK_SAFETY_TIMEOUT = 14.75
 
 # These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
@@ -229,5 +229,8 @@ async def establish_connection(
         else:
             _LOGGER.debug("%s: Connected (attempt: %s)", name, attempt)
             return client
+        # Ensure the disconnect callback
+        # has a chance to run before we try to reconnect
+        await asyncio.sleep(0)
 
     raise RuntimeError("This should never happen")
