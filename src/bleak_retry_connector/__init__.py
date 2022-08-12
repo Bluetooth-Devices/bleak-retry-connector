@@ -4,6 +4,7 @@ __version__ = "1.7.1"
 
 
 import asyncio
+import contextlib
 import inspect
 import logging
 import platform
@@ -16,6 +17,14 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 
 CAN_CACHE_SERVICES = platform.system() == "Linux"
+
+if CAN_CACHE_SERVICES:
+    with contextlib.suppress(ImportError):  # pragma: no cover
+        from bleak.backends.bluezdbus import defs  # pragma: no cover
+        from bleak.backends.bluezdbus.manager import (  # pragma: no cover
+            get_global_bluez_manager,
+        )
+
 BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
     "dangerous_use_bleak_cache" in inspect.signature(BleakClient.connect).parameters
 )
@@ -87,6 +96,15 @@ class BleakClientWithServiceCache(BleakClient):
         super().__init__(*args, **kwargs)
         self._cached_services: BleakGATTServiceCollection | None = None
 
+    @property
+    def _has_service_cache(self) -> bool:
+        """Check if we can cache services and there is a cache."""
+        return (
+            not BLEAK_HAS_SERVICE_CACHE_SUPPORT
+            and CAN_CACHE_SERVICES
+            and self._cached_services is not None
+        )
+
     async def connect(
         self, *args: Any, dangerous_use_bleak_cache: bool = False, **kwargs: Any
     ) -> bool:
@@ -96,26 +114,28 @@ class BleakClientWithServiceCache(BleakClient):
             Boolean representing connection status.
 
         """
+        if self._has_service_cache and await self._services_vanished():
+            _LOGGER.debug("Clear cached services since they have vanished")
+            self._cached_services = None
+
         connected = await super().connect(
             *args, dangerous_use_bleak_cache=dangerous_use_bleak_cache, **kwargs
         )
+
         if (
             connected
             and not dangerous_use_bleak_cache
             and not BLEAK_HAS_SERVICE_CACHE_SUPPORT
         ):
             self.set_cached_services(self.services)
+
         return connected
 
     async def get_services(
         self, *args: Any, dangerous_use_bleak_cache: bool = False, **kwargs: Any
     ) -> BleakGATTServiceCollection:
         """Get the services."""
-        if (
-            not BLEAK_HAS_SERVICE_CACHE_SUPPORT
-            and CAN_CACHE_SERVICES
-            and self._cached_services
-        ):
+        if self._has_service_cache:
             _LOGGER.debug("Cached services found: %s", self._cached_services)
             self.services = self._cached_services
             self._services_resolved = True
@@ -123,6 +143,19 @@ class BleakClientWithServiceCache(BleakClient):
         return await super().get_services(
             *args, dangerous_use_bleak_cache=dangerous_use_bleak_cache, **kwargs
         )
+
+    async def _services_vanished(self) -> bool:
+        """Check if the services have vanished."""
+        with contextlib.suppress(Exception):
+            device_path = self._device_path
+            manager = await get_global_bluez_manager()
+            for service_path, service_ifaces in manager._properties.items():
+                if (
+                    service_path.startswith(device_path)
+                    and defs.GATT_SERVICE_INTERFACE in service_ifaces
+                ):
+                    return False
+        return True
 
     def set_cached_services(self, services: BleakGATTServiceCollection | None) -> None:
         """Set the cached services."""
