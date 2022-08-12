@@ -131,6 +131,7 @@ class BleakClientWithServiceCache(BleakClient):
 
 def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
     """Check if the device has changed."""
+    _LOGGER.debug("Check device changes: %s %s", original.details, new.details)
     if original.address != new.address:
         return True
     if (
