@@ -220,7 +220,9 @@ async def establish_connection(
 
     while True:
         attempt += 1
-        _LOGGER.debug("%s: Connecting (attempt: %s)", name, attempt)
+        _LOGGER.debug(
+            "%s: Connecting (attempt: %s, last rssi: %s)", name, attempt, device.rssi
+        )
         try:
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
                 await client.connect(
@@ -230,7 +232,10 @@ async def establish_connection(
         except asyncio.TimeoutError as exc:
             timeouts += 1
             _LOGGER.debug(
-                "%s: Timed out trying to connect (attempt: %s)", name, attempt
+                "%s: Timed out trying to connect (attempt: %s, last rssi: %s)",
+                name,
+                attempt,
+                device.rssi,
             )
             _raise_if_needed(name, exc)
         except BrokenPipeError as exc:
@@ -246,7 +251,11 @@ async def establish_connection(
             # BrokenPipeError: [Errno 32] Broken pipe
             transient_errors += 1
             _LOGGER.debug(
-                "%s: Failed to connect: %s (attempt: %s)", name, str(exc), attempt
+                "%s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                name,
+                str(exc),
+                attempt,
+                device.rssi,
             )
             _raise_if_needed(name, exc)
         except BLEAK_EXCEPTIONS as exc:
@@ -256,11 +265,17 @@ async def establish_connection(
             else:
                 connect_errors += 1
             _LOGGER.debug(
-                "%s: Failed to connect: %s (attempt: %s)", name, str(exc), attempt
+                "%s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                name,
+                str(exc),
+                attempt,
+                device.rssi,
             )
             _raise_if_needed(name, exc)
         else:
-            _LOGGER.debug("%s: Connected (attempt: %s)", name, attempt)
+            _LOGGER.debug(
+                "%s: Connected (attempt: %s, last rssi: %s)", name, attempt, device.rssi
+            )
             return client
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
