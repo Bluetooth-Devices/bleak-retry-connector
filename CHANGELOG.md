@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.8.0 (2022-08-15)
+### Feature
+* Add last known rssi to the debug log ([#17](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/17)) ([`1032317`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/10323172a1faacca01e6bfb690e92b9e5fb1bd80))
+
 ## v1.7.2 (2022-08-12)
 ### Fix
 * Handle device going in and out of range frequently ([#16](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/16)) ([`89b8c1b`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/89b8c1ba63151043d0d6977b0c4a173cb616a9a5))
