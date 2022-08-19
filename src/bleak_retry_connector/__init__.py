@@ -230,7 +230,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
             if path not in properties or path == device_path:
                 continue
             rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
-            if rssi and rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat:
+            if not rssi or rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat:
                 continue
             best_path = path
             rssi_to_beat = rssi
