@@ -218,35 +218,36 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     best_path = device_path = device.details["path"]
     rssi_to_beat = device.rssi
 
-    with contextlib.suppress(Exception):
-        manager = await get_global_bluez_manager()
-        properties = manager._properties
-        if device_path not in properties:
-            # device has disappeared so take
-            # anything over the current path
-            rssi_to_beat = -1000
+    # with contextlib.suppress(Exception):
+    manager = await get_global_bluez_manager()
+    properties = manager._properties
+    if device_path not in properties:
+        # device has disappeared so take
+        # anything over the current path
+        rssi_to_beat = -1000
 
-        for path in _get_possible_paths(device_path):
-            if path not in properties or path == device_path:
-                continue
-            rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
-            if not rssi or rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat:
-                continue
-            best_path = path
-            rssi_to_beat = rssi
-            _LOGGER.debug(
-                "Found device %s at %s with better RSSI %s", device.address, path, rssi
-            )
+    for path in _get_possible_paths(device_path):
+        if path not in properties or path == device_path:
+            continue
+        rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
+        if not rssi or rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat:
+            continue
+        best_path = path
+        rssi_to_beat = rssi
+        _LOGGER.debug(
+            "Found device %s at %s with better RSSI %s", device.address, path, rssi
+        )
 
-        if best_path == device_path:
-            return None
+    if best_path == device_path:
+        return None
 
-        fresh_ble_device = copy(BLEDevice)
-        fresh_ble_device.details["path"] = best_path
-        fresh_ble_device.rssi = rssi_to_beat
-        return fresh_ble_device
+    fresh_ble_device = copy(BLEDevice)
+    fresh_ble_device.details["path"] = best_path
+    fresh_ble_device.rssi = rssi_to_beat
+    return fresh_ble_device
 
-    return None
+
+#    return None
 
 
 async def establish_connection(
