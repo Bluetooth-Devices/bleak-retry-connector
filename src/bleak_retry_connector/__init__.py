@@ -219,7 +219,10 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     # with contextlib.suppress(Exception):
     manager = await get_global_bluez_manager()
     properties = manager._properties
-    if device_path not in properties:
+    if (
+        device_path not in properties
+        or defs.DEVICE_INTERFACE not in properties[device_path]
+    ):
         # device has disappeared so take
         # anything over the current path
         _LOGGER.debug("Device %s at %s has disappeared", device.address, device_path)
