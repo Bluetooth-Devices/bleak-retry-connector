@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from copy import copy
-
 __version__ = "1.10.1"
 
 
@@ -244,10 +242,13 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     if best_path == device_path:
         return None
 
-    fresh_ble_device = copy(BLEDevice)
-    fresh_ble_device.details["path"] = best_path
-    fresh_ble_device.rssi = rssi_to_beat
-    return fresh_ble_device
+    return BLEDevice(
+        device.address,
+        device.name,
+        {**device.details, "path": best_path},
+        rssi_to_beat,
+        **device.metadata,
+    )
 
 
 #    return None
