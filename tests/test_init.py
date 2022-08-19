@@ -551,3 +551,44 @@ def test_ble_device_has_changed():
         BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
         BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/2"}),
     )
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_ble_device_changed():
+    """Test we switch BLEDevice when the underlying device has changed."""
+
+    attempts = 0
+
+    ble_device_1 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"})
+    ble_device_2 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/2"})
+    ble_device_3 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/3"})
+
+    def _get_ble_device():
+        nonlocal attempts
+
+        if attempts == 0:
+            return ble_device_1
+        if attempts == 1:
+            return ble_device_2
+        return ble_device_3
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, ble_device_or_address, *args, **kwargs):
+            self.ble_device_or_address = ble_device_or_address
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if self.ble_device_or_address != ble_device_3:
+                raise BleakError("le-connection-abort-by-local")
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    client = await establish_connection(
+        FakeBleakClient, ble_device_1, "test", ble_device_callback=_get_ble_device
+    )
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 3

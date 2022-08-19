@@ -169,6 +169,7 @@ def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
     if (
         isinstance(original.details, dict)
         and "path" in original.details
+        and "path" in new.details
         and original.details["path"] != new.details["path"]
     ):
         return True
@@ -182,20 +183,14 @@ async def establish_connection(
     disconnected_callback: Callable[[BleakClient], None] | None = None,
     max_attempts: int = MAX_CONNECT_ATTEMPTS,
     cached_services: BleakGATTServiceCollection | None = None,
+    ble_device_callback: Callable[[], BLEDevice] | None = None,
     **kwargs: Any,
 ) -> BleakClient:
-    """Establish a connection to the accessory."""
+    """Establish a connection to the device."""
     timeouts = 0
     connect_errors = 0
     transient_errors = 0
     attempt = 0
-
-    client = client_class(device, **kwargs)
-    if disconnected_callback:
-        client.set_disconnected_callback(disconnected_callback)
-
-    if cached_services and isinstance(client, BleakClientWithServiceCache):
-        client.set_cached_services(cached_services)
 
     def _raise_if_needed(name: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
@@ -218,11 +213,31 @@ async def establish_connection(
             raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         raise BleakConnectionError(msg) from exc
 
+    create_client = True
+
     while True:
         attempt += 1
+
+        # Its possible the BLEDevice can change between
+        # between connection attempts so we do not want
+        # to keep trying to connect to the old one if it has changed.
+        if not create_client and ble_device_callback is not None:
+            new_ble_device = ble_device_callback()
+            create_client = ble_device_has_changed(device, new_ble_device)
+            device = new_ble_device
+
         _LOGGER.debug(
             "%s: Connecting (attempt: %s, last rssi: %s)", name, attempt, device.rssi
         )
+
+        if create_client:
+            client = client_class(device, **kwargs)
+            if disconnected_callback:
+                client.set_disconnected_callback(disconnected_callback)
+            if cached_services and isinstance(client, BleakClientWithServiceCache):
+                client.set_cached_services(cached_services)
+            create_client = False
+
         try:
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
                 await client.connect(
