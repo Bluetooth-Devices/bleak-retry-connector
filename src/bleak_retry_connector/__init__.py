@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from copy import copy
+
 __version__ = "1.10.1"
 
 
@@ -28,6 +30,9 @@ if CAN_CACHE_SERVICES:
 BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
     "dangerous_use_bleak_cache" in inspect.signature(BleakClient.connect).parameters
 )
+
+
+RSSI_SWITCH_THRESHOLD = 6
 
 __all__ = [
     "establish_connection",
@@ -203,24 +208,43 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     """Freshen the device.
 
     If the device is from BlueZ it may be stale
-    because bleak does not send callbaks if only
+    because bleak does not send callbacks if only
     the RSSI changes so we may need to find the
     path to the device ourselves.
     """
     if not isinstance(device.details, dict) or "path" not in device.details:
         return device
-    device_path = device.details["path"]
+
+    best_path = device_path = device.details["path"]
+    rssi_to_beat = device.rssi
 
     with contextlib.suppress(Exception):
         manager = await get_global_bluez_manager()
         properties = manager._properties
+        if device_path not in properties:
+            # device has disappeared so take
+            # anything over the current path
+            rssi_to_beat = -1000
+
         for path in _get_possible_paths(device_path):
-            if path in properties:
-                rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
-                _LOGGER.debug(
-                    "Found device %s at %s with RSSI %s", device.address, path, rssi
-                )
-        return None
+            if path not in properties or path == device_path:
+                continue
+            rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
+            if rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat:
+                continue
+            best_path = path
+            rssi_to_beat = rssi
+            _LOGGER.debug(
+                "Found device %s at %s with better RSSI %s", device.address, path, rssi
+            )
+
+        if best_path == device_path:
+            return None
+
+        fresh_ble_device = copy(BLEDevice)
+        fresh_ble_device.details["path"] = best_path
+        fresh_ble_device.rssi = rssi_to_beat
+        return fresh_ble_device
 
     return None
 
