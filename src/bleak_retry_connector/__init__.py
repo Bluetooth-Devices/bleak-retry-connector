@@ -226,7 +226,11 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
         device_rssi = -1000
 
     for path in _get_possible_paths(device_path):
-        if path not in properties or path == device_path:
+        if (
+            path == device_path
+            or path not in properties
+            or defs.DEVICE_INTERFACE not in properties[path]
+        ):
             continue
         rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
         if not rssi or rssi - RSSI_SWITCH_THRESHOLD < device_rssi:
