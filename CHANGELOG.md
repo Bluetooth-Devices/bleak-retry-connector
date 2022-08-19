@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.10.0 (2022-08-19)
+### Feature
+* Log path to the device ([#19](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/19)) ([`6a9f293`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6a9f2930e06ee393f0b3885c3d845d485c18babd))
+
 ## v1.9.0 (2022-08-19)
 ### Feature
 * Add ble_device_callback to get a new BLEDevice between connect attempts ([#18](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/18)) ([`450268b`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/450268b8498f730576957f0dbb1cbe0dedbdf14a))
