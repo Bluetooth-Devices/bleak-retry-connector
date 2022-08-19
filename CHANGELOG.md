@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.10.1 (2022-08-19)
+### Fix
+* Add workaround for when get_services raises ([#20](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/20)) ([`1c92f6e`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1c92f6ed3b643f8f739e7a27b56111cd71e23696))
+
 ## v1.10.0 (2022-08-19)
 ### Feature
 * Log path to the device ([#19](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/19)) ([`6a9f293`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6a9f2930e06ee393f0b3885c3d845d485c18babd))
