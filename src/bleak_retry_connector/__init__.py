@@ -216,7 +216,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
         properties = manager._properties
         for path in _get_possible_paths(device_path):
             if path in properties:
-                rssi = properties[path][defs.DEVICE_INTERFACE]["RSSI"]
+                rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
                 _LOGGER.debug(
                     "Found device %s at %s with RSSI %s", device.address, path, rssi
                 )
