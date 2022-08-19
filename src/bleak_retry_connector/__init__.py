@@ -55,7 +55,7 @@ BLEAK_TIMEOUT = 14.25
 # since the dbus connection can stall
 # so we have an additional timeout to
 # be sure we do not block forever
-BLEAK_SAFETY_TIMEOUT = 14.75
+BLEAK_SAFETY_TIMEOUT = 15.75
 
 # These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
@@ -140,9 +140,17 @@ class BleakClientWithServiceCache(BleakClient):
             self.services = self._cached_services
             self._services_resolved = True
             return self._cached_services
-        return await super().get_services(
-            *args, dangerous_use_bleak_cache=dangerous_use_bleak_cache, **kwargs
-        )
+
+        try:
+            return await super().get_services(
+                *args, dangerous_use_bleak_cache=dangerous_use_bleak_cache, **kwargs
+            )
+        except Exception:  # pylint: disable=broad-except
+            # If getting services fails, we must disconnect
+            # to avoid a connection leak
+            _LOGGER.debug("Disconnecting from device since get_services failed")
+            await self.disconnect()
+            raise
 
     async def _services_vanished(self) -> bool:
         """Check if the services have vanished."""
