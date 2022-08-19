@@ -216,7 +216,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
         return device
 
     best_path = device_path = device.details["path"]
-    rssi_to_beat = device.rssi
+    rssi_to_beat = device_rssi = device.rssi
 
     # with contextlib.suppress(Exception):
     manager = await get_global_bluez_manager()
@@ -224,13 +224,15 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     if device_path not in properties:
         # device has disappeared so take
         # anything over the current path
-        rssi_to_beat = -1000
+        device_rssi = -1000
 
     for path in _get_possible_paths(device_path):
         if path not in properties or path == device_path:
             continue
         rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
-        if not rssi or rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat:
+        if not rssi or rssi - RSSI_SWITCH_THRESHOLD < device_rssi:
+            continue
+        if rssi < rssi_to_beat:
             continue
         best_path = path
         rssi_to_beat = rssi
