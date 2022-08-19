@@ -8,7 +8,7 @@ import contextlib
 import inspect
 import logging
 import platform
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import Any
 
 import async_timeout
@@ -191,6 +191,40 @@ def ble_device_description(device: BLEDevice) -> str:
     return device.address
 
 
+def _get_possible_paths(path: str) -> Generator[str, None, None]:
+    """Get the possible paths."""
+    # The path is deterministic so we splice up the string
+    # /org/bluez/hci2/dev_FA_23_9D_AA_45_46
+    for i in range(0, 9):
+        yield f"{path[0:14]}{i}{path[15:]}"
+
+
+async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
+    """Freshen the device.
+
+    If the device is from BlueZ it may be stale
+    because bleak does not send callbaks if only
+    the RSSI changes so we may need to find the
+    path to the device ourselves.
+    """
+    if not isinstance(device.details, dict) or "path" not in device.details:
+        return device
+    device_path = device.details["path"]
+
+    with contextlib.suppress(Exception):
+        manager = await get_global_bluez_manager()
+        properties = manager._properties
+        for path in _get_possible_paths(device_path):
+            if path in properties:
+                rssi = properties[path][defs.DEVICE_INTERFACE]["RSSI"]
+                _LOGGER.debug(
+                    "Found device %s at %s with RSSI %s", device.address, path, rssi
+                )
+        return None
+
+    return None
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
@@ -229,6 +263,8 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     create_client = True
+    if fresh_device := await freshen_ble_device(device):
+        device = fresh_device
     description = ble_device_description(device)
 
     while True:
@@ -239,6 +275,8 @@ async def establish_connection(
         # to keep trying to connect to the old one if it has changed.
         if not create_client and ble_device_callback is not None:
             new_ble_device = ble_device_callback()
+            if fresh_device := await freshen_ble_device(new_ble_device):
+                new_ble_device = fresh_device
             create_client = ble_device_has_changed(device, new_ble_device)
             device = new_ble_device
             description = ble_device_description(device)
