@@ -216,49 +216,52 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     best_path = device_path = device.details["path"]
     rssi_to_beat = device_rssi = device.rssi
 
-    # with contextlib.suppress(Exception):
-    manager = await get_global_bluez_manager()
-    properties = manager._properties
-    if (
-        device_path not in properties
-        or defs.DEVICE_INTERFACE not in properties[device_path]
-    ):
-        # device has disappeared so take
-        # anything over the current path
-        _LOGGER.debug("Device %s at %s has disappeared", device.address, device_path)
-        device_rssi = -1000
-
-    for path in _get_possible_paths(device_path):
+    try:
+        manager = await get_global_bluez_manager()
+        properties = manager._properties
         if (
-            path == device_path
-            or path not in properties
-            or defs.DEVICE_INTERFACE not in properties[path]
+            device_path not in properties
+            or defs.DEVICE_INTERFACE not in properties[device_path]
         ):
-            continue
-        rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
-        if not rssi or rssi - RSSI_SWITCH_THRESHOLD < device_rssi:
-            continue
-        if rssi < rssi_to_beat:
-            continue
-        best_path = path
-        rssi_to_beat = rssi
-        _LOGGER.debug(
-            "Found device %s at %s with better RSSI %s", device.address, path, rssi
+            # device has disappeared so take
+            # anything over the current path
+            _LOGGER.debug(
+                "Device %s at %s has disappeared", device.address, device_path
+            )
+            device_rssi = -1000
+
+        for path in _get_possible_paths(device_path):
+            if (
+                path == device_path
+                or path not in properties
+                or defs.DEVICE_INTERFACE not in properties[path]
+            ):
+                continue
+            rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
+            if not rssi or rssi - RSSI_SWITCH_THRESHOLD < device_rssi:
+                continue
+            if rssi < rssi_to_beat:
+                continue
+            best_path = path
+            rssi_to_beat = rssi
+            _LOGGER.debug(
+                "Found device %s at %s with better RSSI %s", device.address, path, rssi
+            )
+
+        if best_path == device_path:
+            return None
+
+        return BLEDevice(
+            device.address,
+            device.name,
+            {**device.details, "path": best_path},
+            rssi_to_beat,
+            **device.metadata,
         )
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.debug("Freshen failed for %s", device.address, exc_info=True)
 
-    if best_path == device_path:
-        return None
-
-    return BLEDevice(
-        device.address,
-        device.name,
-        {**device.details, "path": best_path},
-        rssi_to_beat,
-        **device.metadata,
-    )
-
-
-#    return None
+    return None
 
 
 async def establish_connection(
