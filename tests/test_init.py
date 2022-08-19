@@ -424,13 +424,17 @@ async def test_establish_connection_has_transient_error_had_advice():
             pass
 
     try:
-        await establish_connection(FakeBleakClient, MagicMock(), "test")
+        await establish_connection(
+            FakeBleakClient,
+            BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+            "test",
+        )
     except BleakError as e:
         exc = e
 
     assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
-        "test: "
+        "test - /dev/1: "
         "Failed to connect: "
         "le-connection-abort-by-local: "
         "Interference/range; "
@@ -457,13 +461,17 @@ async def test_device_disappeared_error():
             pass
 
     try:
-        await establish_connection(FakeBleakClient, MagicMock(), "test")
+        await establish_connection(
+            FakeBleakClient,
+            BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+            "test",
+        )
     except BleakError as e:
         exc = e
 
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
-        "test: "
+        "test - /dev/1: "
         "Failed to connect: "
         "[org.freedesktop.DBus.Error.UnknownObject] "
         'Method "Connect" with signature "" on interface "org.bluez.Device1" '

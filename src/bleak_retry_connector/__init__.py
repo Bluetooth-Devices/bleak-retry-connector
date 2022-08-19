@@ -176,6 +176,13 @@ def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
     return False
 
 
+def ble_device_description(device: BLEDevice) -> str:
+    """Get the device description."""
+    if isinstance(device.details, dict) and "path" in device.details:
+        return device.details["path"]
+    return device.address
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
@@ -192,14 +199,14 @@ async def establish_connection(
     transient_errors = 0
     attempt = 0
 
-    def _raise_if_needed(name: str, exc: Exception) -> None:
+    def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
         if (
             timeouts + connect_errors < max_attempts
             and transient_errors < MAX_TRANSIENT_ERRORS
         ):
             return
-        msg = f"{name}: Failed to connect: {exc}"
+        msg = f"{name} - {description}: Failed to connect: {exc}"
         # Sure would be nice if bleak gave us typed exceptions
         if isinstance(exc, asyncio.TimeoutError) or "not found" in str(exc):
             raise BleakNotFoundError(msg) from exc
@@ -214,6 +221,7 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     create_client = True
+    description = ble_device_description(device)
 
     while True:
         attempt += 1
@@ -225,9 +233,14 @@ async def establish_connection(
             new_ble_device = ble_device_callback()
             create_client = ble_device_has_changed(device, new_ble_device)
             device = new_ble_device
+            description = ble_device_description(device)
 
         _LOGGER.debug(
-            "%s: Connecting (attempt: %s, last rssi: %s)", name, attempt, device.rssi
+            "%s - %s: Connecting (attempt: %s, last rssi: %s)",
+            name,
+            description,
+            attempt,
+            device.rssi,
         )
 
         if create_client:
@@ -247,12 +260,13 @@ async def establish_connection(
         except asyncio.TimeoutError as exc:
             timeouts += 1
             _LOGGER.debug(
-                "%s: Timed out trying to connect (attempt: %s, last rssi: %s)",
+                "%s - %s: Timed out trying to connect (attempt: %s, last rssi: %s)",
                 name,
+                description,
                 attempt,
                 device.rssi,
             )
-            _raise_if_needed(name, exc)
+            _raise_if_needed(name, description, exc)
         except BrokenPipeError as exc:
             # BrokenPipeError is raised by dbus-next when the device disconnects
             #
@@ -266,13 +280,14 @@ async def establish_connection(
             # BrokenPipeError: [Errno 32] Broken pipe
             transient_errors += 1
             _LOGGER.debug(
-                "%s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
                 name,
+                description,
                 str(exc),
                 attempt,
                 device.rssi,
             )
-            _raise_if_needed(name, exc)
+            _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
             if any(error in bleak_error for error in TRANSIENT_ERRORS):
@@ -280,16 +295,21 @@ async def establish_connection(
             else:
                 connect_errors += 1
             _LOGGER.debug(
-                "%s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
                 name,
+                description,
                 str(exc),
                 attempt,
                 device.rssi,
             )
-            _raise_if_needed(name, exc)
+            _raise_if_needed(name, description, exc)
         else:
             _LOGGER.debug(
-                "%s: Connected (attempt: %s, last rssi: %s)", name, attempt, device.rssi
+                "%s - %s: Connected (attempt: %s, last rssi: %s)",
+                name,
+                description,
+                attempt,
+                device.rssi,
             )
             return client
         # Ensure the disconnect callback
