@@ -224,6 +224,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     if device_path not in properties:
         # device has disappeared so take
         # anything over the current path
+        _LOGGER.debug("Device %s at %s has disappeared", device.address, device_path)
         device_rssi = -1000
 
     for path in _get_possible_paths(device_path):
