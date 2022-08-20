@@ -281,6 +281,7 @@ async def establish_connection(
     connect_errors = 0
     transient_errors = 0
     attempt = 0
+    can_use_cached_services = True
 
     def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
@@ -306,6 +307,7 @@ async def establish_connection(
     create_client = True
     if fresh_device := await freshen_ble_device(device):
         device = fresh_device
+        can_use_cached_services = False
     description = ble_device_description(device)
 
     while True:
@@ -318,6 +320,7 @@ async def establish_connection(
             new_ble_device = ble_device_callback()
             if fresh_device := await freshen_ble_device(new_ble_device):
                 new_ble_device = fresh_device
+                can_use_cached_services = False
             create_client = ble_device_has_changed(device, new_ble_device)
             device = new_ble_device
             description = ble_device_description(device)
@@ -334,7 +337,11 @@ async def establish_connection(
             client = client_class(device, **kwargs)
             if disconnected_callback:
                 client.set_disconnected_callback(disconnected_callback)
-            if cached_services and isinstance(client, BleakClientWithServiceCache):
+            if (
+                can_use_cached_services
+                and cached_services
+                and isinstance(client, BleakClientWithServiceCache)
+            ):
                 client.set_cached_services(cached_services)
             create_client = False
 
