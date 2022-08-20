@@ -8,13 +8,14 @@ import contextlib
 import inspect
 import logging
 import platform
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from typing import Any
 
 import async_timeout
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
+from bleak.exc import BleakDBusError
 
 CAN_CACHE_SERVICES = platform.system() == "Linux"
 
@@ -25,9 +26,20 @@ if CAN_CACHE_SERVICES:
             get_global_bluez_manager,
         )
 
+UNREACHABLE_RSSI = -1000
+
 BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
     "dangerous_use_bleak_cache" in inspect.signature(BleakClient.connect).parameters
 )
+
+
+# Make sure bleak and dbus-next have time
+# to run their cleanup callbacks or the
+# retry call will just fail in the same way.
+BLEAK_DBUS_BACKOFF_TIME = 0.25
+
+
+RSSI_SWITCH_THRESHOLD = 6
 
 __all__ = [
     "establish_connection",
@@ -191,6 +203,76 @@ def ble_device_description(device: BLEDevice) -> str:
     return device.address
 
 
+def _get_possible_paths(path: str) -> Generator[str, None, None]:
+    """Get the possible paths."""
+    # The path is deterministic so we splice up the string
+    # /org/bluez/hci2/dev_FA_23_9D_AA_45_46
+    for i in range(0, 9):
+        yield f"{path[0:14]}{i}{path[15:]}"
+
+
+async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
+    """Freshen the device.
+
+    If the device is from BlueZ it may be stale
+    because bleak does not send callbacks if only
+    the RSSI changes so we may need to find the
+    path to the device ourselves.
+    """
+    if not isinstance(device.details, dict) or "path" not in device.details:
+        return None
+
+    best_path = device_path = device.details["path"]
+    rssi_to_beat = device_rssi = device.rssi or UNREACHABLE_RSSI
+
+    try:
+        manager = await get_global_bluez_manager()
+        properties = manager._properties
+        if (
+            device_path not in properties
+            or defs.DEVICE_INTERFACE not in properties[device_path]
+        ):
+            # device has disappeared so take
+            # anything over the current path
+            _LOGGER.debug(
+                "Device %s at %s has disappeared", device.address, device_path
+            )
+            rssi_to_beat = device_rssi = UNREACHABLE_RSSI
+
+        for path in _get_possible_paths(device_path):
+            if (
+                path == device_path
+                or path not in properties
+                or defs.DEVICE_INTERFACE not in properties[path]
+            ):
+                continue
+            rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
+            if not rssi or rssi - RSSI_SWITCH_THRESHOLD < device_rssi:
+                continue
+            if rssi < rssi_to_beat:
+                continue
+            best_path = path
+            rssi_to_beat = rssi
+            _LOGGER.debug(
+                "Found device %s at %s with better RSSI %s", device.address, path, rssi
+            )
+
+        if best_path == device_path:
+            return None
+
+        return BLEDevice(
+            device.address,
+            device.name,
+            {**device.details, "path": best_path},
+            rssi_to_beat,
+            **device.metadata,
+        )
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.debug("Freshen failed for %s", device.address, exc_info=True)
+
+    return None
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
@@ -206,6 +288,7 @@ async def establish_connection(
     connect_errors = 0
     transient_errors = 0
     attempt = 0
+    can_use_cached_services = True
 
     def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
@@ -229,19 +312,25 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     create_client = True
-    description = ble_device_description(device)
 
     while True:
         attempt += 1
+        original_device = device
 
         # Its possible the BLEDevice can change between
         # between connection attempts so we do not want
         # to keep trying to connect to the old one if it has changed.
-        if not create_client and ble_device_callback is not None:
-            new_ble_device = ble_device_callback()
-            create_client = ble_device_has_changed(device, new_ble_device)
-            device = new_ble_device
-            description = ble_device_description(device)
+        if ble_device_callback is not None:
+            device = ble_device_callback()
+
+        if fresh_device := await freshen_ble_device(device):
+            device = fresh_device
+            can_use_cached_services = False
+
+        if not create_client:
+            create_client = ble_device_has_changed(original_device, device)
+
+        description = ble_device_description(device)
 
         _LOGGER.debug(
             "%s - %s: Connecting (attempt: %s, last rssi: %s)",
@@ -255,7 +344,11 @@ async def establish_connection(
             client = client_class(device, **kwargs)
             if disconnected_callback:
                 client.set_disconnected_callback(disconnected_callback)
-            if cached_services and isinstance(client, BleakClientWithServiceCache):
+            if (
+                can_use_cached_services
+                and cached_services
+                and isinstance(client, BleakClientWithServiceCache)
+            ):
                 client.set_cached_services(cached_services)
             create_client = False
 
@@ -302,14 +395,26 @@ async def establish_connection(
                 transient_errors += 1
             else:
                 connect_errors += 1
-            _LOGGER.debug(
-                "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                str(exc),
-                attempt,
-                device.rssi,
-            )
+            if isinstance(exc, BleakDBusError):
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    str(exc),
+                    BLEAK_DBUS_BACKOFF_TIME,
+                    attempt,
+                    device.rssi,
+                )
+                await asyncio.sleep(BLEAK_DBUS_BACKOFF_TIME)
+            else:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    str(exc),
+                    attempt,
+                    device.rssi,
+                )
             _raise_if_needed(name, description, exc)
         else:
             _LOGGER.debug(
