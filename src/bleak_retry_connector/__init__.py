@@ -32,7 +32,13 @@ BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
     "dangerous_use_bleak_cache" in inspect.signature(BleakClient.connect).parameters
 )
 
+
+# Make sure bleak and dbus-next have time
+# to run their cleanup callbacks or the
+# retry call will just fail in the same way.
 BLEAK_DBUS_BACKOFF_TIME = 0.25
+
+
 RSSI_SWITCH_THRESHOLD = 6
 
 __all__ = [
