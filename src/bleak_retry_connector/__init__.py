@@ -15,6 +15,7 @@ import async_timeout
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
+from bleak.exc import BleakDBusError
 
 CAN_CACHE_SERVICES = platform.system() == "Linux"
 
@@ -31,7 +32,7 @@ BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
     "dangerous_use_bleak_cache" in inspect.signature(BleakClient.connect).parameters
 )
 
-
+BLEAK_DBUS_BACKOFF_TIME = 0.25
 RSSI_SWITCH_THRESHOLD = 6
 
 __all__ = [
@@ -388,14 +389,26 @@ async def establish_connection(
                 transient_errors += 1
             else:
                 connect_errors += 1
-            _LOGGER.debug(
-                "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                str(exc),
-                attempt,
-                device.rssi,
-            )
+            if isinstance(exc, BleakDBusError):
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    str(exc),
+                    BLEAK_DBUS_BACKOFF_TIME,
+                    attempt,
+                    device.rssi,
+                )
+                await asyncio.sleep(BLEAK_DBUS_BACKOFF_TIME)
+            else:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    str(exc),
+                    attempt,
+                    device.rssi,
+                )
             _raise_if_needed(name, description, exc)
         else:
             _LOGGER.debug(
