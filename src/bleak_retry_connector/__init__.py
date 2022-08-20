@@ -25,6 +25,8 @@ if CAN_CACHE_SERVICES:
             get_global_bluez_manager,
         )
 
+UNREACHABLE_RSSI = -1000
+
 BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
     "dangerous_use_bleak_cache" in inspect.signature(BleakClient.connect).parameters
 )
@@ -214,7 +216,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
         return device
 
     best_path = device_path = device.details["path"]
-    rssi_to_beat = device_rssi = device.rssi
+    rssi_to_beat = device_rssi = device.rssi or UNREACHABLE_RSSI
 
     try:
         manager = await get_global_bluez_manager()
@@ -228,7 +230,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
             _LOGGER.debug(
                 "Device %s at %s has disappeared", device.address, device_path
             )
-            rssi_to_beat = device_rssi = -1000
+            rssi_to_beat = device_rssi = UNREACHABLE_RSSI
 
         for path in _get_possible_paths(device_path):
             if (
