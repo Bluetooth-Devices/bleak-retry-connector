@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.0 (2022-08-20)
+### Feature
+* Handle stale BLEDevices when an adapter goes offline ([#21](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/21)) ([`012c94c`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/012c94c17e81511f84764037a48be1ba686453b3))
+
 ## v1.10.1 (2022-08-19)
 ### Fix
 * Add workaround for when get_services raises ([#20](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/20)) ([`1c92f6e`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1c92f6ed3b643f8f739e7a27b56111cd71e23696))
