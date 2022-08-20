@@ -213,7 +213,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     path to the device ourselves.
     """
     if not isinstance(device.details, dict) or "path" not in device.details:
-        return device
+        return None
 
     best_path = device_path = device.details["path"]
     rssi_to_beat = device_rssi = device.rssi or UNREACHABLE_RSSI
@@ -305,25 +305,25 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     create_client = True
-    if fresh_device := await freshen_ble_device(device):
-        device = fresh_device
-        can_use_cached_services = False
-    description = ble_device_description(device)
 
     while True:
         attempt += 1
+        original_device = device
 
         # Its possible the BLEDevice can change between
         # between connection attempts so we do not want
         # to keep trying to connect to the old one if it has changed.
-        if not create_client and ble_device_callback is not None:
-            new_ble_device = ble_device_callback()
-            if fresh_device := await freshen_ble_device(new_ble_device):
-                new_ble_device = fresh_device
-                can_use_cached_services = False
-            create_client = ble_device_has_changed(device, new_ble_device)
-            device = new_ble_device
-            description = ble_device_description(device)
+        if ble_device_callback is not None:
+            device = ble_device_callback()
+
+        if fresh_device := await freshen_ble_device(device):
+            device = fresh_device
+            can_use_cached_services = False
+
+        if not create_client:
+            create_client = ble_device_has_changed(original_device, device)
+
+        description = ble_device_description(device)
 
         _LOGGER.debug(
             "%s - %s: Connecting (attempt: %s, last rssi: %s)",
