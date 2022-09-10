@@ -19,6 +19,9 @@ from bleak.exc import BleakDBusError
 
 IS_LINUX = CAN_CACHE_SERVICES = platform.system() == "Linux"
 
+if IS_LINUX:
+    from .dbus import disconnect_device
+
 if CAN_CACHE_SERVICES:
     with contextlib.suppress(ImportError):  # pragma: no cover
         from bleak.backends.bluezdbus import defs  # pragma: no cover
@@ -291,6 +294,13 @@ async def get_bluez_device(path: str, rssi: int | None = None) -> BLEDevice | No
     return None
 
 
+def device_is_connected(device: BLEDevice) -> bool:
+    """Check if the device is connected."""
+    if not isinstance(device.details, dict) or "path" not in device.details:
+        return False
+    return bool(device.details["props"].get("Connected"))
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
@@ -369,6 +379,10 @@ async def establish_connection(
             ):
                 client.set_cached_services(cached_services)
             create_client = False
+
+        if IS_LINUX and device_is_connected(device):
+            _LOGGER.debug("%s - %s: Unexpectedly connected", name, description)
+            await disconnect_device(device)
 
         try:
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
