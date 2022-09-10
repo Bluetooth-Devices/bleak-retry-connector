@@ -226,21 +226,17 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
 
 def address_to_bluez_path(address: str) -> str:
     """Convert an address to a BlueZ path."""
-    return f"/org/bluez/hci0/dev_{address.upper().replace(':', '_')}"
+    return f"/org/bluez/hciX/dev_{address.upper().replace(':', '_')}"
 
 
 async def get_device(address: str) -> BLEDevice | None:
     """Get the device."""
     if not IS_LINUX:
         return None
-    return await get_bluez_device(
-        address_to_bluez_path(address), allow_same_device=True
-    )
+    return await get_bluez_device(address_to_bluez_path(address))
 
 
-async def get_bluez_device(
-    path: str, rssi: int | None = None, allow_same_device: bool = False
-) -> BLEDevice | None:
+async def get_bluez_device(path: str, rssi: int | None = None) -> BLEDevice | None:
     """Get a BLEDevice object for a BlueZ DBus path."""
     best_path = device_path = path
     rssi_to_beat = device_rssi = rssi or UNREACHABLE_RSSI
@@ -273,7 +269,7 @@ async def get_bluez_device(
             rssi_to_beat = rssi
             _LOGGER.debug("Found device %s with better RSSI %s", path, rssi)
 
-        if not allow_same_device and best_path == device_path:
+        if best_path == device_path:
             return None
 
         props = properties[best_path][defs.DEVICE_INTERFACE]

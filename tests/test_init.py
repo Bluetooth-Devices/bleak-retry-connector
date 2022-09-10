@@ -836,7 +836,7 @@ async def test_get_device():
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is not None
-    assert device.details["path"] == "/org/bluez/hci3/dev_FA_23_9D_AA_45_46"
+    assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
 
 
 @pytest.mark.asyncio
