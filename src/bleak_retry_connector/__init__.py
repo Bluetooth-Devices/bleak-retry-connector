@@ -296,7 +296,7 @@ async def get_bluez_device(path: str, rssi: int | None = None) -> BLEDevice | No
 
 def device_is_connected(device: BLEDevice) -> bool:
     """Check if the device is connected."""
-    if not isinstance(device.details, dict) or "path" not in device.details:
+    if not isinstance(device.details, dict) or "props" not in device.details:
         return False
     return bool(device.details["props"].get("Connected"))
 
