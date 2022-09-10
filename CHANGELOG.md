@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.12.3 (2022-09-10)
+### Fix
+* Disconnect devices that are unexpectedly connected before connecting ([#26](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/26)) ([`47b31d3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/47b31d38b481288472a6923d968a9c4dd6f2b1c6))
+
 ## v1.12.2 (2022-09-10)
 ### Fix
 * Handle already connected devices with no rssi value ([#25](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/25)) ([`0dfd3b0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/0dfd3b07ae6836a61d31c613534e3322dabd3761))
