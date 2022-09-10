@@ -236,10 +236,14 @@ async def get_device(address: str) -> BLEDevice | None:
     """Get the device."""
     if not IS_LINUX:
         return None
-    return await get_bluez_device(address_to_bluez_path(address))
+    return await get_bluez_device(
+        address_to_bluez_path(address), _log_disappearance=False
+    )
 
 
-async def get_bluez_device(path: str, rssi: int | None = None) -> BLEDevice | None:
+async def get_bluez_device(
+    path: str, rssi: int | None = None, _log_disappearance: bool = True
+) -> BLEDevice | None:
     """Get a BLEDevice object for a BlueZ DBus path."""
     best_path = device_path = path
     rssi_to_beat = device_rssi = rssi or UNREACHABLE_RSSI
@@ -253,7 +257,8 @@ async def get_bluez_device(path: str, rssi: int | None = None) -> BLEDevice | No
         ):
             # device has disappeared so take
             # anything over the current path
-            _LOGGER.debug("Device %s has disappeared", device_path)
+            if _log_disappearance:
+                _LOGGER.debug("Device %s has disappeared", device_path)
             rssi_to_beat = device_rssi = UNREACHABLE_RSSI
 
         for path in _get_possible_paths(device_path):
@@ -294,11 +299,17 @@ async def get_bluez_device(path: str, rssi: int | None = None) -> BLEDevice | No
     return None
 
 
-def device_is_connected(device: BLEDevice) -> bool:
+async def device_is_connected(device: BLEDevice) -> bool:
     """Check if the device is connected."""
-    if not isinstance(device.details, dict) or "props" not in device.details:
+    if not isinstance(device.details, dict) or "path" not in device.details:
         return False
-    return bool(device.details["props"].get("Connected"))
+    try:
+        manager = await get_global_bluez_manager()
+        properties = manager._properties
+        path = device.details["path"]
+        return bool(properties[path][defs.DEVICE_INTERFACE].get("Connected"))
+    except Exception:  # pylint: disable=broad-except
+        return False
 
 
 async def establish_connection(
@@ -380,7 +391,7 @@ async def establish_connection(
                 client.set_cached_services(cached_services)
             create_client = False
 
-        if IS_LINUX and device_is_connected(device):
+        if IS_LINUX and await device_is_connected(device):
             _LOGGER.debug("%s - %s: Unexpectedly connected", name, description)
             await disconnect_device(device)
 

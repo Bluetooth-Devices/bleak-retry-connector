@@ -949,4 +949,4 @@ async def test_get_device_already_connected():
 
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_BD_24_6F_85_AA_61"
-    assert device_is_connected(device) is True
+    assert await device_is_connected(device) is True
