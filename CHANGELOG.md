@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.11.1 (2022-09-10)
+### Fix
+* Handle Dbus EOFError while connecting ([#22](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/22)) ([`b0bc92d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/b0bc92d00b77f570836fa59f4f88403152f78539))
+
 ## v1.11.0 (2022-08-20)
 ### Feature
 * Handle stale BLEDevices when an adapter goes offline ([#21](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/21)) ([`012c94c`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/012c94c17e81511f84764037a48be1ba686453b3))
