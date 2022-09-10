@@ -259,7 +259,7 @@ async def get_bluez_device(
 
         for path in _get_possible_paths(device_path):
             if (
-                path == device_path
+                (not allow_same_device and path == device_path)
                 or path not in properties
                 or defs.DEVICE_INTERFACE not in properties[path]
             ):
