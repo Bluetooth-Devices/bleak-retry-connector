@@ -312,6 +312,14 @@ async def device_is_connected(device: BLEDevice) -> bool:
         return False
 
 
+async def close_stale_connections(device: BLEDevice) -> None:
+    """Close stale connections."""
+    if IS_LINUX and await device_is_connected(device):
+        description = ble_device_description(device)
+        _LOGGER.debug("%s - %s: Unexpectedly connected", device.name, description)
+        await disconnect_device(device)
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
