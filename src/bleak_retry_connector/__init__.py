@@ -233,14 +233,10 @@ async def get_device(address: str) -> BLEDevice | None:
     """Get the device."""
     if not IS_LINUX:
         return None
-    return await get_bluez_device(
-        address_to_bluez_path(address), allow_same_device=True
-    )
+    return await get_bluez_device(address_to_bluez_path(address))
 
 
-async def get_bluez_device(
-    path: str, rssi: int | None = None, allow_same_device: bool = False
-) -> BLEDevice | None:
+async def get_bluez_device(path: str, rssi: int | None = None) -> BLEDevice | None:
     """Get a BLEDevice object for a BlueZ DBus path."""
     best_path = device_path = path
     rssi_to_beat = device_rssi = rssi or UNREACHABLE_RSSI
