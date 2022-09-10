@@ -899,3 +899,52 @@ async def test_get_device_mac_os():
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is None
+
+
+@pytest.mark.asyncio
+async def test_get_device_already_connected():
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci1/dev_BD_24_6F_85_AA_61": {
+                    "org.freedesktop.DBus.Introspectable": {},
+                    "org.bluez.Device1": {
+                        "Address": "BD:24:6F:85:AA:61",
+                        "AddressType": "public",
+                        "Name": "Dream~BD246F85AA61",
+                        "Alias": "Dream~BD246F85AA61",
+                        "Appearance": 962,
+                        "Icon": "input-mouse",
+                        "Paired": False,
+                        "Trusted": False,
+                        "Blocked": False,
+                        "LegacyPairing": False,
+                        "Connected": True,
+                        "UUIDs": [
+                            "00001800-0000-1000-8000-00805f9b34fb",
+                            "00001801-0000-1000-8000-00805f9b34fb",
+                            "0000180a-0000-1000-8000-00805f9b34fb",
+                            "0000ffd0-0000-1000-8000-00805f9b34fb",
+                            "0000ffd5-0000-1000-8000-00805f9b34fb",
+                        ],
+                        "Modalias": "usb:v045Ep0040d0300",
+                        "Adapter": "/org/bluez/hci1",
+                        "ManufacturerData": {20808: bytearray(b"364656")},
+                        "ServicesResolved": True,
+                    },
+                    "org.freedesktop.DBus.Properties": {},
+                }
+            }
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.defs = defs
+
+    with patch.object(bleak_retry_connector, "IS_LINUX", True), patch.object(
+        bleak_retry_connector, "CAN_CACHE_SERVICES", True
+    ):
+        device = await get_device("BD:24:6F:85:AA:61")
+
+    assert device is not None
+    assert device.details["path"] == "/org/bluez/hci1/dev_BD_24_6F_85_AA_61"
