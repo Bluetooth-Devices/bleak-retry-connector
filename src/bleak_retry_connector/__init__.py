@@ -307,11 +307,6 @@ async def device_is_connected(device: BLEDevice) -> bool:
         manager = await get_global_bluez_manager()
         properties = manager._properties
         path = device.details["path"]
-        _LOGGER.debug(
-            "Checking if %s is connected: %s",
-            path,
-            properties[path][defs.DEVICE_INTERFACE],
-        )
         return bool(properties[path][defs.DEVICE_INTERFACE].get("Connected"))
     except Exception:  # pylint: disable=broad-except
         return False
