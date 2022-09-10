@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.12.2 (2022-09-10)
+### Fix
+* Handle already connected devices with no rssi value ([#25](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/25)) ([`0dfd3b0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/0dfd3b07ae6836a61d31c613534e3322dabd3761))
+
 ## v1.12.1 (2022-09-10)
 ### Fix
 * Get_device returning no device when already connected ([#24](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/24)) ([`1063b76`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1063b764959cabfdab572de85d1ad622e6ff7a20))
