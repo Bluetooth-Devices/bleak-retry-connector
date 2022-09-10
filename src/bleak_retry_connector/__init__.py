@@ -46,6 +46,8 @@ RSSI_SWITCH_THRESHOLD = 6
 
 __all__ = [
     "establish_connection",
+    "close_stale_connections",
+    "get_device",
     "BleakClientWithServiceCache",
     "BleakAbortedError",
     "BleakNotFoundError",
