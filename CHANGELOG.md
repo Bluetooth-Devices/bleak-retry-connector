@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.13.0 (2022-09-10)
+### Feature
+* Make get_device and close_stale_connections part of __all__ ([#27](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/27)) ([`4d7edfd`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/4d7edfd2f2597e8cba96c925a1e7f4ae55986623))
+
 ## v1.12.3 (2022-09-10)
 ### Fix
 * Disconnect devices that are unexpectedly connected before connecting ([#26](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/26)) ([`47b31d3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/47b31d38b481288472a6923d968a9c4dd6f2b1c6))
