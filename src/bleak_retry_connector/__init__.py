@@ -389,6 +389,19 @@ async def establish_connection(
                 device.rssi,
             )
             _raise_if_needed(name, description, exc)
+        except EOFError as exc:
+            transient_errors += 1
+            _LOGGER.debug(
+                "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                name,
+                description,
+                str(exc),
+                BLEAK_DBUS_BACKOFF_TIME,
+                attempt,
+                device.rssi,
+            )
+            await asyncio.sleep(BLEAK_DBUS_BACKOFF_TIME)
+            _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
             if any(error in bleak_error for error in TRANSIENT_ERRORS):
@@ -400,7 +413,7 @@ async def establish_connection(
                     "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
                     name,
                     description,
-                    str(exc),
+                    bleak_error,
                     BLEAK_DBUS_BACKOFF_TIME,
                     attempt,
                     device.rssi,
@@ -411,7 +424,7 @@ async def establish_connection(
                     "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
                     name,
                     description,
-                    str(exc),
+                    bleak_error,
                     attempt,
                     device.rssi,
                 )
