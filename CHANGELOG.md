@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.12.0 (2022-09-10)
+### Feature
+* Add get_device helper to find already connected devices ([#23](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/23)) ([`595e6a0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/595e6a09c06a29a55000e6b582db12b85884f75a))
+
 ## v1.11.1 (2022-09-10)
 ### Fix
 * Handle Dbus EOFError while connecting ([#22](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/22)) ([`b0bc92d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/b0bc92d00b77f570836fa59f4f88403152f78539))

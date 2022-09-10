@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-__version__ = "1.11.1"
+__version__ = "1.12.0"
 
 
 import asyncio
