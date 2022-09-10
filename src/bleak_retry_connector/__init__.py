@@ -261,12 +261,14 @@ async def get_bluez_device(path: str, rssi: int | None = None) -> BLEDevice | No
             ):
                 continue
             rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
-            if not rssi or rssi - RSSI_SWITCH_THRESHOLD < device_rssi:
-                continue
-            if rssi < rssi_to_beat:
+            if rssi_to_beat != UNREACHABLE_RSSI and (
+                not rssi
+                or rssi - RSSI_SWITCH_THRESHOLD < device_rssi
+                or rssi < rssi_to_beat
+            ):
                 continue
             best_path = path
-            rssi_to_beat = rssi
+            rssi_to_beat = rssi or UNREACHABLE_RSSI
             _LOGGER.debug("Found device %s with better RSSI %s", path, rssi)
 
         if best_path == device_path:
