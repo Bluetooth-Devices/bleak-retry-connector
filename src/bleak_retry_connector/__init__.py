@@ -226,7 +226,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
 
 def address_to_bluez_path(address: str) -> str:
     """Convert an address to a BlueZ path."""
-    return f"/org/bluez/hci0/dev_{address.upper().replace(':', '_')}"
+    return f"/org/bluez/hciX/dev_{address.upper().replace(':', '_')}"
 
 
 async def get_device(address: str) -> BLEDevice | None:
@@ -259,7 +259,7 @@ async def get_bluez_device(
 
         for path in _get_possible_paths(device_path):
             if (
-                (not allow_same_device and path == device_path)
+                path == device_path
                 or path not in properties
                 or defs.DEVICE_INTERFACE not in properties[path]
             ):
@@ -273,7 +273,7 @@ async def get_bluez_device(
             rssi_to_beat = rssi
             _LOGGER.debug("Found device %s with better RSSI %s", path, rssi)
 
-        if not allow_same_device and best_path == device_path:
+        if best_path == device_path:
             return None
 
         props = properties[best_path][defs.DEVICE_INTERFACE]
