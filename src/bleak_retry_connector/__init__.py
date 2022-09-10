@@ -17,7 +17,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError
 
-CAN_CACHE_SERVICES = platform.system() == "Linux"
+IS_LINUX = CAN_CACHE_SERVICES = platform.system() == "Linux"
 
 if CAN_CACHE_SERVICES:
     with contextlib.suppress(ImportError):  # pragma: no cover
@@ -221,9 +221,29 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     """
     if not isinstance(device.details, dict) or "path" not in device.details:
         return None
+    return await get_bluez_device(device.details["path"], device.rssi)
 
-    best_path = device_path = device.details["path"]
-    rssi_to_beat = device_rssi = device.rssi or UNREACHABLE_RSSI
+
+def address_to_bluez_path(address: str) -> str:
+    """Convert an address to a BlueZ path."""
+    return f"/org/bluez/hci0/dev_{address.upper().replace(':', '_')}"
+
+
+async def get_device(address: str) -> BLEDevice | None:
+    """Get the device."""
+    if not IS_LINUX:
+        return None
+    return await get_bluez_device(
+        address_to_bluez_path(address), allow_same_device=True
+    )
+
+
+async def get_bluez_device(
+    path: str, rssi: int | None = None, allow_same_device: bool = False
+) -> BLEDevice | None:
+    """Get a BLEDevice object for a BlueZ DBus path."""
+    best_path = device_path = path
+    rssi_to_beat = device_rssi = rssi or UNREACHABLE_RSSI
 
     try:
         manager = await get_global_bluez_manager()
@@ -234,9 +254,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
         ):
             # device has disappeared so take
             # anything over the current path
-            _LOGGER.debug(
-                "Device %s at %s has disappeared", device.address, device_path
-            )
+            _LOGGER.debug("Device %s has disappeared", device_path)
             rssi_to_beat = device_rssi = UNREACHABLE_RSSI
 
         for path in _get_possible_paths(device_path):
@@ -253,22 +271,24 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
                 continue
             best_path = path
             rssi_to_beat = rssi
-            _LOGGER.debug(
-                "Found device %s at %s with better RSSI %s", device.address, path, rssi
-            )
+            _LOGGER.debug("Found device %s with better RSSI %s", path, rssi)
 
-        if best_path == device_path:
+        if not allow_same_device and best_path == device_path:
             return None
 
+        props = properties[best_path][defs.DEVICE_INTERFACE]
         return BLEDevice(
-            device.address,
-            device.name,
-            {**device.details, "path": best_path},
+            props["Address"],
+            props["Alias"],
+            {"path": best_path, "props": props},
             rssi_to_beat,
-            **device.metadata,
+            uuids=props.get("UUIDs", []),
+            manufacturer_data={
+                k: bytes(v) for k, v in props.get("ManufacturerData", {}).items()
+            },
         )
     except Exception:  # pylint: disable=broad-except
-        _LOGGER.debug("Freshen failed for %s", device.address, exc_info=True)
+        _LOGGER.debug("Freshen failed for %s", path, exc_info=True)
 
     return None
 
