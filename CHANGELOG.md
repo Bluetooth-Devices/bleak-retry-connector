@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.12.1 (2022-09-10)
+### Fix
+* Get_device returning no device when already connected ([#24](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/24)) ([`1063b76`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1063b764959cabfdab572de85d1ad622e6ff7a20))
+
 ## v1.12.0 (2022-09-10)
 ### Feature
 * Add get_device helper to find already connected devices ([#23](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/23)) ([`595e6a0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/595e6a09c06a29a55000e6b582db12b85884f75a))
