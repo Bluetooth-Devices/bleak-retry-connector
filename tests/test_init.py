@@ -15,6 +15,7 @@ from bleak_retry_connector import (
     BleakConnectionError,
     BleakNotFoundError,
     ble_device_has_changed,
+    device_is_connected,
     establish_connection,
     get_device,
 )
@@ -948,3 +949,4 @@ async def test_get_device_already_connected():
 
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_BD_24_6F_85_AA_61"
+    assert device_is_connected(device) is True
