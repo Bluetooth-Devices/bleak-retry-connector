@@ -364,6 +364,9 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         waited = end - start
         if min_wait_time and waited < min_wait_time:
             await asyncio.sleep(min_wait_time - waited)
+    except KeyError:
+        # Device was removed from bus
+        pass
     except Exception:  # pylint: disable=broad-except
         _LOGGER.debug(
             "Failed waiting for disconnect %s - %s",
