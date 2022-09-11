@@ -8,6 +8,7 @@ import contextlib
 import inspect
 import logging
 import platform
+import time
 from collections.abc import Callable, Generator
 from typing import Any
 
@@ -16,6 +17,8 @@ from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError
+
+DISCONNECT_TIMEOUT = 5
 
 IS_LINUX = CAN_CACHE_SERVICES = platform.system() == "Linux"
 
@@ -344,6 +347,32 @@ async def close_stale_connections(device: BLEDevice) -> None:
         await _disconnect_devices(devices)
 
 
+async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
+    """Wait for the device to disconnect."""
+    if (
+        not IS_LINUX
+        or not isinstance(device.details, dict)
+        or "path" not in device.details
+    ):
+        return
+    start = time.monotonic() if min_wait_time else 0
+    try:
+        manager = await get_global_bluez_manager()
+        async with async_timeout.timeout(DISCONNECT_TIMEOUT):
+            await manager._wait_condition(device.details["path"], "Connected", False)
+        end = time.monotonic() if min_wait_time else 0
+        waited = end - start
+        if min_wait_time and waited < min_wait_time:
+            await asyncio.sleep(min_wait_time - waited)
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.debug(
+            "Failed waiting for disconnect %s - %s",
+            device.name,
+            ble_device_description(device),
+            exc_info=True,
+        )
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
@@ -441,6 +470,7 @@ async def establish_connection(
                 attempt,
                 device.rssi,
             )
+            await wait_for_disconnect(device, 0)
             _raise_if_needed(name, description, exc)
         except BrokenPipeError as exc:
             # BrokenPipeError is raised by dbus-next when the device disconnects
@@ -474,7 +504,7 @@ async def establish_connection(
                 attempt,
                 device.rssi,
             )
-            await asyncio.sleep(BLEAK_DBUS_BACKOFF_TIME)
+            await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
@@ -492,7 +522,7 @@ async def establish_connection(
                     attempt,
                     device.rssi,
                 )
-                await asyncio.sleep(BLEAK_DBUS_BACKOFF_TIME)
+                await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             else:
                 _LOGGER.debug(
                     "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
@@ -502,6 +532,7 @@ async def establish_connection(
                     attempt,
                     device.rssi,
                 )
+                await wait_for_disconnect(device, 0)
             _raise_if_needed(name, description, exc)
         else:
             _LOGGER.debug(
