@@ -348,7 +348,14 @@ async def close_stale_connections(device: BLEDevice) -> None:
 
 
 async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
-    """Wait for the device to disconnect."""
+    """Wait for the device to disconnect.
+
+    After a connection failure, the device may not have
+    had time to disconnect so we wait for it to do so.
+
+    If we do not wait, we may end up connecting to the
+    same device again before it has had time to disconnect.
+    """
     if (
         not IS_LINUX
         or not isinstance(device.details, dict)
