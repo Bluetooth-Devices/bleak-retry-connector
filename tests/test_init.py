@@ -15,8 +15,8 @@ from bleak_retry_connector import (
     BleakConnectionError,
     BleakNotFoundError,
     ble_device_has_changed,
-    device_is_connected,
     establish_connection,
+    get_connected_devices,
     get_device,
 )
 
@@ -949,4 +949,144 @@ async def test_get_device_already_connected():
 
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_BD_24_6F_85_AA_61"
-    assert await device_is_connected(device) is True
+    connected = await get_connected_devices(device)
+    assert len(connected) == 1
+    assert isinstance(connected[0], BLEDevice)
+    assert connected[0].details["path"] == "/org/bluez/hci1/dev_BD_24_6F_85_AA_61"
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_better_rssi_available_already_connected():
+
+    device: BLEDevice | None = None
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, ble_device_or_address, *args, **kwargs):
+            ble_device_or_address.metadata["delegate"] = 0
+            super().__init__(ble_device_or_address, *args, **kwargs)
+            nonlocal device
+            device = ble_device_or_address
+            self._device_path = "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
+
+        async def connect(self, *args, **kwargs):
+            return True
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
+        """Fake BleakClientWithServiceCache."""
+
+        async def get_services(self, *args, **kwargs):
+            return []
+
+    collection = BleakGATTServiceCollection()
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -30,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -79,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci2/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -80,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci3/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -31,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.defs = defs
+
+    mock_device = BLEDevice(
+        "aa:bb:cc:dd:ee:ff",
+        "name",
+        {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+        -80,
+        delegate=False,
+    )
+
+    connected = await get_connected_devices(mock_device)
+    assert len(connected) == 2
+    assert isinstance(connected[0], BLEDevice)
+    assert connected[0].details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
+    assert connected[1].details["path"] == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
+
+    with patch(
+        "bleak_retry_connector._disconnect_devices"
+    ) as mock_disconnect_device, patch.object(
+        bleak_retry_connector, "IS_LINUX", True
+    ), patch.object(
+        bleak_retry_connector, "CAN_CACHE_SERVICES", True
+    ):
+        client = await establish_connection(
+            FakeBleakClientWithServiceCache,
+            BLEDevice(
+                "aa:bb:cc:dd:ee:ff",
+                "name",
+                {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+                -80,
+                delegate=False,
+            ),
+            "test",
+            disconnected_callback=MagicMock(),
+            cached_services=collection,
+        )
+
+    assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is None
+    await client.get_services() is collection
+    assert device is not None
+    assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
+    assert len(mock_disconnect_device.mock_calls) == 1
+    assert (
+        mock_disconnect_device.mock_calls[0][1][0][0].details["path"]
+        == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
+    )
+    assert (
+        mock_disconnect_device.mock_calls[0][1][0][1].details["path"]
+        == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
+    )
