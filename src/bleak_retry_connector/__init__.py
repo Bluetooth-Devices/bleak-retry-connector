@@ -20,7 +20,7 @@ from bleak.exc import BleakDBusError
 IS_LINUX = CAN_CACHE_SERVICES = platform.system() == "Linux"
 
 if IS_LINUX:
-    from .dbus import disconnect_device
+    from .dbus import disconnect_devices
 
 if CAN_CACHE_SERVICES:
     with contextlib.suppress(ImportError):  # pragma: no cover
@@ -284,16 +284,8 @@ async def get_bluez_device(
         if best_path == device_path:
             return None
 
-        props = properties[best_path][defs.DEVICE_INTERFACE]
-        return BLEDevice(
-            props["Address"],
-            props["Alias"],
-            {"path": best_path, "props": props},
-            rssi_to_beat,
-            uuids=props.get("UUIDs", []),
-            manufacturer_data={
-                k: bytes(v) for k, v in props.get("ManufacturerData", {}).items()
-            },
+        return ble_device_from_properties(
+            best_path, properties[best_path][defs.DEVICE_INTERFACE]
         )
     except Exception:  # pylint: disable=broad-except
         _LOGGER.debug("Freshen failed for %s", path, exc_info=True)
@@ -301,25 +293,55 @@ async def get_bluez_device(
     return None
 
 
-async def device_is_connected(device: BLEDevice) -> bool:
+def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
+    """Get a BLEDevice from a dict of properties."""
+    return BLEDevice(
+        props["Address"],
+        props["Alias"],
+        {"path": path, "props": props},
+        props.get("RSSI", UNREACHABLE_RSSI),
+        uuids=props.get("UUIDs", []),
+        manufacturer_data={
+            k: bytes(v) for k, v in props.get("ManufacturerData", {}).items()
+        },
+    )
+
+
+async def get_connected_devices(device: BLEDevice) -> list[BLEDevice]:
     """Check if the device is connected."""
+    connected: list[BLEDevice] = []
+
     if not isinstance(device.details, dict) or "path" not in device.details:
-        return False
+        return connected
     try:
         manager = await get_global_bluez_manager()
         properties = manager._properties
-        path = device.details["path"]
-        return bool(properties[path][defs.DEVICE_INTERFACE].get("Connected"))
+        device_path = device.details["path"]
+        for path in _get_possible_paths(device_path):
+            if path not in properties or defs.DEVICE_INTERFACE not in properties[path]:
+                continue
+            props = properties[path][defs.DEVICE_INTERFACE]
+            if bool(props.get("Connected")):
+                connected.append(ble_device_from_properties(path, props))
+        return connected
     except Exception:  # pylint: disable=broad-except
-        return False
+        return connected
+
+
+async def _disconnect_devices(devices: list[BLEDevice]) -> None:
+    """Disconnect the devices."""
+    await disconnect_devices(devices)
 
 
 async def close_stale_connections(device: BLEDevice) -> None:
     """Close stale connections."""
-    if IS_LINUX and await device_is_connected(device):
-        description = ble_device_description(device)
-        _LOGGER.debug("%s - %s: Unexpectedly connected", device.name, description)
-        await disconnect_device(device)
+    if IS_LINUX and (devices := await get_connected_devices(device)):
+        for connected_device in devices:
+            description = ble_device_description(connected_device)
+            _LOGGER.debug(
+                "%s - %s: Unexpectedly connected", connected_device.name, description
+            )
+        await _disconnect_devices(devices)
 
 
 async def establish_connection(
@@ -401,9 +423,8 @@ async def establish_connection(
                 client.set_cached_services(cached_services)
             create_client = False
 
-        if IS_LINUX and await device_is_connected(device):
-            _LOGGER.debug("%s - %s: Unexpectedly connected", name, description)
-            await disconnect_device(device)
+        if IS_LINUX:
+            await close_stale_connections(device)
 
         try:
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):

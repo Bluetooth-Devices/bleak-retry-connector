@@ -9,18 +9,24 @@ from dbus_fast.constants import BusType
 from dbus_fast.message import Message
 
 
-async def disconnect_device(device: BLEDevice) -> None:
-    """Disconnect a device."""
-    if not isinstance(device.details, dict) or "path" not in device.details:
+async def disconnect_devices(devices: list[BLEDevice]) -> None:
+    """Disconnect a list of devices."""
+    valid_devices = [
+        device
+        for device in devices
+        if isinstance(device.details, dict) and "path" in device.details
+    ]
+    if not valid_devices:
         return
     bus = await MessageBus(bus_type=BusType.SYSTEM, negotiate_unix_fd=True).connect()
-    with contextlib.suppress(Exception):
-        await bus.send(
-            Message(
-                destination=defs.BLUEZ_SERVICE,
-                path=device.details["path"],
-                interface=defs.DEVICE_INTERFACE,
-                member="Disconnect",
+    for device in devices:
+        with contextlib.suppress(Exception):
+            await bus.send(
+                Message(
+                    destination=defs.BLUEZ_SERVICE,
+                    path=device.details["path"],
+                    interface=defs.DEVICE_INTERFACE,
+                    member="Disconnect",
+                )
             )
-        )
     bus.disconnect()
