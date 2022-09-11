@@ -370,6 +370,12 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
             await manager._wait_condition(device.details["path"], "Connected", False)
         end = time.monotonic() if min_wait_time else 0
         waited = end - start
+        _LOGGER.debug(
+            "%s - %s: Waited %s seconds to disconnect",
+            device.name,
+            ble_device_description(device),
+            waited,
+        )
         if min_wait_time and waited < min_wait_time:
             await asyncio.sleep(min_wait_time - waited)
     except KeyError:
@@ -377,7 +383,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         pass
     except Exception:  # pylint: disable=broad-except
         _LOGGER.debug(
-            "Failed waiting for disconnect %s - %s",
+            "%s - %s: Failed waiting for disconnect",
             device.name,
             ble_device_description(device),
             exc_info=True,
