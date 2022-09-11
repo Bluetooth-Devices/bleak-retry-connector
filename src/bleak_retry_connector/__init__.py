@@ -42,7 +42,8 @@ BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
 # Make sure bleak and dbus-next have time
 # to run their cleanup callbacks or the
 # retry call will just fail in the same way.
-BLEAK_DBUS_BACKOFF_TIME = 0.1
+BLEAK_DBUS_BACKOFF_TIME = 0.25
+BLEAK_BACKOFF_TIME = 0.1
 
 
 RSSI_SWITCH_THRESHOLD = 6
@@ -542,7 +543,7 @@ async def establish_connection(
                     attempt,
                     device.rssi,
                 )
-                await wait_for_disconnect(device, 0)
+                await wait_for_disconnect(device, BLEAK_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         else:
             _LOGGER.debug(
