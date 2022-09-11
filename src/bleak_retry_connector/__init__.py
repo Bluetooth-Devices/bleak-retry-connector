@@ -343,7 +343,7 @@ async def close_stale_connections(device: BLEDevice) -> None:
         for connected_device in devices:
             description = ble_device_description(connected_device)
             _LOGGER.debug(
-                "%s - %s: Unexpectedly connected", connected_device.name, description
+                "%s - %s: unexpectedly connected", connected_device.name, description
             )
         await _disconnect_devices(devices)
 
