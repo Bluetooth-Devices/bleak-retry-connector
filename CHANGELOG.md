@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.14.0 (2022-09-11)
+### Feature
+* Implement a smarter backoff ([#32](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/32)) ([`8272daa`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/8272daa12d3553001b53f637407a720ab209a57f))
+
 ## v1.13.2 (2022-09-11)
 ### Fix
 * Race during disconnect when unexpectedly connected ([#30](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/30)) ([`2ceef9f`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/2ceef9f49cedb3f2721f5d969b4117fe2cb2de7c))
