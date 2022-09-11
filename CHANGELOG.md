@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.13.2 (2022-09-11)
+### Fix
+* Race during disconnect when unexpectedly connected ([#30](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/30)) ([`2ceef9f`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/2ceef9f49cedb3f2721f5d969b4117fe2cb2de7c))
+
 ## v1.13.1 (2022-09-11)
 ### Fix
 * Disconnect unexpectedly connected devices on other adapters ([#29](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/29)) ([`85a3efe`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/85a3efe1589dc48eb009da7c3aaa69d7decfe26d))
