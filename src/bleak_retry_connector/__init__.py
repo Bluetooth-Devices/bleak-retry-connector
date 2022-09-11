@@ -550,10 +550,11 @@ async def establish_connection(
                 await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             else:
                 _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
                     name,
                     description,
                     bleak_error,
+                    BLEAK_BACKOFF_TIME,
                     attempt,
                     device.rssi,
                 )
