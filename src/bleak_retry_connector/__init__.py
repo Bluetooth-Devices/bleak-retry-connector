@@ -8,6 +8,7 @@ import contextlib
 import inspect
 import logging
 import platform
+import time
 from collections.abc import Callable, Generator
 from typing import Any
 
@@ -16,6 +17,8 @@ from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError
+
+DISCONNECT_TIMEOUT = 5
 
 IS_LINUX = CAN_CACHE_SERVICES = platform.system() == "Linux"
 
@@ -40,6 +43,7 @@ BLEAK_HAS_SERVICE_CACHE_SUPPORT = (
 # to run their cleanup callbacks or the
 # retry call will just fail in the same way.
 BLEAK_DBUS_BACKOFF_TIME = 0.25
+BLEAK_BACKOFF_TIME = 0.1
 
 
 RSSI_SWITCH_THRESHOLD = 6
@@ -226,7 +230,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     """
     if not isinstance(device.details, dict) or "path" not in device.details:
         return None
-    return await get_bluez_device(device.details["path"], device.rssi)
+    return await get_bluez_device(device.name, device.details["path"], device.rssi)
 
 
 def address_to_bluez_path(address: str) -> str:
@@ -239,12 +243,12 @@ async def get_device(address: str) -> BLEDevice | None:
     if not IS_LINUX:
         return None
     return await get_bluez_device(
-        address_to_bluez_path(address), _log_disappearance=False
+        address, address_to_bluez_path(address), _log_disappearance=False
     )
 
 
 async def get_bluez_device(
-    path: str, rssi: int | None = None, _log_disappearance: bool = True
+    name: str, path: str, rssi: int | None = None, _log_disappearance: bool = True
 ) -> BLEDevice | None:
     """Get a BLEDevice object for a BlueZ DBus path."""
     best_path = device_path = path
@@ -260,7 +264,7 @@ async def get_bluez_device(
             # device has disappeared so take
             # anything over the current path
             if _log_disappearance:
-                _LOGGER.debug("Device %s has disappeared", device_path)
+                _LOGGER.debug("%s - %s: Device has disappeared", name, device_path)
             rssi_to_beat = device_rssi = UNREACHABLE_RSSI
 
         for path in _get_possible_paths(device_path):
@@ -279,7 +283,13 @@ async def get_bluez_device(
                 continue
             best_path = path
             rssi_to_beat = rssi or UNREACHABLE_RSSI
-            _LOGGER.debug("Found device %s with better RSSI %s", path, rssi)
+            _LOGGER.debug(
+                "%s - %s: Found path %s with better RSSI %s",
+                name,
+                device_path,
+                path,
+                rssi,
+            )
 
         if best_path == device_path:
             return None
@@ -288,7 +298,9 @@ async def get_bluez_device(
             best_path, properties[best_path][defs.DEVICE_INTERFACE]
         )
     except Exception:  # pylint: disable=broad-except
-        _LOGGER.debug("Freshen failed for %s", path, exc_info=True)
+        _LOGGER.debug(
+            "%s - %s: Freshen failed for %s", name, device_path, exc_info=True
+        )
 
     return None
 
@@ -339,9 +351,51 @@ async def close_stale_connections(device: BLEDevice) -> None:
         for connected_device in devices:
             description = ble_device_description(connected_device)
             _LOGGER.debug(
-                "%s - %s: Unexpectedly connected", connected_device.name, description
+                "%s - %s: unexpectedly connected", connected_device.name, description
             )
         await _disconnect_devices(devices)
+
+
+async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
+    """Wait for the device to disconnect.
+
+    After a connection failure, the device may not have
+    had time to disconnect so we wait for it to do so.
+
+    If we do not wait, we may end up connecting to the
+    same device again before it has had time to disconnect.
+    """
+    if (
+        not IS_LINUX
+        or not isinstance(device.details, dict)
+        or "path" not in device.details
+    ):
+        return
+    start = time.monotonic() if min_wait_time else 0
+    try:
+        manager = await get_global_bluez_manager()
+        async with async_timeout.timeout(DISCONNECT_TIMEOUT):
+            await manager._wait_condition(device.details["path"], "Connected", False)
+        end = time.monotonic() if min_wait_time else 0
+        waited = end - start
+        _LOGGER.debug(
+            "%s - %s: Waited %s seconds to disconnect",
+            device.name,
+            ble_device_description(device),
+            waited,
+        )
+        if min_wait_time and waited < min_wait_time:
+            await asyncio.sleep(min_wait_time - waited)
+    except KeyError:
+        # Device was removed from bus
+        pass
+    except Exception:  # pylint: disable=broad-except
+        _LOGGER.debug(
+            "%s - %s: Failed waiting for disconnect",
+            device.name,
+            ble_device_description(device),
+            exc_info=True,
+        )
 
 
 async def establish_connection(
@@ -441,6 +495,7 @@ async def establish_connection(
                 attempt,
                 device.rssi,
             )
+            await wait_for_disconnect(device, 0)
             _raise_if_needed(name, description, exc)
         except BrokenPipeError as exc:
             # BrokenPipeError is raised by dbus-next when the device disconnects
@@ -474,7 +529,7 @@ async def establish_connection(
                 attempt,
                 device.rssi,
             )
-            await asyncio.sleep(BLEAK_DBUS_BACKOFF_TIME)
+            await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
@@ -492,16 +547,18 @@ async def establish_connection(
                     attempt,
                     device.rssi,
                 )
-                await asyncio.sleep(BLEAK_DBUS_BACKOFF_TIME)
+                await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             else:
                 _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
                     name,
                     description,
                     bleak_error,
+                    BLEAK_BACKOFF_TIME,
                     attempt,
                     device.rssi,
                 )
+                await wait_for_disconnect(device, BLEAK_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         else:
             _LOGGER.debug(
