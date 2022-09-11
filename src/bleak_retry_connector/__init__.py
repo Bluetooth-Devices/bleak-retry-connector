@@ -230,7 +230,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     """
     if not isinstance(device.details, dict) or "path" not in device.details:
         return None
-    return await get_bluez_device(device.details["path"], device.rssi)
+    return await get_bluez_device(device.name, device.details["path"], device.rssi)
 
 
 def address_to_bluez_path(address: str) -> str:
@@ -243,12 +243,12 @@ async def get_device(address: str) -> BLEDevice | None:
     if not IS_LINUX:
         return None
     return await get_bluez_device(
-        address_to_bluez_path(address), _log_disappearance=False
+        address, address_to_bluez_path(address), _log_disappearance=False
     )
 
 
 async def get_bluez_device(
-    path: str, rssi: int | None = None, _log_disappearance: bool = True
+    name: str, path: str, rssi: int | None = None, _log_disappearance: bool = True
 ) -> BLEDevice | None:
     """Get a BLEDevice object for a BlueZ DBus path."""
     best_path = device_path = path
@@ -264,7 +264,7 @@ async def get_bluez_device(
             # device has disappeared so take
             # anything over the current path
             if _log_disappearance:
-                _LOGGER.debug("Device %s has disappeared", device_path)
+                _LOGGER.debug("%s - %s: Device has disappeared", name, device_path)
             rssi_to_beat = device_rssi = UNREACHABLE_RSSI
 
         for path in _get_possible_paths(device_path):
@@ -283,7 +283,13 @@ async def get_bluez_device(
                 continue
             best_path = path
             rssi_to_beat = rssi or UNREACHABLE_RSSI
-            _LOGGER.debug("Found device %s with better RSSI %s", path, rssi)
+            _LOGGER.debug(
+                "%s - %s: Found path %s with better RSSI %s",
+                name,
+                device_path,
+                path,
+                rssi,
+            )
 
         if best_path == device_path:
             return None
@@ -292,7 +298,9 @@ async def get_bluez_device(
             best_path, properties[best_path][defs.DEVICE_INTERFACE]
         )
     except Exception:  # pylint: disable=broad-except
-        _LOGGER.debug("Freshen failed for %s", path, exc_info=True)
+        _LOGGER.debug(
+            "%s - %s: Freshen failed for %s", name, device_path, exc_info=True
+        )
 
     return None
 
