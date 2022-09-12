@@ -610,7 +610,7 @@ docs = ["myst-parser", "Sphinx", "sphinx-rtd-theme"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "97455e595080e973c048eb30657c54e21b0703f9a6b9d2e6b6416e1a918d478e"
+content-hash = "64d3e32d69b15ff4ebe06b4cf316e3ff9cb466bb311362553b1a0e6094bc9206"
 
 [metadata.files]
 alabaster = [
