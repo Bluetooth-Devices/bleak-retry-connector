@@ -424,7 +424,11 @@ async def establish_connection(
             return
         msg = f"{name} - {description}: Failed to connect: {exc}"
         # Sure would be nice if bleak gave us typed exceptions
-        if isinstance(exc, asyncio.TimeoutError) or "not found" in str(exc):
+        if (
+            isinstance(exc, asyncio.TimeoutError)
+            or "not found" in str(exc)
+            or "org.freedesktop.DBus.Error.UnknownObject" in str(exc)
+        ):
             raise BleakNotFoundError(msg) from exc
         if isinstance(exc, BleakError) and any(
             error in str(exc) for error in ABORT_ERRORS
