@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.15.0 (2022-09-12)
+### Feature
+* Bleak 0.17 support ([#33](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/33)) ([`ffce2c5`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/ffce2c51d3acddfa1efa9e2a396956521a768dd1))
+
 ## v1.14.0 (2022-09-11)
 ### Feature
 * Implement a smarter backoff ([#32](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/32)) ([`8272daa`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/8272daa12d3553001b53f637407a720ab209a57f))
