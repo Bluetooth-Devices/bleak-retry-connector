@@ -276,12 +276,12 @@ async def _disconnect_devices(devices: list[BLEDevice]) -> None:
 
 
 async def close_stale_connections(
-    device: BLEDevice, only_other_devices: bool = False
+    device: BLEDevice, only_other_adapters: bool = False
 ) -> None:
     """Close stale connections."""
     if IS_LINUX and (devices := await get_connected_devices(device)):
         for connected_device in devices:
-            if only_other_devices and not ble_device_has_changed(
+            if only_other_adapters and not ble_device_has_changed(
                 connected_device, device
             ):
                 continue
@@ -410,7 +410,7 @@ async def establish_connection(
             # Bleak 0.17 will handle already connected devices for us, but
             # we still need to disconnect if its unexpectedly connected to another
             # adapter.
-            await close_stale_connections(device, only_other_devices=True)
+            await close_stale_connections(device, only_other_adapters=True)
 
         try:
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
