@@ -112,83 +112,13 @@ class BleakAbortedError(BleakError):
 class BleakClientWithServiceCache(BleakClient):
     """A BleakClient that implements service caching."""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """Initialize the BleakClientWithServiceCache."""
-        super().__init__(*args, **kwargs)
-        self._cached_services: BleakGATTServiceCollection | None = None
-
-    @property
-    def _has_service_cache(self) -> bool:
-        """Check if we can cache services and there is a cache."""
-        return (
-            not BLEAK_HAS_SERVICE_CACHE_SUPPORT
-            and CAN_CACHE_SERVICES
-            and self._cached_services is not None
-        )
-
-    async def connect(
-        self, *args: Any, dangerous_use_bleak_cache: bool = False, **kwargs: Any
-    ) -> bool:
-        """Connect to the specified GATT server.
-
-        Returns:
-            Boolean representing connection status.
-
-        """
-        if self._has_service_cache and await self._services_vanished():
-            _LOGGER.debug("Clear cached services since they have vanished")
-            self._cached_services = None
-
-        connected = await super().connect(
-            *args, dangerous_use_bleak_cache=dangerous_use_bleak_cache, **kwargs
-        )
-
-        if (
-            connected
-            and not dangerous_use_bleak_cache
-            and not BLEAK_HAS_SERVICE_CACHE_SUPPORT
-        ):
-            self.set_cached_services(self.services)
-
-        return connected
-
-    async def get_services(
-        self, *args: Any, dangerous_use_bleak_cache: bool = False, **kwargs: Any
-    ) -> BleakGATTServiceCollection:
-        """Get the services."""
-        if self._has_service_cache:
-            _LOGGER.debug("Cached services found: %s", self._cached_services)
-            self.services = self._cached_services
-            self._services_resolved = True
-            return self._cached_services
-
-        try:
-            return await super().get_services(
-                *args, dangerous_use_bleak_cache=dangerous_use_bleak_cache, **kwargs
-            )
-        except Exception:  # pylint: disable=broad-except
-            # If getting services fails, we must disconnect
-            # to avoid a connection leak
-            _LOGGER.debug("Disconnecting from device since get_services failed")
-            await self.disconnect()
-            raise
-
-    async def _services_vanished(self) -> bool:
-        """Check if the services have vanished."""
-        with contextlib.suppress(Exception):
-            device_path = self._device_path
-            manager = await get_global_bluez_manager()
-            for service_path, service_ifaces in manager._properties.items():
-                if (
-                    service_path.startswith(device_path)
-                    and defs.GATT_SERVICE_INTERFACE in service_ifaces
-                ):
-                    return False
-        return True
-
     def set_cached_services(self, services: BleakGATTServiceCollection | None) -> None:
-        """Set the cached services."""
-        self._cached_services = services
+        """Set the cached services.
+
+        No longer used since bleak 0.17+ has service caching built-in.
+
+        This was only kept for backwards compatibility.
+        """
 
 
 def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
@@ -406,6 +336,7 @@ async def establish_connection(
     max_attempts: int = MAX_CONNECT_ATTEMPTS,
     cached_services: BleakGATTServiceCollection | None = None,
     ble_device_callback: Callable[[], BLEDevice] | None = None,
+    use_services_cache: bool = False,
     **kwargs: Any,
 ) -> BleakClient:
     """Establish a connection to the device."""
@@ -413,7 +344,6 @@ async def establish_connection(
     connect_errors = 0
     transient_errors = 0
     attempt = 0
-    can_use_cached_services = True
 
     def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
@@ -450,7 +380,6 @@ async def establish_connection(
 
         if fresh_device := await freshen_ble_device(device):
             device = fresh_device
-            can_use_cached_services = False
 
         if not create_client:
             create_client = ble_device_has_changed(original_device, device)
@@ -469,12 +398,6 @@ async def establish_connection(
             client = client_class(device, **kwargs)
             if disconnected_callback:
                 client.set_disconnected_callback(disconnected_callback)
-            if (
-                can_use_cached_services
-                and cached_services
-                and isinstance(client, BleakClientWithServiceCache)
-            ):
-                client.set_cached_services(cached_services)
             create_client = False
 
         if IS_LINUX:
@@ -484,7 +407,8 @@ async def establish_connection(
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
                 await client.connect(
                     timeout=BLEAK_TIMEOUT,
-                    dangerous_use_bleak_cache=bool(cached_services),
+                    dangerous_use_bleak_cache=use_services_cache
+                    or bool(cached_services),
                 )
         except asyncio.TimeoutError as exc:
             timeouts += 1
