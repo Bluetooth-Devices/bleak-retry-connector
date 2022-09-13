@@ -89,6 +89,7 @@ async def test_establish_connection_with_cached_services():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is collection
     await client.get_services() is collection
 
 
@@ -137,6 +138,7 @@ async def test_establish_connection_with_cached_services_that_have_vanished():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is None
     await client.get_services() is collection
 
 
@@ -187,6 +189,7 @@ async def test_establish_connection_can_cache_services_always_patched():
         )
 
         assert isinstance(client, FakeBleakClientWithServiceCache)
+        assert client._cached_services is collection
         await client.get_services() is collection
 
 
@@ -236,6 +239,7 @@ async def test_establish_connection_can_cache_services_services_missing():
         )
 
         assert isinstance(client, FakeBleakClientWithServiceCache)
+        assert client._cached_services is None
         await client.get_services() is collection
 
 
@@ -268,6 +272,7 @@ async def test_establish_connection_can_cache_services_newer_bleak():
         )
 
         assert isinstance(client, FakeBleakClientWithServiceCache)
+        assert client._cached_services is collection
         await client.get_services() is collection
 
 
@@ -295,6 +300,8 @@ async def test_establish_connection_with_dangerous_use_cached_services():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is not None
+    await client.get_services() is client._cached_services
 
 
 @pytest.mark.asyncio
@@ -321,6 +328,8 @@ async def test_establish_connection_without_dangerous_use_cached_services():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is not None
+    await client.get_services() is not client._cached_services
 
 
 @pytest.mark.asyncio
@@ -695,6 +704,7 @@ async def test_establish_connection_better_rssi_available():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is None
     await client.get_services() is collection
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
@@ -761,6 +771,7 @@ async def test_establish_connection_device_disappeared():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is None
     await client.get_services() is collection
 
 
@@ -1066,6 +1077,7 @@ async def test_establish_connection_better_rssi_available_already_connected():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
+    assert client._cached_services is None
     await client.get_services() is collection
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
