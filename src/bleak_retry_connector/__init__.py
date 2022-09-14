@@ -194,16 +194,16 @@ class BleakClientWithServiceCache(BleakClient):
 
 def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
     """Check if the device has changed."""
-    if original.address != new.address:
-        return True
-    if (
-        isinstance(original.details, dict)
-        and "path" in original.details
-        and "path" in new.details
-        and original.details["path"] != new.details["path"]
-    ):
-        return True
-    return False
+    return bool(
+        original.address != new.address
+        or (
+            isinstance(original.details, dict)
+            and isinstance(new.details, dict)
+            and "path" in original.details
+            and "path" in new.details
+            and original.details["path"] != new.details["path"]
+        )
+    )
 
 
 def ble_device_description(device: BLEDevice) -> str:
@@ -269,13 +269,27 @@ async def get_bluez_device(
             rssi_to_beat = device_rssi = UNREACHABLE_RSSI
 
         for path in _get_possible_paths(device_path):
-            if (
-                path == device_path
-                or path not in properties
-                or defs.DEVICE_INTERFACE not in properties[path]
+            if path not in properties or not (
+                device_props := properties[path].get(defs.DEVICE_INTERFACE)
             ):
                 continue
-            rssi = properties[path][defs.DEVICE_INTERFACE].get("RSSI")
+
+            if device_props.get("Connected"):
+                # device is connected so take it
+                _LOGGER.debug("%s - %s: Device is already connected", name, path)
+                if path == device_path:
+                    # device is connected to the path we were given
+                    # so we can just return None so it will be used
+                    return None
+                return ble_device_from_properties(path, device_props)
+
+            if path == device_path:
+                # Device is not connected and is the original path
+                # so no need to check it since returning None will
+                # cause the device to be used anyways.
+                continue
+
+            rssi = device_props.get("RSSI")
             if rssi_to_beat != UNREACHABLE_RSSI and (
                 not rssi
                 or rssi - RSSI_SWITCH_THRESHOLD < device_rssi
@@ -334,7 +348,7 @@ async def get_connected_devices(device: BLEDevice) -> list[BLEDevice]:
             if path not in properties or defs.DEVICE_INTERFACE not in properties[path]:
                 continue
             props = properties[path][defs.DEVICE_INTERFACE]
-            if bool(props.get("Connected")):
+            if props.get("Connected"):
                 connected.append(ble_device_from_properties(path, props))
         return connected
     except Exception:  # pylint: disable=broad-except
@@ -350,17 +364,28 @@ async def close_stale_connections(
     device: BLEDevice, only_other_adapters: bool = False
 ) -> None:
     """Close stale connections."""
-    if IS_LINUX and (devices := await get_connected_devices(device)):
-        for connected_device in devices:
-            if only_other_adapters and not ble_device_has_changed(
-                connected_device, device
-            ):
-                continue
-            description = ble_device_description(connected_device)
+    if not IS_LINUX or not (devices := await get_connected_devices(device)):
+        return
+    to_disconnect: list[BLEDevice] = []
+    for connected_device in devices:
+        description = ble_device_description(connected_device)
+        if only_other_adapters and not ble_device_has_changed(connected_device, device):
             _LOGGER.debug(
-                "%s - %s: unexpectedly connected", connected_device.name, description
+                "%s - %s: unexpectedly connected, not disconnecting since only_other_adapters is set",
+                connected_device.name,
+                description,
             )
-        await _disconnect_devices(devices)
+        else:
+            _LOGGER.debug(
+                "%s - %s: unexpectedly connected, disconnecting",
+                connected_device.name,
+                description,
+            )
+            to_disconnect.append(connected_device)
+
+    if not to_disconnect:
+        return
+    await _disconnect_devices(to_disconnect)
 
 
 async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
