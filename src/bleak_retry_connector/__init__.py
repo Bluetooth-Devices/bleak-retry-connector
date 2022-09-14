@@ -363,13 +363,13 @@ async def close_stale_connections(
                 connected_device, device
             ):
                 _LOGGER.debug(
-                    "%s - %s: Not disconnecting since bleak can use it",
+                    "%s - %s: unexpectedly connected, not disconnecting since only_other_adapters is set",
                     connected_device.name,
                     description,
                 )
             else:
                 _LOGGER.debug(
-                    "%s - %s: unexpectedly connected",
+                    "%s - %s: unexpectedly connected, disconnecting",
                     connected_device.name,
                     description,
                 )
@@ -459,6 +459,12 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     create_client = True
+
+    _LOGGER.debug(
+        "Bleak capabilities: already_connected_support=%s service_cache_support=%s",
+        BLEAK_HAS_ALREADY_CONNECTED_SUPPORT,
+        BLEAK_HAS_SERVICE_CACHE_SUPPORT,
+    )
 
     while True:
         attempt += 1
