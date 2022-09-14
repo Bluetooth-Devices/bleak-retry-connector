@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.16.0 (2022-09-14)
+### Feature
+* Do not disconnect unexpectedly connected devices if bleak supports reusing them ([#35](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/35)) ([`be603ce`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/be603ce379f6a46ee750e7c3bcbd79d533d2a3ff))
+
 ## v1.15.1 (2022-09-13)
 ### Fix
 * Revert requirement for newer bleak ([#34](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/34)) ([`fe7ec26`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/fe7ec26a7479855e6c37dd4f9b5ac86c93d8d1b8))
