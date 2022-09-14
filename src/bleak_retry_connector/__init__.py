@@ -364,26 +364,28 @@ async def close_stale_connections(
     device: BLEDevice, only_other_adapters: bool = False
 ) -> None:
     """Close stale connections."""
-    if IS_LINUX and (devices := await get_connected_devices(device)):
-        to_disconnect: list[BLEDevice] = []
-        for connected_device in devices:
-            description = ble_device_description(connected_device)
-            if only_other_adapters and not ble_device_has_changed(
-                connected_device, device
-            ):
-                _LOGGER.debug(
-                    "%s - %s: unexpectedly connected, not disconnecting since only_other_adapters is set",
-                    connected_device.name,
-                    description,
-                )
-            else:
-                _LOGGER.debug(
-                    "%s - %s: unexpectedly connected, disconnecting",
-                    connected_device.name,
-                    description,
-                )
-                to_disconnect.append(connected_device)
-        await _disconnect_devices(to_disconnect)
+    if not IS_LINUX or not (devices := await get_connected_devices(device)):
+        return
+    to_disconnect: list[BLEDevice] = []
+    for connected_device in devices:
+        description = ble_device_description(connected_device)
+        if only_other_adapters and not ble_device_has_changed(connected_device, device):
+            _LOGGER.debug(
+                "%s - %s: unexpectedly connected, not disconnecting since only_other_adapters is set",
+                connected_device.name,
+                description,
+            )
+        else:
+            _LOGGER.debug(
+                "%s - %s: unexpectedly connected, disconnecting",
+                connected_device.name,
+                description,
+            )
+            to_disconnect.append(connected_device)
+
+    if not to_disconnect:
+        return
+    await _disconnect_devices(to_disconnect)
 
 
 async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
