@@ -57,9 +57,17 @@ __all__ = [
     "BleakAbortedError",
     "BleakNotFoundError",
     "BleakDisconnectedError",
+    "BLEAK_RETRY_EXCEPTIONS",
 ]
 
+
 BLEAK_EXCEPTIONS = (AttributeError, BleakError)
+BLEAK_RETRY_EXCEPTIONS = (
+    *BLEAK_EXCEPTIONS,
+    EOFError,
+    BrokenPipeError,
+    asyncio.TimeoutError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
