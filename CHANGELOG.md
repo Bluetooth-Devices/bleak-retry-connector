@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.1 (2022-09-15)
+### Fix
+* Adjust backoff times to reduce race risk ([#40](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/40)) ([`786b442`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/786b442c5e0102b6693cf98f86770a6ad80e4157))
+
 ## v1.17.0 (2022-09-15)
 ### Feature
 * Provide a BLEAK_RETRY_EXCEPTIONS constant ([#39](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/39)) ([`55dc2e1`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/55dc2e141d9059ed544ab4f0d333d09c97f6fab0))
