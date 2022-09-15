@@ -85,7 +85,7 @@ BLEAK_TIMEOUT = 14.25
 # since the dbus connection can stall
 # so we have an additional timeout to
 # be sure we do not block forever
-BLEAK_SAFETY_TIMEOUT = 15.75
+BLEAK_SAFETY_TIMEOUT = 20
 
 # These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
@@ -543,7 +543,7 @@ async def establish_connection(
                 attempt,
                 device.rssi,
             )
-            await wait_for_disconnect(device, 0)
+            await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         except BrokenPipeError as exc:
             # BrokenPipeError is raised by dbus-next when the device disconnects
