@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.0 (2022-09-15)
+### Feature
+* Provide a BLEAK_RETRY_EXCEPTIONS constant ([#39](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/39)) ([`55dc2e1`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/55dc2e141d9059ed544ab4f0d333d09c97f6fab0))
+
 ## v1.16.0 (2022-09-14)
 ### Feature
 * Do not disconnect unexpectedly connected devices if bleak supports reusing them ([#35](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/35)) ([`be603ce`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/be603ce379f6a46ee750e7c3bcbd79d533d2a3ff))
