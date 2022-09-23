@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.2 (2022-09-23)
+### Fix
+* Add a guard to freshen_ble_device so it can be called on non-linux ([#43](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/43)) ([`4558a67`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/4558a67d4a291f6986dbc7d80fc1cfb2c9f4b4da))
+
 ## v1.17.1 (2022-09-15)
 ### Fix
 * Adjust backoff times to reduce race risk ([#40](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/40)) ([`786b442`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/786b442c5e0102b6693cf98f86770a6ad80e4157))
