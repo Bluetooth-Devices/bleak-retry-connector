@@ -237,7 +237,11 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     the RSSI changes so we may need to find the
     path to the device ourselves.
     """
-    if not isinstance(device.details, dict) or "path" not in device.details:
+    if (
+        not IS_LINUX
+        or not isinstance(device.details, dict)
+        or "path" not in device.details
+    ):
         return None
     return await get_bluez_device(device.name, device.details["path"], device.rssi)
 
