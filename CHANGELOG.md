@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v1.17.3 (2022-09-24)
+### Fix
+* Log message when freshen fails ([#44](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/44)) ([`8365937`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/83659374d661c67b81ba204bda9d0f8bf886adf1))
+
 ## v1.17.2 (2022-09-23)
 ### Fix
 * Add a guard to freshen_ble_device so it can be called on non-linux ([#43](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/43)) ([`4558a67`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/4558a67d4a291f6986dbc7d80fc1cfb2c9f4b4da))
