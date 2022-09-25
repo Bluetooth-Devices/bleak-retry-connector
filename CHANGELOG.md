@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.0.2 (2022-09-25)
+### Fix
+* Republish to fix python-semantic-release detecting the wrong version ([#47](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/47)) ([`65f3cf2`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/65f3cf23dc2eab0f666dd45bd7b82058d32e2ba2))
+
 ## v1.17.3 (2022-09-24)
 ### Fix
 * Log message when freshen fails ([#44](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/44)) ([`8365937`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/83659374d661c67b81ba204bda9d0f8bf886adf1))
