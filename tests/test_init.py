@@ -30,10 +30,6 @@ def configure_test_logging(caplog):
 @pytest.mark.asyncio
 async def test_establish_connection_works_first_time():
     class FakeBleakClient(BleakClient):
-        def __init__(self, *args, **kwargs):
-            self._backend = None
-            pass
-
         async def connect(self, *args, **kwargs):
             pass
 
