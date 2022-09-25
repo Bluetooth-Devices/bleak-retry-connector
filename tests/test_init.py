@@ -30,9 +30,6 @@ def configure_test_logging(caplog):
 @pytest.mark.asyncio
 async def test_establish_connection_works_first_time():
     class FakeBleakClient(BleakClient):
-        def __init__(self, *args, **kwargs):
-            pass
-
         async def connect(self, *args, **kwargs):
             pass
 
@@ -85,17 +82,15 @@ async def test_establish_connection_with_cached_services():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            MagicMock(),
-            "test",
-            disconnected_callback=MagicMock(),
-            cached_services=collection,
-        )
+    client = await establish_connection(
+        FakeBleakClientWithServiceCache,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+        cached_services=collection,
+    )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is collection
     await client.get_services() is collection
 
 
@@ -132,19 +127,15 @@ async def test_establish_connection_with_cached_services_that_have_vanished():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(
-        bleak_retry_connector, "BLEAK_HAS_SERVICE_CACHE_SUPPORT", False
-    ), patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            MagicMock(),
-            "test",
-            disconnected_callback=MagicMock(),
-            cached_services=collection,
-        )
+    client = await establish_connection(
+        FakeBleakClientWithServiceCache,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+        cached_services=collection,
+    )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is None
     await client.get_services() is collection
 
 
@@ -185,18 +176,16 @@ async def test_establish_connection_can_cache_services_always_patched():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            MagicMock(),
-            "test",
-            disconnected_callback=MagicMock(),
-            cached_services=collection,
-        )
+    client = await establish_connection(
+        FakeBleakClientWithServiceCache,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+        cached_services=collection,
+    )
 
-        assert isinstance(client, FakeBleakClientWithServiceCache)
-        assert client._cached_services is collection
-        await client.get_services() is collection
+    assert isinstance(client, FakeBleakClientWithServiceCache)
+    await client.get_services() is collection
 
 
 @pytest.mark.asyncio
@@ -235,18 +224,16 @@ async def test_establish_connection_can_cache_services_services_missing():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            MagicMock(),
-            "test",
-            disconnected_callback=MagicMock(),
-            cached_services=collection,
-        )
+    client = await establish_connection(
+        FakeBleakClientWithServiceCache,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+        cached_services=collection,
+    )
 
-        assert isinstance(client, FakeBleakClientWithServiceCache)
-        assert client._cached_services is None
-        await client.get_services() is collection
+    assert isinstance(client, FakeBleakClientWithServiceCache)
+    await client.get_services() is collection
 
 
 @pytest.mark.asyncio
@@ -266,20 +253,16 @@ async def test_establish_connection_can_cache_services_newer_bleak():
 
     collection = BleakGATTServiceCollection()
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True), patch.object(
-        bleak_retry_connector, "BLEAK_HAS_SERVICE_CACHE_SUPPORT", True
-    ):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            MagicMock(),
-            "test",
-            disconnected_callback=MagicMock(),
-            cached_services=collection,
-        )
+    client = await establish_connection(
+        FakeBleakClientWithServiceCache,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+        cached_services=collection,
+    )
 
-        assert isinstance(client, FakeBleakClientWithServiceCache)
-        assert client._cached_services is collection
-        await client.get_services() is collection
+    assert isinstance(client, FakeBleakClientWithServiceCache)
+    await client.get_services() is collection
 
 
 @pytest.mark.asyncio
@@ -297,17 +280,14 @@ async def test_establish_connection_with_dangerous_use_cached_services():
     class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
         """Fake BleakClientWithServiceCache."""
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            MagicMock(),
-            "test",
-            disconnected_callback=MagicMock(),
-        )
+    client = await establish_connection(
+        FakeBleakClientWithServiceCache,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+    )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is not None
-    await client.get_services() is client._cached_services
 
 
 @pytest.mark.asyncio
@@ -325,17 +305,14 @@ async def test_establish_connection_without_dangerous_use_cached_services():
     class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
         """Fake BleakClientWithServiceCache."""
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", False):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            MagicMock(),
-            "test",
-            disconnected_callback=MagicMock(),
-        )
+    client = await establish_connection(
+        FakeBleakClientWithServiceCache,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+    )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is not None
-    await client.get_services() is not client._cached_services
 
 
 @pytest.mark.asyncio
@@ -694,7 +671,8 @@ async def test_establish_connection_better_rssi_available():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -710,7 +688,6 @@ async def test_establish_connection_better_rssi_available():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is None
     await client.get_services() is collection
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
@@ -802,7 +779,7 @@ async def test_establish_connection_other_adapter_already_connected():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -818,7 +795,6 @@ async def test_establish_connection_other_adapter_already_connected():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is None
     await client.get_services() is collection
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
@@ -870,7 +846,7 @@ async def test_establish_connection_device_disappeared():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "CAN_CACHE_SERVICES", True):
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -885,7 +861,6 @@ async def test_establish_connection_device_disappeared():
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is None
     await client.get_services() is collection
 
 
@@ -945,9 +920,7 @@ async def test_get_device():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True), patch.object(
-        bleak_retry_connector, "CAN_CACHE_SERVICES", True
-    ):
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is not None
@@ -1056,9 +1029,7 @@ async def test_get_device_already_connected():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True), patch.object(
-        bleak_retry_connector, "CAN_CACHE_SERVICES", True
-    ):
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
         device = await get_device("BD:24:6F:85:AA:61")
 
     assert device is not None
@@ -1070,35 +1041,7 @@ async def test_get_device_already_connected():
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_better_rssi_available_already_connected_no_already_connected_supported():
-
-    device: BLEDevice | None = None
-
-    class FakeBleakClient(BleakClient):
-        def __init__(self, ble_device_or_address, *args, **kwargs):
-            ble_device_or_address.metadata["delegate"] = 0
-            super().__init__(ble_device_or_address, *args, **kwargs)
-            nonlocal device
-            device = ble_device_or_address
-            self._device_path = "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
-
-        async def connect(self, *args, **kwargs):
-            return True
-
-        async def disconnect(self, *args, **kwargs):
-            pass
-
-        async def get_services(self, *args, **kwargs):
-            return []
-
-    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
-        """Fake BleakClientWithServiceCache."""
-
-        async def get_services(self, *args, **kwargs):
-            return []
-
-    collection = BleakGATTServiceCollection()
-
+async def test_get_device_not_there():
     class FakeBluezManager:
         def __init__(self):
             self._properties = {
@@ -1118,7 +1061,6 @@ async def test_establish_connection_better_rssi_available_already_connected_no_a
                     "Primary": True,
                     "Characteristics": [],
                     defs.DEVICE_INTERFACE: {
-                        "Connected": True,
                         "Address": "FA:23:9D:AA:45:46",
                         "Alias": "FA:23:9D:AA:45:46",
                         "RSSI": -79,
@@ -1130,7 +1072,6 @@ async def test_establish_connection_better_rssi_available_already_connected_no_a
                     "Primary": True,
                     "Characteristics": [],
                     defs.DEVICE_INTERFACE: {
-                        "Connected": True,
                         "Address": "FA:23:9D:AA:45:46",
                         "Alias": "FA:23:9D:AA:45:46",
                         "RSSI": -80,
@@ -1155,57 +1096,10 @@ async def test_establish_connection_better_rssi_available_already_connected_no_a
     )
     bleak_retry_connector.defs = defs
 
-    mock_device = BLEDevice(
-        "aa:bb:cc:dd:ee:ff",
-        "name",
-        {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-        -80,
-        delegate=False,
-    )
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+        device = await get_device("00:00:00:00:00:00")
 
-    connected = await get_connected_devices(mock_device)
-    assert len(connected) == 2
-    assert isinstance(connected[0], BLEDevice)
-    assert connected[0].details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
-    assert connected[1].details["path"] == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
-
-    with patch(
-        "bleak_retry_connector._disconnect_devices"
-    ) as mock_disconnect_device, patch.object(
-        bleak_retry_connector, "IS_LINUX", True
-    ), patch.object(
-        bleak_retry_connector, "CAN_CACHE_SERVICES", True
-    ), patch.object(
-        bleak_retry_connector, "BLEAK_HAS_ALREADY_CONNECTED_SUPPORT", False
-    ):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            BLEDevice(
-                "FA:23:9D:AA:45:46",
-                "name",
-                {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                -80,
-                delegate=False,
-            ),
-            "test",
-            disconnected_callback=MagicMock(),
-            cached_services=collection,
-        )
-
-    assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is None
-    await client.get_services() is collection
-    assert device is not None
-    assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
-    assert len(mock_disconnect_device.mock_calls) == 1
-    assert (
-        mock_disconnect_device.mock_calls[0][1][0][0].details["path"]
-        == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
-    )
-    assert (
-        mock_disconnect_device.mock_calls[0][1][0][1].details["path"]
-        == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
-    )
+    assert device is None
 
 
 @pytest.mark.asyncio
@@ -1310,13 +1204,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     with patch(
         "bleak_retry_connector._disconnect_devices"
-    ) as mock_disconnect_device, patch.object(
-        bleak_retry_connector, "IS_LINUX", True
-    ), patch.object(
-        bleak_retry_connector, "CAN_CACHE_SERVICES", True
-    ), patch.object(
-        bleak_retry_connector, "BLEAK_HAS_ALREADY_CONNECTED_SUPPORT", True
-    ):
+    ) as mock_disconnect_device, patch.object(bleak_retry_connector, "IS_LINUX", True):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -1332,7 +1220,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is None
     await client.get_services() is collection
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
@@ -1445,13 +1332,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     with patch(
         "bleak_retry_connector._disconnect_devices"
-    ) as mock_disconnect_device, patch.object(
-        bleak_retry_connector, "IS_LINUX", True
-    ), patch.object(
-        bleak_retry_connector, "CAN_CACHE_SERVICES", True
-    ), patch.object(
-        bleak_retry_connector, "BLEAK_HAS_ALREADY_CONNECTED_SUPPORT", True
-    ):
+    ) as mock_disconnect_device, patch.object(bleak_retry_connector, "IS_LINUX", True):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -1467,7 +1348,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
         )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
-    assert client._cached_services is not None
     await client.get_services() is collection
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
