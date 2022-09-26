@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.2 (2022-09-26)
+### Fix
+* Adjust stale comment in freshen_ble_device ([#50](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/50)) ([`6cabc1f`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6cabc1f557629c7591cb1cef482ae5d9791349b5))
+
 ## v2.1.1 (2022-09-26)
 ### Fix
 * Set disconnected_callback in the constructor for newer bleak compat ([#49](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/49)) ([`e2e25b3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/e2e25b3d6077aac7c766ecb844b0b492e66efff1))
