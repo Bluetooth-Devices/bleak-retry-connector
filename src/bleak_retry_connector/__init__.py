@@ -46,6 +46,7 @@ __all__ = [
     "establish_connection",
     "close_stale_connections",
     "get_device",
+    "get_device_by_adapter",
     "BleakClientWithServiceCache",
     "BleakAbortedError",
     "BleakNotFoundError",
@@ -169,9 +170,9 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     return await get_bluez_device(device.name, device.details["path"], device.rssi)
 
 
-def address_to_bluez_path(address: str) -> str:
+def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
     """Convert an address to a BlueZ path."""
-    return f"/org/bluez/hciX/dev_{address.upper().replace(':', '_')}"
+    return f"/org/bluez/{adapter or 'hciX'}/dev_{address.upper().replace(':', '_')}"
 
 
 async def get_device(address: str) -> BLEDevice | None:
@@ -181,6 +182,21 @@ async def get_device(address: str) -> BLEDevice | None:
     return await get_bluez_device(
         address, address_to_bluez_path(address), _log_disappearance=False
     )
+
+
+async def get_device_by_adapter(address: str, adapter: str) -> BLEDevice | None:
+    """Get the device by adapter and address."""
+    if not IS_LINUX:
+        return None
+    with contextlib.suppress(Exception):
+        manager = await get_global_bluez_manager()
+        device_path = address_to_bluez_path(address, adapter)
+        properties = manager._properties
+        if device_path in properties and (
+            device_props := properties[device_path].get(defs.DEVICE_INTERFACE)
+        ):
+            return ble_device_from_properties(device_path, device_props)
+    return None
 
 
 async def get_bluez_device(

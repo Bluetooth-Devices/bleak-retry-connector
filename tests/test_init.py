@@ -19,6 +19,7 @@ from bleak_retry_connector import (
     establish_connection,
     get_connected_devices,
     get_device,
+    get_device_by_adapter,
 )
 
 
@@ -1356,3 +1357,69 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
         mock_disconnect_device.mock_calls[0][1][0][0].details["path"]
         == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
     )
+
+
+@pytest.mark.asyncio
+async def test_get_device_by_adapter():
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -30,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -79,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci2/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -80,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci3/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -31,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.defs = defs
+
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+        device_hci0 = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0")
+        device_hci1 = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci1")
+
+    assert device_hci0 is not None
+    assert device_hci0.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
+    assert device_hci1 is not None
+    assert device_hci1.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
