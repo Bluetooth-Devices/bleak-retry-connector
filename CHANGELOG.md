@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.3 (2022-09-26)
+### Fix
+* Bump dbus-fast ([#51](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/51)) ([`68167a3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/68167a3eee222c3b0c241616c302aacacb8a3cdd))
+
 ## v2.1.2 (2022-09-26)
 ### Fix
 * Adjust stale comment in freshen_ble_device ([#50](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/50)) ([`6cabc1f`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6cabc1f557629c7591cb1cef482ae5d9791349b5))
