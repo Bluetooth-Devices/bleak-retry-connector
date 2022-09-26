@@ -114,7 +114,7 @@ toml = ["tomli"]
 
 [[package]]
 name = "dbus-fast"
-version = "1.4.0"
+version = "1.14.0"
 description = "A faster version of dbus-next"
 category = "main"
 optional = false
@@ -610,7 +610,7 @@ docs = ["myst-parser", "Sphinx", "sphinx-rtd-theme"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "f646bc8e0dc6a76f920e77af21bba4a245427c42001feb6e53ee5d252379355c"
+content-hash = "44f80ffa6f7a800538c760bfeeef1c6dc10c7c9542a77b6434a70bc2c8f8cade"
 
 [metadata.files]
 alabaster = [
@@ -703,8 +703,8 @@ coverage = [
     {file = "coverage-6.4.3.tar.gz", hash = "sha256:ec2ae1f398e5aca655b7084392d23e80efb31f7a660d2eecf569fb9f79b3fb94"},
 ]
 dbus-fast = [
-    {file = "dbus-fast-1.4.0.tar.gz", hash = "sha256:292fec563d27f39bdc46d0a7d03320ff2d77f5f336bd8f564fe186946a213764"},
-    {file = "dbus_fast-1.4.0-py3-none-any.whl", hash = "sha256:3fea12c425587bb2b552e60e40bfcda2d3b94e77a8b2a30ec07c5bbc187bc984"},
+    {file = "dbus-fast-1.14.0.tar.gz", hash = "sha256:cd3c3017f5647b5190f228f00554ee1672b7623c2f581f019a042e0edb41dbc0"},
+    {file = "dbus_fast-1.14.0-py3-none-any.whl", hash = "sha256:fb09586c33ae83e83cff3ce3cd3fda2453f77bccfa7f995449ab566626eb652f"},
 ]
 docutils = [
     {file = "docutils-0.17.1-py2.py3-none-any.whl", hash = "sha256:cf316c8370a737a022b72b56874f6602acf974a37a9fba42ec2876387549fc61"},
