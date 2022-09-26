@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.0 (2022-09-26)
+### Feature
+* Add get_device_by_adapter api ([#48](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/48)) ([`238b1f0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/238b1f09b07e4e65dbf79472adbe9f7932f553fc))
+
 ## v2.0.2 (2022-09-25)
 ### Fix
 * Republish to fix python-semantic-release detecting the wrong version ([#47](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/47)) ([`65f3cf2`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/65f3cf23dc2eab0f666dd45bd7b82058d32e2ba2))
