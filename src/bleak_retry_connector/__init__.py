@@ -448,9 +448,9 @@ async def establish_connection(
         )
 
         if create_client:
-            client = client_class(device, **kwargs)
-            if disconnected_callback:
-                client.set_disconnected_callback(disconnected_callback)
+            client = client_class(
+                device, disconnected_callback=disconnected_callback, **kwargs
+            )
             create_client = False
 
         if IS_LINUX:
