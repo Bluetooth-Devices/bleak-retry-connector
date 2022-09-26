@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.1 (2022-09-26)
+### Fix
+* Set disconnected_callback in the constructor for newer bleak compat ([#49](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/49)) ([`e2e25b3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/e2e25b3d6077aac7c766ecb844b0b492e66efff1))
+
 ## v2.1.0 (2022-09-26)
 ### Feature
 * Add get_device_by_adapter api ([#48](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/48)) ([`238b1f0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/238b1f09b07e4e65dbf79472adbe9f7932f553fc))
