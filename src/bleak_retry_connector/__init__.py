@@ -156,10 +156,9 @@ def _get_possible_paths(path: str) -> Generator[str, None, None]:
 async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     """Freshen the device.
 
-    If the device is from BlueZ it may be stale
-    because bleak does not send callbacks if only
-    the RSSI changes so we may need to find the
-    path to the device ourselves.
+    There may be a better path to the device on another adapter
+    that was seen after the code that provided the BLEDevice to
+    the establish_connection function was run.
     """
     if (
         not IS_LINUX
