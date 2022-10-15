@@ -1333,7 +1333,11 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     with patch(
         "bleak_retry_connector._disconnect_devices"
-    ) as mock_disconnect_device, patch.object(bleak_retry_connector, "IS_LINUX", True):
+    ) as mock_disconnect_device, patch(
+        "bleak.get_platform_client_backend_type"
+    ), patch.object(
+        bleak_retry_connector, "IS_LINUX", True
+    ):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
