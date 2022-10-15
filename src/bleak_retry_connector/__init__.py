@@ -278,7 +278,7 @@ def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
         props["Address"],
         props["Alias"],
         {"path": path, "props": props},
-        props.get("RSSI", UNREACHABLE_RSSI),
+        props.get("RSSI") or UNREACHABLE_RSSI,
         uuids=props.get("UUIDs", []),
         manufacturer_data={
             k: bytes(v) for k, v in props.get("ManufacturerData", {}).items()
