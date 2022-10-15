@@ -30,7 +30,7 @@ if IS_LINUX:
             get_global_bluez_manager,
         )
 
-UNREACHABLE_RSSI = -1000
+UNREACHABLE_RSSI = -127
 
 
 # Make sure bleak and dbus-next have time
@@ -166,7 +166,9 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
         or "path" not in device.details
     ):
         return None
-    return await get_bluez_device(device.name, device.details["path"], device.rssi)
+    return await get_bluez_device(
+        device.name, device.details["path"], _get_rssi(device)
+    )
 
 
 def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
@@ -239,7 +241,7 @@ async def get_bluez_device(
                 # cause the device to be used anyways.
                 continue
 
-            rssi = device_props.get("RSSI")
+            rssi = device_props.get("RSSI") or UNREACHABLE_RSSI
             if rssi_to_beat != UNREACHABLE_RSSI and (
                 not rssi
                 or rssi - RSSI_SWITCH_THRESHOLD < device_rssi
@@ -247,7 +249,7 @@ async def get_bluez_device(
             ):
                 continue
             best_path = path
-            rssi_to_beat = rssi or UNREACHABLE_RSSI
+            rssi_to_beat = rssi
             _LOGGER.debug(
                 "%s - %s: Found path %s with better RSSI %s",
                 name,
@@ -276,7 +278,7 @@ def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
         props["Address"],
         props["Alias"],
         {"path": path, "props": props},
-        props.get("RSSI", UNREACHABLE_RSSI),
+        props.get("RSSI") or UNREACHABLE_RSSI,
         uuids=props.get("UUIDs", []),
         manufacturer_data={
             k: bytes(v) for k, v in props.get("ManufacturerData", {}).items()
@@ -380,6 +382,13 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         )
 
 
+def _get_rssi(device: BLEDevice) -> int:
+    """Get the RSSI for the device."""
+    if not isinstance(device.details, dict) or "props" not in device.details:
+        return device.rssi
+    return device.details["props"].get("RSSI") or device.rssi or UNREACHABLE_RSSI
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
@@ -419,6 +428,8 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     create_client = True
+    debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
+    rssi: int | None = None
 
     while True:
         attempt += 1
@@ -438,13 +449,15 @@ async def establish_connection(
 
         description = ble_device_description(device)
 
-        _LOGGER.debug(
-            "%s - %s: Connecting (attempt: %s, last rssi: %s)",
-            name,
-            description,
-            attempt,
-            device.rssi,
-        )
+        if debug_enabled:
+            rssi = _get_rssi(device)
+            _LOGGER.debug(
+                "%s - %s: Connecting (attempt: %s, last rssi: %s)",
+                name,
+                description,
+                attempt,
+                rssi,
+            )
 
         if create_client:
             client = client_class(
@@ -468,13 +481,14 @@ async def establish_connection(
                 )
         except asyncio.TimeoutError as exc:
             timeouts += 1
-            _LOGGER.debug(
-                "%s - %s: Timed out trying to connect (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                attempt,
-                device.rssi,
-            )
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Timed out trying to connect (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    attempt,
+                    rssi,
+                )
             await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         except BrokenPipeError as exc:
@@ -489,26 +503,28 @@ async def establish_connection(
             #   self.offset += self.sock.send(self.buf[self.offset:])
             # BrokenPipeError: [Errno 32] Broken pipe
             transient_errors += 1
-            _LOGGER.debug(
-                "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                str(exc),
-                attempt,
-                device.rssi,
-            )
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    str(exc),
+                    attempt,
+                    rssi,
+                )
             _raise_if_needed(name, description, exc)
         except EOFError as exc:
             transient_errors += 1
-            _LOGGER.debug(
-                "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                str(exc),
-                BLEAK_DBUS_BACKOFF_TIME,
-                attempt,
-                device.rssi,
-            )
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    str(exc),
+                    BLEAK_DBUS_BACKOFF_TIME,
+                    attempt,
+                    rssi,
+                )
             await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
@@ -518,37 +534,40 @@ async def establish_connection(
             else:
                 connect_errors += 1
             if isinstance(exc, BleakDBusError):
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    description,
-                    bleak_error,
-                    BLEAK_DBUS_BACKOFF_TIME,
-                    attempt,
-                    device.rssi,
-                )
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                        name,
+                        description,
+                        bleak_error,
+                        BLEAK_DBUS_BACKOFF_TIME,
+                        attempt,
+                        rssi,
+                    )
                 await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             else:
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    description,
-                    bleak_error,
-                    BLEAK_BACKOFF_TIME,
-                    attempt,
-                    device.rssi,
-                )
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                        name,
+                        description,
+                        bleak_error,
+                        BLEAK_BACKOFF_TIME,
+                        attempt,
+                        rssi,
+                    )
                 await wait_for_disconnect(device, BLEAK_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         else:
-            _LOGGER.debug(
-                "%s - %s: Connected (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                attempt,
-                device.rssi,
-            )
-            return client
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Connected (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    attempt,
+                    rssi,
+                )
+                return client
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)
