@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.3.0 (2022-10-15)
+### Feature
+* Add a retry_bluetooth_connection_error decorator ([#53](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/53)) ([`8bb706d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/8bb706d09fa2cdaa3e2a3caf830dc92b26add4cc))
+
 ## v2.2.0 (2022-10-15)
 ### Feature
 * Update for new bleak 19 ([#52](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/52)) ([`9baafa5`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/9baafa5cbffa9fcd8ee8bd3040014c0d06a2085c))
