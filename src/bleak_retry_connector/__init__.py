@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 __version__ = "2.2.0"
 
 
@@ -9,7 +11,7 @@ import logging
 import platform
 import time
 from collections.abc import Callable, Generator
-from typing import Any
+from typing import Any, TypeVar
 
 import async_timeout
 from bleak import BleakClient, BleakError
@@ -20,6 +22,7 @@ from bleak.exc import BleakDBusError
 DISCONNECT_TIMEOUT = 5
 
 IS_LINUX = platform.system() == "Linux"
+DEFAULT_ATTEMPTS = 2
 
 if IS_LINUX:
     from .dbus import disconnect_devices
@@ -47,6 +50,7 @@ __all__ = [
     "close_stale_connections",
     "get_device",
     "get_device_by_adapter",
+    "retry_bluetooth_connection_error",
     "BleakClientWithServiceCache",
     "BleakAbortedError",
     "BleakNotFoundError",
@@ -174,6 +178,15 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
 def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
     """Convert an address to a BlueZ path."""
     return f"/org/bluez/{adapter or 'hciX'}/dev_{address.upper().replace(':', '_')}"
+
+
+def calculate_backoff_time(exc: Exception) -> float:
+    """Calculate the backoff time based on the exception."""
+    if isinstance(
+        exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
+    ):
+        return BLEAK_DBUS_BACKOFF_TIME
+    return BLEAK_BACKOFF_TIME
 
 
 async def get_device(address: str) -> BLEDevice | None:
@@ -489,7 +502,8 @@ async def establish_connection(
                     attempt,
                     rssi,
                 )
-            await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
+            backoff_time = calculate_backoff_time(exc)
+            await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, description, exc)
         except BrokenPipeError as exc:
             # BrokenPipeError is raised by dbus-next when the device disconnects
@@ -515,17 +529,18 @@ async def establish_connection(
             _raise_if_needed(name, description, exc)
         except EOFError as exc:
             transient_errors += 1
+            backoff_time = calculate_backoff_time(exc)
             if debug_enabled:
                 _LOGGER.debug(
                     "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
                     name,
                     description,
                     str(exc),
-                    BLEAK_DBUS_BACKOFF_TIME,
+                    backoff_time,
                     attempt,
                     rssi,
                 )
-            await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
+            await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
@@ -533,30 +548,18 @@ async def establish_connection(
                 transient_errors += 1
             else:
                 connect_errors += 1
-            if isinstance(exc, BleakDBusError):
-                if debug_enabled:
-                    _LOGGER.debug(
-                        "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                        name,
-                        description,
-                        bleak_error,
-                        BLEAK_DBUS_BACKOFF_TIME,
-                        attempt,
-                        rssi,
-                    )
-                await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
-            else:
-                if debug_enabled:
-                    _LOGGER.debug(
-                        "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                        name,
-                        description,
-                        bleak_error,
-                        BLEAK_BACKOFF_TIME,
-                        attempt,
-                        rssi,
-                    )
-                await wait_for_disconnect(device, BLEAK_BACKOFF_TIME)
+            backoff_time = calculate_backoff_time(exc)
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    bleak_error,
+                    backoff_time,
+                    attempt,
+                    rssi,
+                )
+            await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, description, exc)
         else:
             if debug_enabled:
@@ -573,3 +576,39 @@ async def establish_connection(
         await asyncio.sleep(0)
 
     raise RuntimeError("This should never happen")
+
+
+WrapFuncType = TypeVar("WrapFuncType", bound=Callable[..., Any])
+
+
+def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFuncType:
+    """Define a wrapper to retry on bluetooth connection error."""
+
+    def _decorator_retry_bluetooth_connection_error(func: WrapFuncType) -> WrapFuncType:
+        """Define a wrapper to retry on bleak error.
+
+        The accessory is allowed to disconnect us any time so
+        we need to retry the operation.
+        """
+
+        async def _async_wrap_bluetooth_connection_error_retry(
+            *args: Any, **kwargs: Any
+        ) -> Any:
+            for attempt in range(attempts):
+                try:
+                    return await func(*args, **kwargs)
+                except BLEAK_EXCEPTIONS as ex:
+                    backoff_time = calculate_backoff_time(ex)
+                    if attempt == attempts - 1:
+                        raise
+                    _LOGGER.debug(
+                        "Bleak error calling %s, backing off: %s, retrying...",
+                        func,
+                        backoff_time,
+                        exc_info=True,
+                    )
+                    await asyncio.sleep(backoff_time)
+
+        return cast(WrapFuncType, _async_wrap_bluetooth_connection_error_retry)
+
+    return cast(WrapFuncType, _decorator_retry_bluetooth_connection_error)
