@@ -7,19 +7,24 @@ from bleak import BleakClient, BleakError
 from bleak.backends.bluezdbus import defs
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
+from bleak.exc import BleakDBusError
 
 import bleak_retry_connector
 from bleak_retry_connector import (
+    BLEAK_BACKOFF_TIME,
+    BLEAK_DBUS_BACKOFF_TIME,
     MAX_TRANSIENT_ERRORS,
     BleakAbortedError,
     BleakClientWithServiceCache,
     BleakConnectionError,
     BleakNotFoundError,
     ble_device_has_changed,
+    calculate_backoff_time,
     establish_connection,
     get_connected_devices,
     get_device,
     get_device_by_adapter,
+    retry_bluetooth_connection_error,
 )
 
 
@@ -1427,3 +1432,48 @@ async def test_get_device_by_adapter():
     assert device_hci0.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
     assert device_hci1 is not None
     assert device_hci1.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
+
+
+def test_calculate_backoff_time():
+    """Test that the backoff time is calculated correctly."""
+    assert calculate_backoff_time(Exception()) == BLEAK_BACKOFF_TIME
+    assert (
+        calculate_backoff_time(BleakDBusError(MagicMock(), MagicMock()))
+        == BLEAK_DBUS_BACKOFF_TIME
+    )
+
+
+@pytest.mark.asyncio
+async def test_retry_bluetooth_connection_error():
+    """Test that the retry_bluetooth_connection_error decorator works correctly."""
+
+    @retry_bluetooth_connection_error()  # type: ignore[misc]
+    async def test_function():
+        raise BleakDBusError(MagicMock(), MagicMock())
+
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time"
+    ) as mock_calculate_backoff_time:
+        mock_calculate_backoff_time.return_value = 0
+        with pytest.raises(BleakDBusError):
+            await test_function()
+
+        assert mock_calculate_backoff_time.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_retry_bluetooth_connection_error_non_default_max_attempts():
+    """Test that the retry_bluetooth_connection_error decorator works correctly with a different number of retries."""
+
+    @retry_bluetooth_connection_error(4)  # type: ignore[misc]
+    async def test_function():
+        raise BleakDBusError(MagicMock(), MagicMock())
+
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time"
+    ) as mock_calculate_backoff_time:
+        mock_calculate_backoff_time.return_value = 0
+        with pytest.raises(BleakDBusError):
+            await test_function()
+
+        assert mock_calculate_backoff_time.call_count == 4
