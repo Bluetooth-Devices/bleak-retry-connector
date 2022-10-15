@@ -166,7 +166,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
         or "path" not in device.details
     ):
         return None
-    return await get_bluez_device(device.name, device.details["path"], device.rssi)
+    return await get_bluez_device(device.name, device.details["path"])
 
 
 def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
