@@ -426,6 +426,8 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     create_client = True
+    debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
+    rssi: int | None = None
 
     while True:
         attempt += 1
@@ -445,15 +447,15 @@ async def establish_connection(
 
         description = ble_device_description(device)
 
-        rssi = _get_rssi(device)
-
-        _LOGGER.debug(
-            "%s - %s: Connecting (attempt: %s, last rssi: %s)",
-            name,
-            description,
-            attempt,
-            rssi,
-        )
+        if debug_enabled:
+            rssi = _get_rssi(device)
+            _LOGGER.debug(
+                "%s - %s: Connecting (attempt: %s, last rssi: %s)",
+                name,
+                description,
+                attempt,
+                rssi,
+            )
 
         if create_client:
             client = client_class(
@@ -477,13 +479,14 @@ async def establish_connection(
                 )
         except asyncio.TimeoutError as exc:
             timeouts += 1
-            _LOGGER.debug(
-                "%s - %s: Timed out trying to connect (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                attempt,
-                rssi,
-            )
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Timed out trying to connect (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    attempt,
+                    rssi,
+                )
             await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         except BrokenPipeError as exc:
@@ -498,26 +501,28 @@ async def establish_connection(
             #   self.offset += self.sock.send(self.buf[self.offset:])
             # BrokenPipeError: [Errno 32] Broken pipe
             transient_errors += 1
-            _LOGGER.debug(
-                "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                str(exc),
-                attempt,
-                rssi,
-            )
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    str(exc),
+                    attempt,
+                    rssi,
+                )
             _raise_if_needed(name, description, exc)
         except EOFError as exc:
             transient_errors += 1
-            _LOGGER.debug(
-                "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                str(exc),
-                BLEAK_DBUS_BACKOFF_TIME,
-                attempt,
-                rssi,
-            )
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    str(exc),
+                    BLEAK_DBUS_BACKOFF_TIME,
+                    attempt,
+                    rssi,
+                )
             await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
@@ -527,37 +532,40 @@ async def establish_connection(
             else:
                 connect_errors += 1
             if isinstance(exc, BleakDBusError):
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    description,
-                    bleak_error,
-                    BLEAK_DBUS_BACKOFF_TIME,
-                    attempt,
-                    rssi,
-                )
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                        name,
+                        description,
+                        bleak_error,
+                        BLEAK_DBUS_BACKOFF_TIME,
+                        attempt,
+                        rssi,
+                    )
                 await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             else:
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    description,
-                    bleak_error,
-                    BLEAK_BACKOFF_TIME,
-                    attempt,
-                    rssi,
-                )
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                        name,
+                        description,
+                        bleak_error,
+                        BLEAK_BACKOFF_TIME,
+                        attempt,
+                        rssi,
+                    )
                 await wait_for_disconnect(device, BLEAK_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
         else:
-            _LOGGER.debug(
-                "%s - %s: Connected (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                attempt,
-                rssi,
-            )
-            return client
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Connected (attempt: %s, last rssi: %s)",
+                    name,
+                    description,
+                    attempt,
+                    rssi,
+                )
+                return client
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)
