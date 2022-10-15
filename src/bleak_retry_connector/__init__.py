@@ -30,7 +30,7 @@ if IS_LINUX:
             get_global_bluez_manager,
         )
 
-UNREACHABLE_RSSI = -1000
+UNREACHABLE_RSSI = -127
 
 
 # Make sure bleak and dbus-next have time
@@ -380,6 +380,13 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         )
 
 
+def _get_rssi(device: BLEDevice) -> int:
+    """Get the RSSI for the device."""
+    if not isinstance(device.details, dict) or "props" not in device.details:
+        return device.rssi
+    return device.details["props"].get("RSSI") or device.rssi or UNREACHABLE_RSSI
+
+
 async def establish_connection(
     client_class: type[BleakClient],
     device: BLEDevice,
@@ -438,12 +445,14 @@ async def establish_connection(
 
         description = ble_device_description(device)
 
+        rssi = _get_rssi(device)
+
         _LOGGER.debug(
             "%s - %s: Connecting (attempt: %s, last rssi: %s)",
             name,
             description,
             attempt,
-            device.rssi,
+            rssi,
         )
 
         if create_client:
@@ -473,7 +482,7 @@ async def establish_connection(
                 name,
                 description,
                 attempt,
-                device.rssi,
+                rssi,
             )
             await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
@@ -495,7 +504,7 @@ async def establish_connection(
                 description,
                 str(exc),
                 attempt,
-                device.rssi,
+                rssi,
             )
             _raise_if_needed(name, description, exc)
         except EOFError as exc:
@@ -507,7 +516,7 @@ async def establish_connection(
                 str(exc),
                 BLEAK_DBUS_BACKOFF_TIME,
                 attempt,
-                device.rssi,
+                rssi,
             )
             await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
@@ -525,7 +534,7 @@ async def establish_connection(
                     bleak_error,
                     BLEAK_DBUS_BACKOFF_TIME,
                     attempt,
-                    device.rssi,
+                    rssi,
                 )
                 await wait_for_disconnect(device, BLEAK_DBUS_BACKOFF_TIME)
             else:
@@ -536,7 +545,7 @@ async def establish_connection(
                     bleak_error,
                     BLEAK_BACKOFF_TIME,
                     attempt,
-                    device.rssi,
+                    rssi,
                 )
                 await wait_for_disconnect(device, BLEAK_BACKOFF_TIME)
             _raise_if_needed(name, description, exc)
@@ -546,7 +555,7 @@ async def establish_connection(
                 name,
                 description,
                 attempt,
-                device.rssi,
+                rssi,
             )
             return client
         # Ensure the disconnect callback
