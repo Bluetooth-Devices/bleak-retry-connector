@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.3.1 (2022-10-18)
+### Fix
+* Do not attempt to disconnect non-bluez bledevices ([#54](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/54)) ([`54b6c84`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/54b6c8446629a216eeaf570f1677b67b38b6f081))
+
 ## v2.3.0 (2022-10-15)
 ### Feature
 * Add a retry_bluetooth_connection_error decorator ([#53](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/53)) ([`8bb706d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/8bb706d09fa2cdaa3e2a3caf830dc92b26add4cc))
