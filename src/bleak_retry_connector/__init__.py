@@ -33,7 +33,7 @@ if IS_LINUX:
             get_global_bluez_manager,
         )
 
-UNREACHABLE_RSSI = -127
+NO_RSSI_VALUE = -127
 
 
 # Make sure bleak and dbus-next have time
@@ -56,6 +56,7 @@ __all__ = [
     "BleakNotFoundError",
     "BLEAK_RETRY_EXCEPTIONS",
     "RSSI_SWITCH_THRESHOLD",
+    "NO_RSSI_VALUE",
 ]
 
 
@@ -218,7 +219,7 @@ async def get_bluez_device(
 ) -> BLEDevice | None:
     """Get a BLEDevice object for a BlueZ DBus path."""
     best_path = device_path = path
-    rssi_to_beat: int = rssi or UNREACHABLE_RSSI
+    rssi_to_beat: int = rssi or NO_RSSI_VALUE
 
     try:
         manager = await get_global_bluez_manager()
@@ -231,7 +232,7 @@ async def get_bluez_device(
             # anything over the current path
             if _log_disappearance:
                 _LOGGER.debug("%s - %s: Device has disappeared", name, device_path)
-            rssi_to_beat = UNREACHABLE_RSSI
+            rssi_to_beat = NO_RSSI_VALUE
 
         for path in _get_possible_paths(device_path):
             if path not in properties or not (
@@ -254,9 +255,9 @@ async def get_bluez_device(
                 # cause the device to be used anyways.
                 continue
 
-            alternate_device_rssi: int = device_props.get("RSSI") or UNREACHABLE_RSSI
+            alternate_device_rssi: int = device_props.get("RSSI") or NO_RSSI_VALUE
             if (
-                rssi_to_beat != UNREACHABLE_RSSI
+                rssi_to_beat != NO_RSSI_VALUE
                 and alternate_device_rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat
             ):
                 continue
@@ -291,7 +292,7 @@ def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
         props["Address"],
         props["Alias"],
         {"path": path, "props": props},
-        props.get("RSSI") or UNREACHABLE_RSSI,
+        props.get("RSSI") or NO_RSSI_VALUE,
         uuids=props.get("UUIDs", []),
         manufacturer_data={
             k: bytes(v) for k, v in props.get("ManufacturerData", {}).items()
@@ -399,7 +400,7 @@ def _get_rssi(device: BLEDevice) -> int:
     """Get the RSSI for the device."""
     if not isinstance(device.details, dict) or "props" not in device.details:
         return device.rssi
-    return device.details["props"].get("RSSI") or device.rssi or UNREACHABLE_RSSI
+    return device.details["props"].get("RSSI") or device.rssi or NO_RSSI_VALUE
 
 
 async def establish_connection(
