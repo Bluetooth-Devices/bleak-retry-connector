@@ -5,7 +5,7 @@ import contextlib
 import async_timeout
 from bleak.backends.bluezdbus import defs
 from bleak.backends.device import BLEDevice
-from dbus_fast.aio import MessageBus
+from dbus_fast.aio.message_bus import MessageBus
 from dbus_fast.constants import BusType
 from dbus_fast.message import Message
 
@@ -22,7 +22,7 @@ async def disconnect_devices(devices: list[BLEDevice]) -> None:
     if not valid_devices:
         return
     bus = await MessageBus(bus_type=BusType.SYSTEM, negotiate_unix_fd=True).connect()
-    for device in devices:
+    for device in valid_devices:
         with contextlib.suppress(Exception):
             async with async_timeout.timeout(DISCONNECT_TIMEOUT):
                 await bus.call(

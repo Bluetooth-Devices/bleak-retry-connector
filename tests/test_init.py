@@ -677,7 +677,9 @@ async def test_establish_connection_better_rssi_available():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector, "IS_LINUX", True), patch(
+        "bleak.get_platform_client_backend_type"
+    ):
 
         client = await establish_connection(
             FakeBleakClientWithServiceCache,

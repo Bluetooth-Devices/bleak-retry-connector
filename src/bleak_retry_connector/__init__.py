@@ -14,10 +14,10 @@ from collections.abc import Callable, Generator
 from typing import Any, TypeVar
 
 import async_timeout
-from bleak import BleakClient, BleakError
+from bleak import BleakClient
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
-from bleak.exc import BleakDBusError
+from bleak.exc import BleakDBusError, BleakError
 
 DISCONNECT_TIMEOUT = 5
 
@@ -33,7 +33,7 @@ if IS_LINUX:
             get_global_bluez_manager,
         )
 
-UNREACHABLE_RSSI = -127
+NO_RSSI_VALUE = -127
 
 
 # Make sure bleak and dbus-next have time
@@ -43,7 +43,7 @@ BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_BACKOFF_TIME = 0.1
 
 
-RSSI_SWITCH_THRESHOLD = 6
+RSSI_SWITCH_THRESHOLD = 5
 
 __all__ = [
     "establish_connection",
@@ -54,8 +54,9 @@ __all__ = [
     "BleakClientWithServiceCache",
     "BleakAbortedError",
     "BleakNotFoundError",
-    "BleakDisconnectedError",
     "BLEAK_RETRY_EXCEPTIONS",
+    "RSSI_SWITCH_THRESHOLD",
+    "NO_RSSI_VALUE",
 ]
 
 
@@ -171,7 +172,7 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     ):
         return None
     return await get_bluez_device(
-        device.name, device.details["path"], _get_rssi(device)
+        device.name or device.address, device.details["path"], _get_rssi(device)
     )
 
 
@@ -218,7 +219,7 @@ async def get_bluez_device(
 ) -> BLEDevice | None:
     """Get a BLEDevice object for a BlueZ DBus path."""
     best_path = device_path = path
-    rssi_to_beat = device_rssi = rssi or UNREACHABLE_RSSI
+    rssi_to_beat: int = rssi or NO_RSSI_VALUE
 
     try:
         manager = await get_global_bluez_manager()
@@ -231,7 +232,7 @@ async def get_bluez_device(
             # anything over the current path
             if _log_disappearance:
                 _LOGGER.debug("%s - %s: Device has disappeared", name, device_path)
-            rssi_to_beat = device_rssi = UNREACHABLE_RSSI
+            rssi_to_beat = NO_RSSI_VALUE
 
         for path in _get_possible_paths(device_path):
             if path not in properties or not (
@@ -254,22 +255,22 @@ async def get_bluez_device(
                 # cause the device to be used anyways.
                 continue
 
-            rssi = device_props.get("RSSI") or UNREACHABLE_RSSI
-            if rssi_to_beat != UNREACHABLE_RSSI and (
-                not rssi
-                or rssi - RSSI_SWITCH_THRESHOLD < device_rssi
-                or rssi < rssi_to_beat
+            alternate_device_rssi: int = device_props.get("RSSI") or NO_RSSI_VALUE
+            if (
+                rssi_to_beat != NO_RSSI_VALUE
+                and alternate_device_rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat
             ):
                 continue
             best_path = path
-            rssi_to_beat = rssi
             _LOGGER.debug(
-                "%s - %s: Found path %s with better RSSI %s",
+                "%s - %s: Found path %s with better RSSI %s > %s",
                 name,
                 device_path,
                 path,
-                rssi,
+                alternate_device_rssi,
+                rssi_to_beat,
             )
+            rssi_to_beat = alternate_device_rssi
 
         if best_path == device_path:
             return None
@@ -291,7 +292,7 @@ def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
         props["Address"],
         props["Alias"],
         {"path": path, "props": props},
-        props.get("RSSI") or UNREACHABLE_RSSI,
+        props.get("RSSI") or NO_RSSI_VALUE,
         uuids=props.get("UUIDs", []),
         manufacturer_data={
             k: bytes(v) for k, v in props.get("ManufacturerData", {}).items()
@@ -399,7 +400,7 @@ def _get_rssi(device: BLEDevice) -> int:
     """Get the RSSI for the device."""
     if not isinstance(device.details, dict) or "props" not in device.details:
         return device.rssi
-    return device.details["props"].get("RSSI") or device.rssi or UNREACHABLE_RSSI
+    return device.details["props"].get("RSSI") or device.rssi or NO_RSSI_VALUE
 
 
 async def establish_connection(
