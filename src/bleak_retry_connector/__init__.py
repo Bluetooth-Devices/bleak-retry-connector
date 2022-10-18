@@ -127,6 +127,16 @@ class BleakClientWithServiceCache(BleakClient):
         This was only kept for backwards compatibility.
         """
 
+    async def get_services(self, **kwargs: Any) -> BleakGATTServiceCollection:
+        """Get the services."""
+        if (device_info := getattr(self, "_device_info", None)) and isinstance(
+            device_info, dict
+        ):
+            _LOGGER.debug(
+                "%s: Fetching services", device_info["Alias"] or device_info["Address"]
+            )
+        return await super().get_services(**kwargs)
+
 
 def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
     """Check if the device has changed."""
