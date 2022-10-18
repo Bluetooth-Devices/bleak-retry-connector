@@ -43,7 +43,7 @@ BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_BACKOFF_TIME = 0.1
 
 
-RSSI_SWITCH_THRESHOLD = 6
+RSSI_SWITCH_THRESHOLD = 5
 
 __all__ = [
     "establish_connection",
@@ -54,8 +54,8 @@ __all__ = [
     "BleakClientWithServiceCache",
     "BleakAbortedError",
     "BleakNotFoundError",
-    "BleakDisconnectedError",
     "BLEAK_RETRY_EXCEPTIONS",
+    "RSSI_SWITCH_THRESHOLD",
 ]
 
 
