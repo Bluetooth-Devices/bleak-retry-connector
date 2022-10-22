@@ -571,7 +571,7 @@ async def establish_connection(
                     attempt,
                     rssi,
                 )
-                return client
+            return client
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)
