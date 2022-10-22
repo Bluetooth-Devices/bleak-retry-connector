@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.3.2 (2022-10-22)
+### Fix
+* Ensure client is returned when debug is off ([#55](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/55)) ([`7ddcac8`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/7ddcac8f14126817cb5df4e7773739c6656dcd24))
+
 ## v2.3.1 (2022-10-18)
 ### Fix
 * Do not attempt to disconnect non-bluez bledevices ([#54](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/54)) ([`54b6c84`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/54b6c8446629a216eeaf570f1677b67b38b6f081))
