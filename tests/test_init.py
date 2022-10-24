@@ -336,7 +336,9 @@ async def test_establish_connection_fails():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    with pytest.raises(BleakConnectionError):
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time", return_value=0
+    ), pytest.raises(BleakConnectionError):
         await establish_connection(FakeBleakClient, MagicMock(), "test")
 
 
@@ -352,7 +354,9 @@ async def test_establish_connection_times_out():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    with pytest.raises(BleakNotFoundError):
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time", return_value=0
+    ), pytest.raises(BleakNotFoundError):
         await establish_connection(FakeBleakClient, MagicMock(), "test")
 
 
@@ -375,7 +379,8 @@ async def test_establish_connection_has_transient_error():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
     assert isinstance(client, FakeBleakClient)
     assert attempts == 9
 
@@ -416,14 +421,15 @@ async def test_establish_connection_has_transient_error_had_advice():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    try:
-        await establish_connection(
-            FakeBleakClient,
-            BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
-            "test",
-        )
-    except BleakError as e:
-        exc = e
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
 
     assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
@@ -448,14 +454,15 @@ async def test_establish_connection_out_of_slots_advice():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    try:
-        await establish_connection(
-            FakeBleakClient,
-            BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
-            "test",
-        )
-    except BleakError as e:
-        exc = e
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
 
     assert isinstance(exc, BleakOutOfConnectionSlotsError)
     assert str(exc) == (
@@ -484,14 +491,15 @@ async def test_device_disappeared_error():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    try:
-        await establish_connection(
-            FakeBleakClient,
-            BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
-            "test",
-        )
-    except BleakError as e:
-        exc = e
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
 
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
@@ -547,7 +555,9 @@ async def test_establish_connection_has_one_many_error():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    with pytest.raises(BleakConnectionError):
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time", return_value=0
+    ), pytest.raises(BleakConnectionError):
         await establish_connection(FakeBleakClient, MagicMock(), "test")
 
 
@@ -563,7 +573,9 @@ async def test_bleak_connect_overruns_timeout():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    with patch.object(bleak_retry_connector, "BLEAK_SAFETY_TIMEOUT", 0), pytest.raises(
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time", return_value=0
+    ), patch.object(bleak_retry_connector, "BLEAK_SAFETY_TIMEOUT", 0), pytest.raises(
         BleakNotFoundError
     ):
         await establish_connection(FakeBleakClient, MagicMock(), "test")
@@ -619,9 +631,10 @@ async def test_establish_connection_ble_device_changed():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    client = await establish_connection(
-        FakeBleakClient, ble_device_1, "test", ble_device_callback=_get_ble_device
-    )
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        client = await establish_connection(
+            FakeBleakClient, ble_device_1, "test", ble_device_callback=_get_ble_device
+        )
     assert isinstance(client, FakeBleakClient)
     assert attempts == 3
 
@@ -887,7 +900,9 @@ async def test_establish_connection_device_disappeared():
     )
     bleak_retry_connector.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time", return_value=0
+    ), patch.object(bleak_retry_connector, "IS_LINUX", True):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
