@@ -384,6 +384,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         or not isinstance(device.details, dict)
         or "path" not in device.details
     ):
+        await asyncio.sleep(min_wait_time)
         return
     start = time.monotonic() if min_wait_time else 0
     try:
