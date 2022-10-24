@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.1 (2022-10-24)
+### Fix
+* Ensure we back off for longer when out of slots ([#57](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/57)) ([`efeced3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/efeced3fa36fad7d0659e3ed30a7a150370dc923))
+
 ## v2.4.0 (2022-10-24)
 ### Feature
 * Improve handling of out of esp32 proxy connection slots ([#56](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/56)) ([`982b7ae`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/982b7ae1cc12d50a899329466fd4b760aaaec5ca))
