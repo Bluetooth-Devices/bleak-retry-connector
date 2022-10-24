@@ -195,12 +195,14 @@ def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
 
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
-    if isinstance(exc, BleakOutOfConnectionSlotsError):
-        return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(
         exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
     ):
         return BLEAK_DBUS_BACKOFF_TIME
+    if isinstance(exc, BleakError) and any(
+        error in str(exc) for error in OUT_OF_SLOTS_ERRORS
+    ):
+        return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     return BLEAK_BACKOFF_TIME
 
 

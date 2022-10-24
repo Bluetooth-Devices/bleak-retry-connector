@@ -1477,7 +1477,11 @@ def test_calculate_backoff_time():
         == BLEAK_DBUS_BACKOFF_TIME
     )
     assert (
-        calculate_backoff_time(BleakOutOfConnectionSlotsError())
+        calculate_backoff_time(
+            BleakError(
+                "No backend with an available connection slot that can reach address EB:4A:D4:93:68:EF was found"
+            )
+        )
         == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     )
 
