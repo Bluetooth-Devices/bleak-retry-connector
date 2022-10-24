@@ -13,11 +13,13 @@ import bleak_retry_connector
 from bleak_retry_connector import (
     BLEAK_BACKOFF_TIME,
     BLEAK_DBUS_BACKOFF_TIME,
+    BLEAK_OUT_OF_SLOTS_BACKOFF_TIME,
     MAX_TRANSIENT_ERRORS,
     BleakAbortedError,
     BleakClientWithServiceCache,
     BleakConnectionError,
     BleakNotFoundError,
+    BleakOutOfConnectionSlotsError,
     ble_device_has_changed,
     calculate_backoff_time,
     establish_connection,
@@ -431,6 +433,37 @@ async def test_establish_connection_has_transient_error_had_advice():
         "Interference/range; "
         "External Bluetooth adapter w/extension may help; "
         "Extension cables reduce USB 3 port interference"
+    )
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_out_of_slots_advice():
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakError("out of connection slots")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    try:
+        await establish_connection(
+            FakeBleakClient,
+            BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+            "test",
+        )
+    except BleakError as e:
+        exc = e
+
+    assert isinstance(exc, BleakOutOfConnectionSlotsError)
+    assert str(exc) == (
+        "test - /dev/1: "
+        "Failed to connect: "
+        "out of connection slots: "
+        "The proxy/adapter is out of connection slots; "
+        "Add additional proxies near this device"
     )
 
 
@@ -1442,6 +1475,10 @@ def test_calculate_backoff_time():
     assert (
         calculate_backoff_time(BleakDBusError(MagicMock(), MagicMock()))
         == BLEAK_DBUS_BACKOFF_TIME
+    )
+    assert (
+        calculate_backoff_time(BleakOutOfConnectionSlotsError())
+        == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     )
 
 
