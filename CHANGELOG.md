@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.2 (2022-10-24)
+### Fix
+* Missing backoff execution with esp32 ([#58](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/58)) ([`3229424`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/3229424cae6dc7a9052efe080e110327eaa60f4d))
+
 ## v2.4.1 (2022-10-24)
 ### Fix
 * Ensure we back off for longer when out of slots ([#57](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/57)) ([`efeced3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/efeced3fa36fad7d0659e3ed30a7a150370dc923))
