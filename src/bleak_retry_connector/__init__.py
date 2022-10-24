@@ -40,6 +40,7 @@ NO_RSSI_VALUE = -127
 # to run their cleanup callbacks or the
 # retry call will just fail in the same way.
 BLEAK_DBUS_BACKOFF_TIME = 0.25
+BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 0.30
 BLEAK_BACKOFF_TIME = 0.1
 
 
@@ -91,6 +92,8 @@ TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
 
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
 
+OUT_OF_SLOTS_ERRORS = {"available connection", "connection slot"}
+
 # Currently the same as transient error
 ABORT_ERRORS = TRANSIENT_ERRORS
 
@@ -104,6 +107,11 @@ DEVICE_MISSING_ADVICE = (
     "The device disappeared; " "Try restarting the scanner or moving the device closer"
 )
 
+OUT_OF_SLOTS_ADVICE = (
+    "The proxy/adapter is out of connection slots; "
+    "Add additional proxies near this device"
+)
+
 
 class BleakNotFoundError(BleakError):
     """The device was not found."""
@@ -115,6 +123,10 @@ class BleakConnectionError(BleakError):
 
 class BleakAbortedError(BleakError):
     """The connection was aborted."""
+
+
+class BleakOutOfConnectionSlotsError(BleakError):
+    """The proxy/adapter is out of connection slots."""
 
 
 class BleakClientWithServiceCache(BleakClient):
@@ -183,6 +195,8 @@ def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
 
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
+    if isinstance(exc, BleakOutOfConnectionSlotsError):
+        return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(
         exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
     ):
@@ -431,14 +445,15 @@ async def establish_connection(
         # Sure would be nice if bleak gave us typed exceptions
         if isinstance(exc, asyncio.TimeoutError) or "not found" in str(exc):
             raise BleakNotFoundError(msg) from exc
-        if isinstance(exc, BleakError) and any(
-            error in str(exc) for error in ABORT_ERRORS
-        ):
-            raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
-        if isinstance(exc, BleakError) and any(
-            error in str(exc) for error in DEVICE_MISSING_ERRORS
-        ):
-            raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
+        if isinstance(exc, BleakError):
+            if any(error in str(exc) for error in ABORT_ERRORS):
+                raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
+            if any(error in str(exc) for error in DEVICE_MISSING_ERRORS):
+                raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
+            if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
+                raise BleakOutOfConnectionSlotsError(
+                    f"{msg}: {OUT_OF_SLOTS_ADVICE}"
+                ) from exc
         raise BleakConnectionError(msg) from exc
 
     create_client = True
