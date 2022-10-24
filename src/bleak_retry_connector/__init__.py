@@ -40,7 +40,7 @@ NO_RSSI_VALUE = -127
 # to run their cleanup callbacks or the
 # retry call will just fail in the same way.
 BLEAK_DBUS_BACKOFF_TIME = 0.25
-BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 0.30
+BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 1.00
 BLEAK_BACKOFF_TIME = 0.1
 
 
