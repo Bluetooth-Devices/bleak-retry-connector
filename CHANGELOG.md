@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.5.0 (2022-10-29)
+### Feature
+* Increase timeouts now that bleak has resolved the timeout with service discovery and bluez ([#59](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/59)) ([`2a65e27`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/2a65e276ffe3ab598eb8f6eb3cf3bcf7a5269780))
+
 ## v2.4.2 (2022-10-24)
 ### Fix
 * Missing backoff execution with esp32 ([#58](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/58)) ([`3229424`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/3229424cae6dc7a9052efe080e110327eaa60f4d))
