@@ -79,12 +79,13 @@ MAX_TRANSIENT_ERRORS = 9
 # to finish in < 60s or declare we cannot connect
 
 MAX_CONNECT_ATTEMPTS = 4
-BLEAK_TIMEOUT = 14.25
+BLEAK_TIMEOUT = 16.25
 
 # Bleak may not always timeout
 # since the dbus connection can stall
 # so we have an additional timeout to
 # be sure we do not block forever
+# This is likely fixed in https://github.com/hbldh/bleak/pull/1092
 BLEAK_SAFETY_TIMEOUT = 20
 
 # These errors are transient with dbus, and we should retry
