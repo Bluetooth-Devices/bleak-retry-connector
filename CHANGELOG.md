@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.7.0 (2022-10-30)
+### Feature
+* Log the adapter when connecting ([#61](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/61)) ([`ab873c8`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/ab873c83da6dd37cd4da3e4e61c3f6fc1ffa0c9f))
+
 ## v2.6.0 (2022-10-30)
 ### Feature
 * Teach the connector about transient esp32 errors ([#60](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/60)) ([`486fbbc`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/486fbbc13b9665fcdacf79f7240240602c8f477a))
