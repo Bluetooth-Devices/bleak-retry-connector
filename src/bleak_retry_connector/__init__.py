@@ -165,9 +165,15 @@ def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
 
 def ble_device_description(device: BLEDevice) -> str:
     """Get the device description."""
-    if isinstance(device.details, dict) and "path" in device.details:
-        return device.details["path"]
-    return device.address
+    details = device.details
+    address = device.address
+    if isinstance(details, dict):
+        if path := details.get("path"):
+            # /org/bluez/hci2
+            return f"{address} -> {path[0:15]}"
+        if source := details.get("source"):
+            return f"{address} -> {source}"
+    return address
 
 
 def _get_possible_paths(path: str) -> Generator[str, None, None]:
