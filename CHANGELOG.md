@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.6.0 (2022-10-30)
+### Feature
+* Teach the connector about transient esp32 errors ([#60](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/60)) ([`486fbbc`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/486fbbc13b9665fcdacf79f7240240602c8f477a))
+
 ## v2.5.0 (2022-10-29)
 ### Feature
 * Increase timeouts now that bleak has resolved the timeout with service discovery and bluez ([#59](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/59)) ([`2a65e27`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/2a65e276ffe3ab598eb8f6eb3cf3bcf7a5269780))
