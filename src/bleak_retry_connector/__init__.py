@@ -36,10 +36,10 @@ if IS_LINUX:
 NO_RSSI_VALUE = -127
 
 
-# Make sure bleak and dbus-next have time
+# Make sure bleak and dbus-fast have time
 # to run their cleanup callbacks or the
 # retry call will just fail in the same way.
-BLEAK_DBUS_BACKOFF_TIME = 0.25
+BLEAK_TRANSIENT_BACKOFF_TIME = BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 1.5
 BLEAK_BACKOFF_TIME = 0.1
 
@@ -89,7 +89,14 @@ BLEAK_TIMEOUT = 16.25
 BLEAK_SAFETY_TIMEOUT = 20
 
 # These errors are transient with dbus, and we should retry
-TRANSIENT_ERRORS = {"le-connection-abort-by-local", "br-connection-canceled"}
+TRANSIENT_ERRORS = {
+    "le-connection-abort-by-local",
+    "br-connection-canceled",
+    "ESP_GATT_CONN_FAIL_ESTABLISH",
+    "ESP_GATT_CONN_TERMINATE_PEER_USER",
+    "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
+    "ESP_GATT_CONN_CONN_CANCEL",
+}
 
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
 
@@ -196,14 +203,17 @@ def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
 
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
+
     if isinstance(
         exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
     ):
         return BLEAK_DBUS_BACKOFF_TIME
-    if isinstance(exc, BleakError) and any(
-        error in str(exc) for error in OUT_OF_SLOTS_ERRORS
-    ):
-        return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+    if isinstance(exc, BleakError):
+        bleak_error = str(exc)
+        if any(error in bleak_error for error in OUT_OF_SLOTS_ERRORS):
+            return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+        if any(error in bleak_error for error in TRANSIENT_ERRORS):
+            return BLEAK_TRANSIENT_BACKOFF_TIME
     return BLEAK_BACKOFF_TIME
 
 
@@ -521,6 +531,7 @@ async def establish_connection(
                     description,
                     attempt,
                     rssi,
+                    exc_info=True,
                 )
             backoff_time = calculate_backoff_time(exc)
             await wait_for_disconnect(device, backoff_time)
