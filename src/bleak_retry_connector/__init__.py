@@ -538,7 +538,6 @@ async def establish_connection(
                     description,
                     attempt,
                     rssi,
-                    exc_info=True,
                 )
             backoff_time = calculate_backoff_time(exc)
             await wait_for_disconnect(device, backoff_time)
