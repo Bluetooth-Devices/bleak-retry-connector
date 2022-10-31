@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.1 (2022-10-31)
+### Fix
+* Reduce logging as timeouts are expected ([#63](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/63)) ([`8b91838`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/8b918380d4772544e4471456df459f5d6d457a61))
+
 ## v2.8.0 (2022-10-31)
 ### Feature
 * Mark ESP_GATT_ERROR as a transient error ([#62](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/62)) ([`6d76ac4`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6d76ac433c0d4727c12c4f7b4de0b039e7bbc4c2))
