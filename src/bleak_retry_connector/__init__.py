@@ -92,6 +92,7 @@ BLEAK_SAFETY_TIMEOUT = 20
 TRANSIENT_ERRORS = {
     "le-connection-abort-by-local",
     "br-connection-canceled",
+    "ESP_GATT_ERROR",
     "ESP_GATT_CONN_FAIL_ESTABLISH",
     "ESP_GATT_CONN_TERMINATE_PEER_USER",
     "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
