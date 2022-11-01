@@ -40,8 +40,9 @@ NO_RSSI_VALUE = -127
 # to run their cleanup callbacks or the
 # retry call will just fail in the same way.
 BLEAK_TRANSIENT_BACKOFF_TIME = 0.25
-BLEAK_DBUS_BACKOFF_TIME = 0.25
+BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME = 0.65
 BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
+BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 1.5
 BLEAK_BACKOFF_TIME = 0.1
 
@@ -94,6 +95,10 @@ TRANSIENT_ERRORS_LONG_BACKOFF = {
     "ESP_GATT_ERROR",
 }
 
+TRANSIENT_ERRORS_MEDIUM_BACKOFF = {
+    "ESP_GATT_CONN_FAIL_ESTABLISH",
+}
+
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
 
 OUT_OF_SLOTS_ERRORS = {"available connection", "connection slot"}
@@ -108,7 +113,9 @@ TRANSIENT_ERRORS = {
 } | OUT_OF_SLOTS_ERRORS
 
 # Currently the same as transient error
-ABORT_ERRORS = TRANSIENT_ERRORS | TRANSIENT_ERRORS_LONG_BACKOFF
+ABORT_ERRORS = (
+    TRANSIENT_ERRORS | TRANSIENT_ERRORS_MEDIUM_BACKOFF | TRANSIENT_ERRORS_LONG_BACKOFF
+)
 
 
 ABORT_ADVICE = (
@@ -224,6 +231,8 @@ def calculate_backoff_time(exc: Exception) -> float:
         bleak_error = str(exc)
         if any(error in bleak_error for error in OUT_OF_SLOTS_ERRORS):
             return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+        if any(error in bleak_error for error in TRANSIENT_ERRORS_MEDIUM_BACKOFF):
+            return BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME
         if any(error in bleak_error for error in TRANSIENT_ERRORS_LONG_BACKOFF):
             return BLEAK_TRANSIENT_LONG_BACKOFF_TIME
         if any(error in bleak_error for error in TRANSIENT_ERRORS):

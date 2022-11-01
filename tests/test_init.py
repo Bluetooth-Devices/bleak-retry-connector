@@ -15,6 +15,8 @@ from bleak_retry_connector import (
     BLEAK_DBUS_BACKOFF_TIME,
     BLEAK_OUT_OF_SLOTS_BACKOFF_TIME,
     BLEAK_TRANSIENT_BACKOFF_TIME,
+    BLEAK_TRANSIENT_LONG_BACKOFF_TIME,
+    BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME,
     MAX_TRANSIENT_ERRORS,
     BleakAbortedError,
     BleakClientWithServiceCache,
@@ -1509,8 +1511,16 @@ def test_calculate_backoff_time():
         == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     )
     assert (
-        calculate_backoff_time(BleakError("ESP_GATT_CONN_FAIL_ESTABLISH"))
+        calculate_backoff_time(BleakError("ESP_GATT_CONN_TERMINATE_PEER_USER"))
         == BLEAK_TRANSIENT_BACKOFF_TIME
+    )
+    assert (
+        calculate_backoff_time(BleakError("ESP_GATT_CONN_FAIL_ESTABLISH"))
+        == BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME
+    )
+    assert (
+        calculate_backoff_time(BleakError("ESP_GATT_ERROR"))
+        == BLEAK_TRANSIENT_LONG_BACKOFF_TIME
     )
 
 
