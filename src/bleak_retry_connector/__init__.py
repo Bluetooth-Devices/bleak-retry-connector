@@ -90,16 +90,6 @@ BLEAK_TIMEOUT = 17.25
 # This is likely fixed in https://github.com/hbldh/bleak/pull/1092
 BLEAK_SAFETY_TIMEOUT = 21.0
 
-# These errors are transient with dbus, and we should retry
-TRANSIENT_ERRORS = {
-    "le-connection-abort-by-local",
-    "br-connection-canceled",
-    "ESP_GATT_CONN_FAIL_ESTABLISH",
-    "ESP_GATT_CONN_TERMINATE_PEER_USER",
-    "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
-    "ESP_GATT_CONN_CONN_CANCEL",
-}
-
 TRANSIENT_ERRORS_LONG_BACKOFF = {
     "ESP_GATT_ERROR",
 }
@@ -108,8 +98,18 @@ DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
 
 OUT_OF_SLOTS_ERRORS = {"available connection", "connection slot"}
 
+TRANSIENT_ERRORS = {
+    "le-connection-abort-by-local",
+    "br-connection-canceled",
+    "ESP_GATT_CONN_FAIL_ESTABLISH",
+    "ESP_GATT_CONN_TERMINATE_PEER_USER",
+    "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
+    "ESP_GATT_CONN_CONN_CANCEL",
+} | OUT_OF_SLOTS_ERRORS
+
 # Currently the same as transient error
 ABORT_ERRORS = TRANSIENT_ERRORS | TRANSIENT_ERRORS_LONG_BACKOFF
+
 
 ABORT_ADVICE = (
     "Interference/range; "
@@ -474,14 +474,14 @@ async def establish_connection(
         if isinstance(exc, asyncio.TimeoutError) or "not found" in str(exc):
             raise BleakNotFoundError(msg) from exc
         if isinstance(exc, BleakError):
-            if any(error in str(exc) for error in ABORT_ERRORS):
-                raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
-            if any(error in str(exc) for error in DEVICE_MISSING_ERRORS):
-                raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
             if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
                 raise BleakOutOfConnectionSlotsError(
                     f"{msg}: {OUT_OF_SLOTS_ADVICE}"
                 ) from exc
+            if any(error in str(exc) for error in ABORT_ERRORS):
+                raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
+            if any(error in str(exc) for error in DEVICE_MISSING_ERRORS):
+                raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         raise BleakConnectionError(msg) from exc
 
     create_client = True
