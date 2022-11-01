@@ -81,19 +81,20 @@ MAX_TRANSIENT_ERRORS = 9
 # to finish in < 60s or declare we cannot connect
 
 MAX_CONNECT_ATTEMPTS = 4
-BLEAK_TIMEOUT = 18.25
+BLEAK_TIMEOUT = 17.25
 
 # Bleak may not always timeout
 # since the dbus connection can stall
 # so we have an additional timeout to
 # be sure we do not block forever
 # This is likely fixed in https://github.com/hbldh/bleak/pull/1092
-BLEAK_SAFETY_TIMEOUT = 25.0
+BLEAK_SAFETY_TIMEOUT = 21.0
 
 # These errors are transient with dbus, and we should retry
 TRANSIENT_ERRORS = {
     "le-connection-abort-by-local",
     "br-connection-canceled",
+    "ESP_GATT_CONN_FAIL_ESTABLISH",
     "ESP_GATT_CONN_TERMINATE_PEER_USER",
     "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
     "ESP_GATT_CONN_CONN_CANCEL",
@@ -101,7 +102,6 @@ TRANSIENT_ERRORS = {
 
 TRANSIENT_ERRORS_LONG_BACKOFF = {
     "ESP_GATT_ERROR",
-    "ESP_GATT_CONN_FAIL_ESTABLISH",
 }
 
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
