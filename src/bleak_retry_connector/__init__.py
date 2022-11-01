@@ -39,7 +39,10 @@ NO_RSSI_VALUE = -127
 # Make sure bleak and dbus-fast have time
 # to run their cleanup callbacks or the
 # retry call will just fail in the same way.
-BLEAK_TRANSIENT_BACKOFF_TIME = BLEAK_DBUS_BACKOFF_TIME = 0.25
+BLEAK_TRANSIENT_BACKOFF_TIME = 0.25
+BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME = 0.55
+BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
+BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 1.5
 BLEAK_BACKOFF_TIME = 0.1
 
@@ -79,32 +82,41 @@ MAX_TRANSIENT_ERRORS = 9
 # to finish in < 60s or declare we cannot connect
 
 MAX_CONNECT_ATTEMPTS = 4
-BLEAK_TIMEOUT = 16.25
+BLEAK_TIMEOUT = 17.25
 
 # Bleak may not always timeout
 # since the dbus connection can stall
 # so we have an additional timeout to
 # be sure we do not block forever
 # This is likely fixed in https://github.com/hbldh/bleak/pull/1092
-BLEAK_SAFETY_TIMEOUT = 20
+BLEAK_SAFETY_TIMEOUT = 21.0
 
-# These errors are transient with dbus, and we should retry
-TRANSIENT_ERRORS = {
-    "le-connection-abort-by-local",
-    "br-connection-canceled",
+TRANSIENT_ERRORS_LONG_BACKOFF = {
     "ESP_GATT_ERROR",
+}
+
+TRANSIENT_ERRORS_MEDIUM_BACKOFF = {
     "ESP_GATT_CONN_FAIL_ESTABLISH",
-    "ESP_GATT_CONN_TERMINATE_PEER_USER",
-    "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
-    "ESP_GATT_CONN_CONN_CANCEL",
 }
 
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
 
 OUT_OF_SLOTS_ERRORS = {"available connection", "connection slot"}
 
+TRANSIENT_ERRORS = {
+    "le-connection-abort-by-local",
+    "br-connection-canceled",
+    "ESP_GATT_CONN_FAIL_ESTABLISH",
+    "ESP_GATT_CONN_TERMINATE_PEER_USER",
+    "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
+    "ESP_GATT_CONN_CONN_CANCEL",
+} | OUT_OF_SLOTS_ERRORS
+
 # Currently the same as transient error
-ABORT_ERRORS = TRANSIENT_ERRORS
+ABORT_ERRORS = (
+    TRANSIENT_ERRORS | TRANSIENT_ERRORS_MEDIUM_BACKOFF | TRANSIENT_ERRORS_LONG_BACKOFF
+)
+
 
 ABORT_ADVICE = (
     "Interference/range; "
@@ -219,6 +231,10 @@ def calculate_backoff_time(exc: Exception) -> float:
         bleak_error = str(exc)
         if any(error in bleak_error for error in OUT_OF_SLOTS_ERRORS):
             return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+        if any(error in bleak_error for error in TRANSIENT_ERRORS_MEDIUM_BACKOFF):
+            return BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME
+        if any(error in bleak_error for error in TRANSIENT_ERRORS_LONG_BACKOFF):
+            return BLEAK_TRANSIENT_LONG_BACKOFF_TIME
         if any(error in bleak_error for error in TRANSIENT_ERRORS):
             return BLEAK_TRANSIENT_BACKOFF_TIME
     return BLEAK_BACKOFF_TIME
@@ -467,14 +483,14 @@ async def establish_connection(
         if isinstance(exc, asyncio.TimeoutError) or "not found" in str(exc):
             raise BleakNotFoundError(msg) from exc
         if isinstance(exc, BleakError):
-            if any(error in str(exc) for error in ABORT_ERRORS):
-                raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
-            if any(error in str(exc) for error in DEVICE_MISSING_ERRORS):
-                raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
             if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
                 raise BleakOutOfConnectionSlotsError(
                     f"{msg}: {OUT_OF_SLOTS_ADVICE}"
                 ) from exc
+            if any(error in str(exc) for error in ABORT_ERRORS):
+                raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
+            if any(error in str(exc) for error in DEVICE_MISSING_ERRORS):
+                raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         raise BleakConnectionError(msg) from exc
 
     create_client = True
