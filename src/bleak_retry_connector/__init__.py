@@ -82,7 +82,7 @@ MAX_TRANSIENT_ERRORS = 9
 # to finish in < 60s or declare we cannot connect
 
 MAX_CONNECT_ATTEMPTS = 4
-BLEAK_TIMEOUT = 17.25
+BLEAK_TIMEOUT = 20.0
 
 # Bleak may not always timeout
 # since the dbus connection can stall
