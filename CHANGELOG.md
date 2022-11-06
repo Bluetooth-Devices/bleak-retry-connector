@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.3 (2022-11-06)
+### Fix
+* Adjust connect timeout to match macos write timeout ([#66](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/66)) ([`1396fdc`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1396fdc0b3235cf67ae919bf1c2a308d4437d023))
+
 ## v2.8.2 (2022-11-01)
 ### Fix
 * Adjust backoffs for slower esp32 proxies ([#64](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/64)) ([`702a829`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/702a82921ad30fb4934b5056271cea842a758c08))
