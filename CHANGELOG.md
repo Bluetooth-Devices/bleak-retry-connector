@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.4 (2022-11-11)
+### Fix
+* Increase backoff when local ble adapter runs out of connection slots ([#67](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/67)) ([`cac7e57`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/cac7e57fbb13ee7beaa1eb18d51def661bc92ee3))
+
 ## v2.8.3 (2022-11-06)
 ### Fix
 * Adjust connect timeout to match macos write timeout ([#66](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/66)) ([`1396fdc`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1396fdc0b3235cf67ae919bf1c2a308d4437d023))
