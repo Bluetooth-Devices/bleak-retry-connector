@@ -43,7 +43,7 @@ BLEAK_TRANSIENT_BACKOFF_TIME = 0.25
 BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME = 0.55
 BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
 BLEAK_DBUS_BACKOFF_TIME = 0.25
-BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 1.5
+BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 2.1
 BLEAK_BACKOFF_TIME = 0.1
 
 RSSI_SWITCH_THRESHOLD = 5
@@ -444,9 +444,10 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
     except KeyError as ex:
         # Device was removed from bus
         _LOGGER.debug(
-            "%s - %s: Device was removed from bus, waiting for it to re-appear: %s",
+            "%s - %s: Device was removed from bus, waiting %s for it to re-appear: %s",
             device.name,
             ble_device_description(device),
+            min_wait_time,
             ex,
         )
         await asyncio.sleep(min_wait_time)
