@@ -17,7 +17,7 @@ import async_timeout
 from bleak import BleakClient
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
-from bleak.exc import BleakDBusError, BleakError
+from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
 
 DISCONNECT_TIMEOUT = 5
 
@@ -45,7 +45,6 @@ BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
 BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 1.5
 BLEAK_BACKOFF_TIME = 0.1
-
 
 RSSI_SWITCH_THRESHOLD = 5
 
@@ -227,6 +226,13 @@ def calculate_backoff_time(exc: Exception) -> float:
         exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
     ):
         return BLEAK_DBUS_BACKOFF_TIME
+    # If the adapter runs out of slots can get a BleakDeviceNotFoundError
+    # since the device is no longer visible on the adapter. Almost none of
+    # the adapters document how many connection slots they have so we cannot
+    # know if we are out of slots or not. We can only guess based on the
+    # error message and backoff.
+    if isinstance(exc, BleakDeviceNotFoundError):
+        return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(exc, BleakError):
         bleak_error = str(exc)
         if any(error in bleak_error for error in OUT_OF_SLOTS_ERRORS):
