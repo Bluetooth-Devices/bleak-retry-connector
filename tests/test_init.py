@@ -7,7 +7,7 @@ from bleak import BleakClient, BleakError
 from bleak.backends.bluezdbus import defs
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
-from bleak.exc import BleakDBusError
+from bleak.exc import BleakDBusError, BleakDeviceNotFoundError
 
 import bleak_retry_connector
 from bleak_retry_connector import (
@@ -1521,6 +1521,10 @@ def test_calculate_backoff_time():
     assert (
         calculate_backoff_time(BleakError("ESP_GATT_ERROR"))
         == BLEAK_TRANSIENT_LONG_BACKOFF_TIME
+    )
+    assert (
+        calculate_backoff_time(BleakDeviceNotFoundError("Out of slots"))
+        == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     )
 
 

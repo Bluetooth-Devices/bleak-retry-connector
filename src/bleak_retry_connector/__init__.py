@@ -17,7 +17,7 @@ import async_timeout
 from bleak import BleakClient
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
-from bleak.exc import BleakDBusError, BleakError
+from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
 
 DISCONNECT_TIMEOUT = 5
 
@@ -43,9 +43,8 @@ BLEAK_TRANSIENT_BACKOFF_TIME = 0.25
 BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME = 0.55
 BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
 BLEAK_DBUS_BACKOFF_TIME = 0.25
-BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 1.5
+BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 4.00
 BLEAK_BACKOFF_TIME = 0.1
-
 
 RSSI_SWITCH_THRESHOLD = 5
 
@@ -227,6 +226,13 @@ def calculate_backoff_time(exc: Exception) -> float:
         exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
     ):
         return BLEAK_DBUS_BACKOFF_TIME
+    # If the adapter runs out of slots can get a BleakDeviceNotFoundError
+    # since the device is no longer visible on the adapter. Almost none of
+    # the adapters document how many connection slots they have so we cannot
+    # know if we are out of slots or not. We can only guess based on the
+    # error message and backoff.
+    if isinstance(exc, BleakDeviceNotFoundError):
+        return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(exc, BleakError):
         bleak_error = str(exc)
         if any(error in bleak_error for error in OUT_OF_SLOTS_ERRORS):
@@ -435,9 +441,22 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         )
         if min_wait_time and waited < min_wait_time:
             await asyncio.sleep(min_wait_time - waited)
-    except KeyError:
+    except KeyError as ex:
         # Device was removed from bus
-        pass
+        #
+        # In testing it was found that most of the CSR adapters
+        # only support 5 slots and the broadcom only support 7 slots.
+        #
+        # When they run out of slots the device they are trying to
+        # connect to disappears from the bus so we must backoff
+        _LOGGER.debug(
+            "%s - %s: Device was removed from bus, waiting %s for it to re-appear: %s",
+            device.name,
+            ble_device_description(device),
+            min_wait_time,
+            ex,
+        )
+        await asyncio.sleep(min_wait_time)
     except Exception:  # pylint: disable=broad-except
         _LOGGER.debug(
             "%s - %s: Failed waiting for disconnect",
@@ -597,7 +616,11 @@ async def establish_connection(
             _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
-            if any(error in bleak_error for error in TRANSIENT_ERRORS):
+            # BleakDeviceNotFoundError can mean that the adapter has run out of
+            # connection slots.
+            if isinstance(exc, BleakDeviceNotFoundError) or any(
+                error in bleak_error for error in TRANSIENT_ERRORS
+            ):
                 transient_errors += 1
             else:
                 connect_errors += 1
