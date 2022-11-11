@@ -43,7 +43,7 @@ BLEAK_TRANSIENT_BACKOFF_TIME = 0.25
 BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME = 0.55
 BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
 BLEAK_DBUS_BACKOFF_TIME = 0.25
-BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 3.5
+BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 2.0
 BLEAK_BACKOFF_TIME = 0.1
 
 RSSI_SWITCH_THRESHOLD = 5
@@ -610,7 +610,9 @@ async def establish_connection(
             _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
-            if any(error in bleak_error for error in TRANSIENT_ERRORS):
+            if isinstance(exc, BleakDeviceNotFoundError) or any(
+                error in bleak_error for error in TRANSIENT_ERRORS
+            ):
                 transient_errors += 1
             else:
                 connect_errors += 1
