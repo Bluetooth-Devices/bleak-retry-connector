@@ -443,6 +443,12 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
             await asyncio.sleep(min_wait_time - waited)
     except KeyError as ex:
         # Device was removed from bus
+        #
+        # In testing it was found that most of the CSR adapters
+        # only support 5 slots and the broadcom only support 7 slots.
+        #
+        # When they run out of slots the device they are trying to
+        # connect to disappears from the bus so we must backoff
         _LOGGER.debug(
             "%s - %s: Device was removed from bus, waiting %s for it to re-appear: %s",
             device.name,
@@ -610,6 +616,8 @@ async def establish_connection(
             _raise_if_needed(name, description, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
+            # BleakDeviceNotFoundError can mean that the adapter has run out of
+            # connection slots.
             if isinstance(exc, BleakDeviceNotFoundError) or any(
                 error in bleak_error for error in TRANSIENT_ERRORS
             ):
