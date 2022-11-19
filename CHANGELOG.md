@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.5 (2022-11-19)
+### Fix
+* Teach the connector about more esp32 errors and times ([#68](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/68)) ([`09cb73d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/09cb73df4d6908665220df74f91aee4d200f6bad))
+
 ## v2.8.4 (2022-11-11)
 ### Fix
 * Increase backoff when local ble adapter runs out of connection slots ([#67](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/67)) ([`cac7e57`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/cac7e57fbb13ee7beaa1eb18d51def661bc92ee3))
