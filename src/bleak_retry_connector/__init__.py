@@ -40,7 +40,7 @@ NO_RSSI_VALUE = -127
 # to run their cleanup callbacks or the
 # retry call will just fail in the same way.
 BLEAK_TRANSIENT_BACKOFF_TIME = 0.25
-BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME = 0.55
+BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME = 0.90
 BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
 BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 4.00
@@ -88,13 +88,18 @@ BLEAK_TIMEOUT = 20.0
 # so we have an additional timeout to
 # be sure we do not block forever
 # This is likely fixed in https://github.com/hbldh/bleak/pull/1092
-BLEAK_SAFETY_TIMEOUT = 21.0
+#
+# This also accounts for the time it
+# takes for the esp32s to disconnect
+#
+BLEAK_SAFETY_TIMEOUT = 30.0
 
 TRANSIENT_ERRORS_LONG_BACKOFF = {
     "ESP_GATT_ERROR",
 }
 
 TRANSIENT_ERRORS_MEDIUM_BACKOFF = {
+    "ESP_GATT_CONN_TIMEOUT",
     "ESP_GATT_CONN_FAIL_ESTABLISH",
 }
 
