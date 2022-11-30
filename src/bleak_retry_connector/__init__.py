@@ -275,10 +275,21 @@ async def get_device_by_adapter(address: str, adapter: str) -> BLEDevice | None:
     return None
 
 
+def _reset_dbus_socket_cache() -> None:
+    """Reset the dbus socket cache."""
+    setattr(get_bluez_device, "_has_dbus_socket", None)
+
+
 async def get_bluez_device(
     name: str, path: str, rssi: int | None = None, _log_disappearance: bool = True
 ) -> BLEDevice | None:
     """Get a BLEDevice object for a BlueZ DBus path."""
+    if getattr(get_bluez_device, "_has_dbus_socket", None) is False:
+        # We are not running on a system with DBus do don't
+        # keep trying to call get_global_bluez_manager as it
+        # waits for a bit trying to connect to DBus.
+        return None
+
     best_path = device_path = path
     rssi_to_beat: int = rssi or NO_RSSI_VALUE
 
@@ -339,9 +350,14 @@ async def get_bluez_device(
         return ble_device_from_properties(
             best_path, properties[best_path][defs.DEVICE_INTERFACE]
         )
+    except FileNotFoundError as ex:
+        setattr(get_bluez_device, "_has_dbus_socket", False)
+        _LOGGER.debug(
+            "Dbus socket not found, will not try again until next restart: %s", ex
+        )
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.debug(
-            "%s - %s: Freshen failed: %s", name, device_path, ex, exc_info=True
+            "%s - %s: get_bluez_device failed: %s", name, device_path, ex, exc_info=True
         )
 
     return None

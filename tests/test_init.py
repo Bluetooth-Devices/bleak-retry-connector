@@ -23,6 +23,7 @@ from bleak_retry_connector import (
     BleakConnectionError,
     BleakNotFoundError,
     BleakOutOfConnectionSlotsError,
+    _reset_dbus_socket_cache,
     ble_device_has_changed,
     calculate_backoff_time,
     establish_connection,
@@ -1562,3 +1563,83 @@ async def test_retry_bluetooth_connection_error_non_default_max_attempts():
             await test_function()
 
         assert mock_calculate_backoff_time.call_count == 4
+
+
+@pytest.mark.asyncio
+async def test_dbus_is_missing():
+    """Test getting a device when dbus is missing."""
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        side_effect=FileNotFoundError("dbus not here")
+    )
+    bleak_retry_connector.defs = defs
+
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+        device = await get_device("FA:23:9D:AA:45:46")
+
+    assert device is None
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -30,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -79,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci2/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -80,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci3/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -31,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+        device = await get_device("FA:23:9D:AA:45:46")
+
+    assert device is None
+
+    _reset_dbus_socket_cache()
+
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+        device = await get_device("FA:23:9D:AA:45:46")
+
+    assert device is not None
