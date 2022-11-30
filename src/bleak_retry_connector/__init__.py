@@ -353,7 +353,9 @@ async def get_bluez_device(
     except FileNotFoundError as ex:
         setattr(get_bluez_device, "_has_dbus_socket", False)
         _LOGGER.debug(
-            "Dbus socket not found, will not try again until next restart: %s", ex
+            "Dbus socket at %s not found, will not try again until next restart: %s",
+            ex.filename,
+            ex,
         )
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.debug(
