@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.6 (2022-11-30)
+### Fix
+* Stop trying to check dbus once the socket is missing ([#70](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/70)) ([`74bd63b`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/74bd63b5b5c68eca6e7f0fa4e932a3ebab26a59e))
+
 ## v2.8.5 (2022-11-19)
 ### Fix
 * Teach the connector about more esp32 errors and times ([#68](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/68)) ([`09cb73d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/09cb73df4d6908665220df74f91aee4d200f6bad))
