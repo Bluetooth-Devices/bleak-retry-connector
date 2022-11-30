@@ -340,6 +340,7 @@ async def get_bluez_device(
             best_path, properties[best_path][defs.DEVICE_INTERFACE]
         )
     except Exception as ex:  # pylint: disable=broad-except
+        raise
         _LOGGER.debug(
             "%s - %s: Freshen failed: %s", name, device_path, ex, exc_info=True
         )
