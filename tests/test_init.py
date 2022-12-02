@@ -24,6 +24,7 @@ from bleak_retry_connector import (
     BleakNotFoundError,
     BleakOutOfConnectionSlotsError,
     _reset_dbus_socket_cache,
+    ble_device_description,
     ble_device_has_changed,
     calculate_backoff_time,
     establish_connection,
@@ -441,7 +442,7 @@ async def test_establish_connection_has_transient_error_had_advice():
 
     assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff -> /org/bluez/hci2: "
+        "test - aa:bb:cc:dd:ee:ff: "
         "Failed to connect: "
         "le-connection-abort-by-local: "
         "Interference/range; "
@@ -474,7 +475,7 @@ async def test_establish_connection_out_of_slots_advice():
 
     assert isinstance(exc, BleakOutOfConnectionSlotsError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff -> esphome_proxy_1: "
+        "test - aa:bb:cc:dd:ee:ff: "
         "Failed to connect: "
         "out of connection slots: "
         "The proxy/adapter is out of connection slots; "
@@ -515,7 +516,7 @@ async def test_device_disappeared_error():
 
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff -> /org/bluez/hci2: "
+        "test - aa:bb:cc:dd:ee:ff: "
         "Failed to connect: "
         "[org.freedesktop.DBus.Error.UnknownObject] "
         'Method "Connect" with signature "" on interface "org.bluez.Device1" '
@@ -1643,3 +1644,27 @@ async def test_dbus_is_missing():
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is not None
+
+
+@pytest.mark.asyncio
+async def test_ble_device_description():
+    device = BLEDevice(
+        "aa:bb:cc:dd:ee:ff",
+        "name",
+        {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+    )
+    assert (
+        ble_device_description(device) == "aa:bb:cc:dd:ee:ff - name -> /org/bluez/hci2"
+    )
+    device2 = BLEDevice(
+        "aa:bb:cc:dd:ee:ff",
+        "name",
+        {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+    )
+    assert (
+        ble_device_description(device2) == "aa:bb:cc:dd:ee:ff - name -> /org/bluez/hci2"
+    )
+    device3 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"})
+    assert (
+        ble_device_description(device3) == "aa:bb:cc:dd:ee:ff - name -> esphome_proxy_1"
+    )

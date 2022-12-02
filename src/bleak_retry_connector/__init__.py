@@ -191,13 +191,18 @@ def ble_device_description(device: BLEDevice) -> str:
     """Get the device description."""
     details = device.details
     address = device.address
+    name = device.name
+    if name != address:
+        base_name = f"{address} - {name}"
+    else:
+        base_name = address
     if isinstance(details, dict):
         if path := details.get("path"):
             # /org/bluez/hci2
-            return f"{address} -> {path[0:15]}"
+            return f"{base_name} -> {path[0:15]}"
         if source := details.get("source"):
-            return f"{address} -> {source}"
-    return address
+            return f"{base_name} -> {source}"
+    return base_name
 
 
 def _get_possible_paths(path: str) -> Generator[str, None, None]:
