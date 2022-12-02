@@ -568,6 +568,14 @@ async def establish_connection(
         if not create_client:
             create_client = ble_device_has_changed(original_device, device)
 
+        if debug_enabled:
+            _LOGGER.debug(
+                "%s - %s: Connection attempt: %s",
+                name,
+                device.address,
+                attempt,
+            )
+
         if create_client:
             client = client_class(
                 device, disconnected_callback=disconnected_callback, **kwargs
