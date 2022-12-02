@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.9 (2022-12-02)
+### Fix
+* Always log the connection attempt number ([#74](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/74)) ([`3306053`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/3306053a3903efa565355e2331b31db739bac094))
+
 ## v2.8.8 (2022-12-02)
 ### Fix
 * Avoid logging connecting and connected since our BLEDevice may be stale ([#72](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/72)) ([`10e040c`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/10e040c9eb563d31b3e0caf41ee390234e239c4f))
