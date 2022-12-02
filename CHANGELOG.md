@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.7 (2022-12-02)
+### Fix
+* Enable service cache by default since esp32s are unreliable without it ([#71](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/71)) ([`0e90c1c`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/0e90c1c79fac01e5e0a39c51b733616d1d324aeb))
+
 ## v2.8.6 (2022-11-30)
 ### Fix
 * Stop trying to check dbus once the socket is missing ([#70](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/70)) ([`74bd63b`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/74bd63b5b5c68eca6e7f0fa4e932a3ebab26a59e))

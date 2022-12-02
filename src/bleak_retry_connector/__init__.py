@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import cast
 
-__version__ = "2.8.6"
+__version__ = "2.8.7"
 
 
 import asyncio
