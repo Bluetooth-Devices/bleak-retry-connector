@@ -504,7 +504,7 @@ async def establish_connection(
     max_attempts: int = MAX_CONNECT_ATTEMPTS,
     cached_services: BleakGATTServiceCollection | None = None,
     ble_device_callback: Callable[[], BLEDevice] | None = None,
-    use_services_cache: bool = False,
+    use_services_cache: bool = True,
     **kwargs: Any,
 ) -> BleakClient:
     """Establish a connection to the device."""
