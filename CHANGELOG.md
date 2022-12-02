@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.8 (2022-12-02)
+### Fix
+* Avoid logging connecting and connected since our BLEDevice may be stale ([#72](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/72)) ([`10e040c`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/10e040c9eb563d31b3e0caf41ee390234e239c4f))
+
 ## v2.8.7 (2022-12-02)
 ### Fix
 * Enable service cache by default since esp32s are unreliable without it ([#71](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/71)) ([`0e90c1c`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/0e90c1c79fac01e5e0a39c51b733616d1d324aeb))
