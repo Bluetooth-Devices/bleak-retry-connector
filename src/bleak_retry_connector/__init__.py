@@ -45,6 +45,10 @@ BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
 BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 4.00
 BLEAK_BACKOFF_TIME = 0.1
+# Expected disconnect or ran out of slots
+# after checking, don't backoff since we
+# want to retry immediately.
+BLEAK_DISCONNECTED_BACKOFF_TIME = 0.0
 
 RSSI_SWITCH_THRESHOLD = 5
 
@@ -137,6 +141,8 @@ OUT_OF_SLOTS_ADVICE = (
     "The proxy/adapter is out of connection slots; "
     "Add additional proxies near this device"
 )
+
+NORMAL_DISCONNECT = "Disconnected"
 
 
 class BleakNotFoundError(BleakError):
@@ -249,6 +255,8 @@ def calculate_backoff_time(exc: Exception) -> float:
             return BLEAK_TRANSIENT_LONG_BACKOFF_TIME
         if any(error in bleak_error for error in TRANSIENT_ERRORS):
             return BLEAK_TRANSIENT_BACKOFF_TIME
+        if NORMAL_DISCONNECT in bleak_error:
+            return BLEAK_DISCONNECTED_BACKOFF_TIME
     return BLEAK_BACKOFF_TIME
 
 
