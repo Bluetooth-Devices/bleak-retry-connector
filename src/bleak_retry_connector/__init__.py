@@ -45,10 +45,15 @@ BLEAK_TRANSIENT_LONG_BACKOFF_TIME = 1.25
 BLEAK_DBUS_BACKOFF_TIME = 0.25
 BLEAK_OUT_OF_SLOTS_BACKOFF_TIME = 4.00
 BLEAK_BACKOFF_TIME = 0.1
+# Expected disconnect or ran out of slots
+# after checking, don't backoff since we
+# want to retry immediately.
+BLEAK_DISCONNECTED_BACKOFF_TIME = 0.0
 
 RSSI_SWITCH_THRESHOLD = 5
 
 __all__ = [
+    "ble_device_description",
     "establish_connection",
     "close_stale_connections",
     "get_device",
@@ -137,6 +142,8 @@ OUT_OF_SLOTS_ADVICE = (
     "Add additional proxies near this device"
 )
 
+NORMAL_DISCONNECT = "Disconnected"
+
 
 class BleakNotFoundError(BleakError):
     """The device was not found."""
@@ -184,13 +191,18 @@ def ble_device_description(device: BLEDevice) -> str:
     """Get the device description."""
     details = device.details
     address = device.address
+    name = device.name
+    if name != address:
+        base_name = f"{address} - {name}"
+    else:
+        base_name = address
     if isinstance(details, dict):
         if path := details.get("path"):
             # /org/bluez/hci2
-            return f"{address} -> {path[0:15]}"
+            return f"{base_name} -> {path[0:15]}"
         if source := details.get("source"):
-            return f"{address} -> {source}"
-    return address
+            return f"{base_name} -> {source}"
+    return base_name
 
 
 def _get_possible_paths(path: str) -> Generator[str, None, None]:
@@ -248,6 +260,8 @@ def calculate_backoff_time(exc: Exception) -> float:
             return BLEAK_TRANSIENT_LONG_BACKOFF_TIME
         if any(error in bleak_error for error in TRANSIENT_ERRORS):
             return BLEAK_TRANSIENT_BACKOFF_TIME
+        if NORMAL_DISCONNECT in bleak_error:
+            return BLEAK_DISCONNECTED_BACKOFF_TIME
     return BLEAK_BACKOFF_TIME
 
 
@@ -413,18 +427,17 @@ async def close_stale_connections(
         return
     to_disconnect: list[BLEDevice] = []
     for connected_device in devices:
-        description = ble_device_description(connected_device)
         if only_other_adapters and not ble_device_has_changed(connected_device, device):
             _LOGGER.debug(
                 "%s - %s: unexpectedly connected, not disconnecting since only_other_adapters is set",
                 connected_device.name,
-                description,
+                connected_device.address,
             )
         else:
             _LOGGER.debug(
                 "%s - %s: unexpectedly connected, disconnecting",
                 connected_device.name,
-                description,
+                connected_device.address,
             )
             to_disconnect.append(connected_device)
 
@@ -459,7 +472,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         _LOGGER.debug(
             "%s - %s: Waited %s seconds to disconnect",
             device.name,
-            ble_device_description(device),
+            device.address,
             waited,
         )
         if min_wait_time and waited < min_wait_time:
@@ -475,7 +488,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         _LOGGER.debug(
             "%s - %s: Device was removed from bus, waiting %s for it to re-appear: %s",
             device.name,
-            ble_device_description(device),
+            device.address,
             min_wait_time,
             ex,
         )
@@ -484,7 +497,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         _LOGGER.debug(
             "%s - %s: Failed waiting for disconnect",
             device.name,
-            ble_device_description(device),
+            device.address,
             exc_info=True,
         )
 
@@ -555,18 +568,6 @@ async def establish_connection(
         if not create_client:
             create_client = ble_device_has_changed(original_device, device)
 
-        description = ble_device_description(device)
-
-        if debug_enabled:
-            rssi = _get_rssi(device)
-            _LOGGER.debug(
-                "%s - %s: Connecting (attempt: %s, last rssi: %s)",
-                name,
-                description,
-                attempt,
-                rssi,
-            )
-
         if create_client:
             client = client_class(
                 device, disconnected_callback=disconnected_callback, **kwargs
@@ -593,13 +594,13 @@ async def establish_connection(
                 _LOGGER.debug(
                     "%s - %s: Timed out trying to connect (attempt: %s, last rssi: %s)",
                     name,
-                    description,
+                    device.address,
                     attempt,
                     rssi,
                 )
             backoff_time = calculate_backoff_time(exc)
             await wait_for_disconnect(device, backoff_time)
-            _raise_if_needed(name, description, exc)
+            _raise_if_needed(name, device.address, exc)
         except BrokenPipeError as exc:
             # BrokenPipeError is raised by dbus-next when the device disconnects
             #
@@ -616,12 +617,12 @@ async def establish_connection(
                 _LOGGER.debug(
                     "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
                     name,
-                    description,
+                    device.address,
                     str(exc),
                     attempt,
                     rssi,
                 )
-            _raise_if_needed(name, description, exc)
+            _raise_if_needed(name, device.address, exc)
         except EOFError as exc:
             transient_errors += 1
             backoff_time = calculate_backoff_time(exc)
@@ -629,14 +630,14 @@ async def establish_connection(
                 _LOGGER.debug(
                     "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
                     name,
-                    description,
+                    device.address,
                     str(exc),
                     backoff_time,
                     attempt,
                     rssi,
                 )
             await wait_for_disconnect(device, backoff_time)
-            _raise_if_needed(name, description, exc)
+            _raise_if_needed(name, device.address, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
             # BleakDeviceNotFoundError can mean that the adapter has run out of
@@ -652,23 +653,15 @@ async def establish_connection(
                 _LOGGER.debug(
                     "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
                     name,
-                    description,
+                    device.address,
                     bleak_error,
                     backoff_time,
                     attempt,
                     rssi,
                 )
             await wait_for_disconnect(device, backoff_time)
-            _raise_if_needed(name, description, exc)
+            _raise_if_needed(name, device.address, exc)
         else:
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s - %s: Connected (attempt: %s, last rssi: %s)",
-                    name,
-                    description,
-                    attempt,
-                    rssi,
-                )
             return client
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
