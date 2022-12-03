@@ -172,8 +172,12 @@ class BleakClientWithServiceCache(BleakClient):
         This was only kept for backwards compatibility.
         """
 
-    async def clear_cache(self) -> None:
+    async def clear_cache(self) -> bool:
         """Clear the cached services."""
+        if hasattr(super(), "clear_cache"):
+            return await super().clear_cache()
+        _LOGGER.warning("clear_cache not implemented in bleak version")
+        return False
 
 
 def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
