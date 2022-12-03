@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.9.0 (2022-12-03)
+### Feature
+* Add function to clear the cache ([#75](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/75)) ([`6ca6011`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6ca601104cd13cefa9c2d6db05cdc019aaf18329))
+
 ## v2.8.9 (2022-12-02)
 ### Fix
 * Always log the connection attempt number ([#74](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/74)) ([`3306053`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/3306053a3903efa565355e2331b31db739bac094))
