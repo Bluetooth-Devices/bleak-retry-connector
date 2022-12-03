@@ -172,6 +172,13 @@ class BleakClientWithServiceCache(BleakClient):
         This was only kept for backwards compatibility.
         """
 
+    async def clear_cache(self) -> bool:
+        """Clear the cached services."""
+        if hasattr(super(), "clear_cache"):
+            return await super().clear_cache()
+        _LOGGER.warning("clear_cache not implemented in bleak version")
+        return False
+
 
 def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
     """Check if the device has changed."""
@@ -185,6 +192,19 @@ def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
             and original.details["path"] != new.details["path"]
         )
     )
+
+
+async def clear_cache(address: str) -> bool:
+    """Clear the cache for a device."""
+    if not IS_LINUX or not await get_device(address):
+        return False
+    with contextlib.suppress(Exception):
+        manager = await get_global_bluez_manager()
+        manager._services_cache.pop(
+            address.upper(), None
+        )  # pylint: disable=protected-access
+        return True
+    return False
 
 
 def ble_device_description(device: BLEDevice) -> str:
