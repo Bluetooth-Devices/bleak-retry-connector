@@ -187,6 +187,19 @@ def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
     )
 
 
+async def clear_cache(address: str) -> bool:
+    """Clear the cache for a device."""
+    if not IS_LINUX or not await get_device(address):
+        return False
+    with contextlib.suppress(Exception):
+        manager = await get_global_bluez_manager()
+        manager._services_cache.pop(
+            address.upper(), None
+        )  # pylint: disable=protected-access
+        return True
+    return False
+
+
 def ble_device_description(device: BLEDevice) -> str:
     """Get the device description."""
     details = device.details
