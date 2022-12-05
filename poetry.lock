@@ -112,7 +112,7 @@ python-versions = "*"
 
 [[package]]
 name = "bluetooth-adapters"
-version = "0.11.0"
+version = "0.12.0"
 description = "Tools to enumerate and find Bluetooth Adapters"
 category = "main"
 optional = false
@@ -722,7 +722,7 @@ docs = ["myst-parser", "Sphinx", "sphinx-rtd-theme"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "d08015a050d57bc15f863459a94dfe03c084564539261f379346713482757d77"
+content-hash = "1dafce4a7f7d4dcb820fcc235a1b3ded3b990267234e7e3edafd9fefc4519ae2"
 
 [metadata.files]
 aiofiles = [
@@ -859,8 +859,8 @@ bleak-winrt = [
     {file = "bleak_winrt-1.2.0-cp39-cp39-win_amd64.whl", hash = "sha256:63130c11acfe75c504a79c01f9919e87f009f5e742bfc7b7a5c2a9c72bf591a7"},
 ]
 bluetooth-adapters = [
-    {file = "bluetooth_adapters-0.11.0-py3-none-any.whl", hash = "sha256:b4c13b7cb27c9871aa11d1126e46b5c2e30ecbb645c04b2a03bdf5226c91cacc"},
-    {file = "bluetooth_adapters-0.11.0.tar.gz", hash = "sha256:2d4d0312be3da8c94cd0e3c18753dc318b3e10d669b25e0e356253b568d65a8c"},
+    {file = "bluetooth_adapters-0.12.0-py3-none-any.whl", hash = "sha256:80a52bc1133db5aff6ef3de57f3ec1ea0be53d8efb3ec40d9f63ac40a7e88e23"},
+    {file = "bluetooth_adapters-0.12.0.tar.gz", hash = "sha256:8dcd77cf4d2ffdec4b764dff97a85eb8858d8ef848543980ddbd7c71ebcd19c2"},
 ]
 certifi = [
     {file = "certifi-2022.6.15-py3-none-any.whl", hash = "sha256:fe86415d55e84719d75f8b69414f6438ac3547d2078ab91b67e779ef69378412"},

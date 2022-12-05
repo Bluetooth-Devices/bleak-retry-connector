@@ -18,9 +18,7 @@ from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
-
-# TODO: top level import
-from bluetooth_adapters.history import load_history_from_managed_objects
+from bluetooth_adapters import load_history_from_managed_objects
 
 DISCONNECT_TIMEOUT = 5
 
@@ -752,9 +750,8 @@ async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None:
         {
             address: (history.device, history.advertisement_data)
             for address, history in load_history_from_managed_objects(
-                properties
+                properties, adapter
             ).items()
-            if history.source == adapter
         }
     )
     _LOGGER.debug("Restored %s discoveries", len(backend.seen_devices) - before)
