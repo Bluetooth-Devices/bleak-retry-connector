@@ -14,10 +14,11 @@ from collections.abc import Callable, Generator
 from typing import Any, TypeVar
 
 import async_timeout
-from bleak import BleakClient
+from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
+from bluetooth_adapters import load_history_from_managed_objects
 
 DISCONNECT_TIMEOUT = 5
 
@@ -58,6 +59,7 @@ __all__ = [
     "close_stale_connections",
     "get_device",
     "get_device_by_adapter",
+    "restore_discoveries",
     "retry_bluetooth_connection_error",
     "BleakClientWithServiceCache",
     "BleakAbortedError",
@@ -298,105 +300,110 @@ async def get_device_by_adapter(address: str, adapter: str) -> BLEDevice | None:
     """Get the device by adapter and address."""
     if not IS_LINUX:
         return None
-    with contextlib.suppress(Exception):
-        manager = await get_global_bluez_manager()
-        device_path = address_to_bluez_path(address, adapter)
-        properties = manager._properties
-        if device_path in properties and (
-            device_props := properties[device_path].get(defs.DEVICE_INTERFACE)
-        ):
-            return ble_device_from_properties(device_path, device_props)
+    if not (properties := await _get_properties()):
+        return None
+    device_path = address_to_bluez_path(address, adapter)
+    if device_path in properties and (
+        device_props := properties[device_path].get(defs.DEVICE_INTERFACE)
+    ):
+        return ble_device_from_properties(device_path, device_props)
     return None
 
 
-def _reset_dbus_socket_cache() -> None:
-    """Reset the dbus socket cache."""
-    setattr(get_bluez_device, "_has_dbus_socket", None)
-
-
-async def get_bluez_device(
-    name: str, path: str, rssi: int | None = None, _log_disappearance: bool = True
-) -> BLEDevice | None:
-    """Get a BLEDevice object for a BlueZ DBus path."""
-    if getattr(get_bluez_device, "_has_dbus_socket", None) is False:
+async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
+    """Get the properties."""
+    if getattr(_get_properties, "_has_dbus_socket", None) is False:
         # We are not running on a system with DBus do don't
         # keep trying to call get_global_bluez_manager as it
         # waits for a bit trying to connect to DBus.
         return None
 
-    best_path = device_path = path
-    rssi_to_beat: int = rssi or NO_RSSI_VALUE
-
     try:
         manager = await get_global_bluez_manager()
-        properties = manager._properties
-        if (
-            device_path not in properties
-            or defs.DEVICE_INTERFACE not in properties[device_path]
-        ):
-            # device has disappeared so take
-            # anything over the current path
-            if _log_disappearance:
-                _LOGGER.debug("%s - %s: Device has disappeared", name, device_path)
-            rssi_to_beat = NO_RSSI_VALUE
-
-        for path in _get_possible_paths(device_path):
-            if path not in properties or not (
-                device_props := properties[path].get(defs.DEVICE_INTERFACE)
-            ):
-                continue
-
-            if device_props.get("Connected"):
-                # device is connected so take it
-                _LOGGER.debug("%s - %s: Device is already connected", name, path)
-                if path == device_path:
-                    # device is connected to the path we were given
-                    # so we can just return None so it will be used
-                    return None
-                return ble_device_from_properties(path, device_props)
-
-            if path == device_path:
-                # Device is not connected and is the original path
-                # so no need to check it since returning None will
-                # cause the device to be used anyways.
-                continue
-
-            alternate_device_rssi: int = device_props.get("RSSI") or NO_RSSI_VALUE
-            if (
-                rssi_to_beat != NO_RSSI_VALUE
-                and alternate_device_rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat
-            ):
-                continue
-            best_path = path
-            _LOGGER.debug(
-                "%s - %s: Found path %s with better RSSI %s > %s",
-                name,
-                device_path,
-                path,
-                alternate_device_rssi,
-                rssi_to_beat,
-            )
-            rssi_to_beat = alternate_device_rssi
-
-        if best_path == device_path:
-            return None
-
-        return ble_device_from_properties(
-            best_path, properties[best_path][defs.DEVICE_INTERFACE]
-        )
+        return manager._properties
     except FileNotFoundError as ex:
-        setattr(get_bluez_device, "_has_dbus_socket", False)
+        setattr(_get_properties, "_has_dbus_socket", False)
         _LOGGER.debug(
             "Dbus socket at %s not found, will not try again until next restart: %s",
             ex.filename,
             ex,
         )
     except Exception as ex:  # pylint: disable=broad-except
-        _LOGGER.debug(
-            "%s - %s: get_bluez_device failed: %s", name, device_path, ex, exc_info=True
-        )
+        _LOGGER.debug("get_properties failed: %s", ex, exc_info=True)
 
     return None
+
+
+def _reset_dbus_socket_cache() -> None:
+    """Reset the dbus socket cache."""
+    setattr(_get_properties, "_has_dbus_socket", None)
+
+
+async def get_bluez_device(
+    name: str, path: str, rssi: int | None = None, _log_disappearance: bool = True
+) -> BLEDevice | None:
+    """Get a BLEDevice object for a BlueZ DBus path."""
+
+    best_path = device_path = path
+    rssi_to_beat: int = rssi or NO_RSSI_VALUE
+
+    if not (properties := await _get_properties()):
+        return None
+
+    if (
+        device_path not in properties
+        or defs.DEVICE_INTERFACE not in properties[device_path]
+    ):
+        # device has disappeared so take
+        # anything over the current path
+        if _log_disappearance:
+            _LOGGER.debug("%s - %s: Device has disappeared", name, device_path)
+        rssi_to_beat = NO_RSSI_VALUE
+
+    for path in _get_possible_paths(device_path):
+        if path not in properties or not (
+            device_props := properties[path].get(defs.DEVICE_INTERFACE)
+        ):
+            continue
+
+        if device_props.get("Connected"):
+            # device is connected so take it
+            _LOGGER.debug("%s - %s: Device is already connected", name, path)
+            if path == device_path:
+                # device is connected to the path we were given
+                # so we can just return None so it will be used
+                return None
+            return ble_device_from_properties(path, device_props)
+
+        if path == device_path:
+            # Device is not connected and is the original path
+            # so no need to check it since returning None will
+            # cause the device to be used anyways.
+            continue
+
+        alternate_device_rssi: int = device_props.get("RSSI") or NO_RSSI_VALUE
+        if (
+            rssi_to_beat != NO_RSSI_VALUE
+            and alternate_device_rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat
+        ):
+            continue
+        best_path = path
+        _LOGGER.debug(
+            "%s - %s: Found path %s with better RSSI %s > %s",
+            name,
+            device_path,
+            path,
+            alternate_device_rssi,
+            rssi_to_beat,
+        )
+        rssi_to_beat = alternate_device_rssi
+
+    if best_path == device_path:
+        return None
+
+    return ble_device_from_properties(
+        best_path, properties[best_path][defs.DEVICE_INTERFACE]
+    )
 
 
 def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
@@ -419,19 +426,16 @@ async def get_connected_devices(device: BLEDevice) -> list[BLEDevice]:
 
     if not isinstance(device.details, dict) or "path" not in device.details:
         return connected
-    try:
-        manager = await get_global_bluez_manager()
-        properties = manager._properties
-        device_path = device.details["path"]
-        for path in _get_possible_paths(device_path):
-            if path not in properties or defs.DEVICE_INTERFACE not in properties[path]:
-                continue
-            props = properties[path][defs.DEVICE_INTERFACE]
-            if props.get("Connected"):
-                connected.append(ble_device_from_properties(path, props))
+    if not (properties := await _get_properties()):
         return connected
-    except Exception:  # pylint: disable=broad-except
-        return connected
+    device_path = device.details["path"]
+    for path in _get_possible_paths(device_path):
+        if path not in properties or defs.DEVICE_INTERFACE not in properties[path]:
+            continue
+        props = properties[path][defs.DEVICE_INTERFACE]
+        if props.get("Connected"):
+            connected.append(ble_device_from_properties(path, props))
+    return connected
 
 
 async def _disconnect_devices(devices: list[BLEDevice]) -> None:
@@ -732,3 +736,22 @@ def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFu
         return cast(WrapFuncType, _async_wrap_bluetooth_connection_error_retry)
 
     return cast(WrapFuncType, _decorator_retry_bluetooth_connection_error)
+
+
+async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None:
+    """Restore discoveries from the storage."""
+    if not (properties := await _get_properties()):
+        if IS_LINUX:
+            _LOGGER.debug("Failed to restore discoveries for %s", adapter)
+        return
+    backend = scanner._backend
+    before = len(backend.seen_devices)
+    backend.seen_devices.update(
+        {
+            address: (history.device, history.advertisement_data)
+            for address, history in load_history_from_managed_objects(
+                properties, adapter
+            ).items()
+        }
+    )
+    _LOGGER.debug("Restored %s discoveries", len(backend.seen_devices) - before)
