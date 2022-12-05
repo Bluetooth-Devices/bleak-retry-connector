@@ -1774,7 +1774,35 @@ async def test_restore_discoveries():
                         "ServicesResolved": True,
                     },
                     "org.freedesktop.DBus.Properties": {},
-                }
+                },
+                "/org/bluez/hci5/dev_BE_24_6F_85_AA_61": {
+                    "org.freedesktop.DBus.Introspectable": {},
+                    "org.bluez.Device1": {
+                        "Address": "BE:24:6F:85:AA:61",
+                        "AddressType": "public",
+                        "Name": "Dream~BD246F85AA61",
+                        "Alias": "Dream~BD246F85AA61",
+                        "Appearance": 962,
+                        "Icon": "input-mouse",
+                        "Paired": False,
+                        "Trusted": False,
+                        "Blocked": False,
+                        "LegacyPairing": False,
+                        "Connected": True,
+                        "UUIDs": [
+                            "00001800-0000-1000-8000-00805f9b34fb",
+                            "00001801-0000-1000-8000-00805f9b34fb",
+                            "0000180a-0000-1000-8000-00805f9b34fb",
+                            "0000ffd0-0000-1000-8000-00805f9b34fb",
+                            "0000ffd5-0000-1000-8000-00805f9b34fb",
+                        ],
+                        "Modalias": "usb:v045Ep0040d0300",
+                        "Adapter": "/org/bluez/hci1",
+                        "ManufacturerData": {20808: bytearray(b"364656")},
+                        "ServicesResolved": True,
+                    },
+                    "org.freedesktop.DBus.Properties": {},
+                },
             }
 
     bleak_retry_connector.get_global_bluez_manager = AsyncMock(
