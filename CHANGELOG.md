@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.10.1 (2022-12-05)
+### Fix
+* Optimize IS_LINUX check in restore_discoveries ([#77](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/77)) ([`f22eb33`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f22eb33e1d29d5a6ca8697061de9fbb1bf583bec))
+
 ## v2.10.0 (2022-12-05)
 ### Feature
 * Add restore_discoveries to fix missing devices ([#76](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/76)) ([`f4432ac`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f4432ac086abc0e847ac12818fa22cfaa04a3521))
