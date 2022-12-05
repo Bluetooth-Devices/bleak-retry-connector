@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.10.0 (2022-12-05)
+### Feature
+* Add restore_discoveries to fix missing devices ([#76](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/76)) ([`f4432ac`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f4432ac086abc0e847ac12818fa22cfaa04a3521))
+
 ## v2.9.0 (2022-12-03)
 ### Feature
 * Add function to clear the cache ([#75](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/75)) ([`6ca6011`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6ca601104cd13cefa9c2d6db05cdc019aaf18329))
