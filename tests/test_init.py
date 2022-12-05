@@ -1,11 +1,12 @@
 import asyncio
 import logging
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from bleak import BleakClient, BleakError
 from bleak.backends.bluezdbus import defs
 from bleak.backends.device import BLEDevice
+from bleak.backends.scanner import AdvertisementData
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError
 
@@ -32,6 +33,7 @@ from bleak_retry_connector import (
     get_connected_devices,
     get_device,
     get_device_by_adapter,
+    restore_discoveries,
     retry_bluetooth_connection_error,
 )
 
@@ -1738,3 +1740,53 @@ async def test_ble_device_description():
     assert (
         ble_device_description(device3) == "aa:bb:cc:dd:ee:ff - name -> esphome_proxy_1"
     )
+
+
+@pytest.mark.asyncio
+async def test_restore_discoveries():
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci1/dev_BD_24_6F_85_AA_61": {
+                    "org.freedesktop.DBus.Introspectable": {},
+                    "org.bluez.Device1": {
+                        "Address": "BD:24:6F:85:AA:61",
+                        "AddressType": "public",
+                        "Name": "Dream~BD246F85AA61",
+                        "Alias": "Dream~BD246F85AA61",
+                        "Appearance": 962,
+                        "Icon": "input-mouse",
+                        "Paired": False,
+                        "Trusted": False,
+                        "Blocked": False,
+                        "LegacyPairing": False,
+                        "Connected": True,
+                        "UUIDs": [
+                            "00001800-0000-1000-8000-00805f9b34fb",
+                            "00001801-0000-1000-8000-00805f9b34fb",
+                            "0000180a-0000-1000-8000-00805f9b34fb",
+                            "0000ffd0-0000-1000-8000-00805f9b34fb",
+                            "0000ffd5-0000-1000-8000-00805f9b34fb",
+                        ],
+                        "Modalias": "usb:v045Ep0040d0300",
+                        "Adapter": "/org/bluez/hci1",
+                        "ManufacturerData": {20808: bytearray(b"364656")},
+                        "ServicesResolved": True,
+                    },
+                    "org.freedesktop.DBus.Properties": {},
+                }
+            }
+
+    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.defs = defs
+    seen_devices: dict[str, tuple[BLEDevice, AdvertisementData]] = {}
+
+    mock_backend = Mock(seen_devices=seen_devices)
+    mock_scanner = Mock(_backend=mock_backend)
+
+    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+        await restore_discoveries(mock_scanner, "hci1")
+
+    assert len(seen_devices) == 1
