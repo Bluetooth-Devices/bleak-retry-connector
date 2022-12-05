@@ -739,10 +739,12 @@ def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFu
 
 
 async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None:
-    """Restore discoveries from the storage."""
+    """Restore discoveries from the bus."""
+    if not IS_LINUX:
+        # This is only supported on Linux
+        return
     if not (properties := await _get_properties()):
-        if IS_LINUX:
-            _LOGGER.debug("Failed to restore discoveries for %s", adapter)
+        _LOGGER.debug("Failed to restore discoveries for %s", adapter)
         return
     backend = scanner._backend
     before = len(backend.seen_devices)
@@ -754,4 +756,6 @@ async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None:
             ).items()
         }
     )
-    _LOGGER.debug("Restored %s discoveries", len(backend.seen_devices) - before)
+    _LOGGER.debug(
+        "Restored %s discoveries for %s", len(backend.seen_devices) - before, adapter
+    )
