@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.10.2 (2022-12-12)
+### Fix
+* Stop trying to get devices from bluez if dbus setup times out ([#78](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/78)) ([`a8da722`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/a8da7222d6d7ab725152141f560dc1bb681bf4cf))
+
 ## v2.10.1 (2022-12-05)
 ### Fix
 * Optimize IS_LINUX check in restore_discoveries ([#77](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/77)) ([`f22eb33`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f22eb33e1d29d5a6ca8697061de9fbb1bf583bec))
