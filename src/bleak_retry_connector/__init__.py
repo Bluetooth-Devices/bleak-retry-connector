@@ -69,6 +69,7 @@ __all__ = [
     "NO_RSSI_VALUE",
 ]
 
+DBUS_CONNECT_TIMEOUT = 8.5
 
 BLEAK_EXCEPTIONS = (AttributeError, BleakError)
 BLEAK_RETRY_EXCEPTIONS = (
@@ -319,7 +320,8 @@ async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
         return None
 
     try:
-        manager = await get_global_bluez_manager()
+        async with async_timeout.timeout(DBUS_CONNECT_TIMEOUT):
+            manager = await get_global_bluez_manager()
         return manager._properties
     except FileNotFoundError as ex:
         setattr(_get_properties, "_has_dbus_socket", False)
@@ -327,6 +329,11 @@ async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
             "Dbus socket at %s not found, will not try again until next restart: %s",
             ex.filename,
             ex,
+        )
+    except asyncio.TimeoutError:
+        setattr(_get_properties, "_has_dbus_socket", False)
+        _LOGGER.debug(
+            "Timed out trying to connect to DBus; will not try again until next restart"
         )
     except Exception as ex:  # pylint: disable=broad-except
         _LOGGER.debug("get_properties failed: %s", ex, exc_info=True)
