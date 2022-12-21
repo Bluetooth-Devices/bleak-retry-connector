@@ -20,12 +20,15 @@ from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
 from bluetooth_adapters import load_history_from_managed_objects
 
+from .bluez import _reset_dbus_socket_cache  # noqa: F401
+
 DISCONNECT_TIMEOUT = 5
 
 IS_LINUX = platform.system() == "Linux"
 DEFAULT_ATTEMPTS = 2
 
 if IS_LINUX:
+    from .bluez import get_global_bluez_manager_with_timeout
     from .dbus import disconnect_devices
 
     with contextlib.suppress(ImportError):  # pragma: no cover
@@ -69,7 +72,6 @@ __all__ = [
     "NO_RSSI_VALUE",
 ]
 
-DBUS_CONNECT_TIMEOUT = 8.5
 
 BLEAK_EXCEPTIONS = (AttributeError, BleakError)
 BLEAK_RETRY_EXCEPTIONS = (
@@ -313,37 +315,9 @@ async def get_device_by_adapter(address: str, adapter: str) -> BLEDevice | None:
 
 async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
     """Get the properties."""
-    if getattr(_get_properties, "_has_dbus_socket", None) is False:
-        # We are not running on a system with DBus do don't
-        # keep trying to call get_global_bluez_manager as it
-        # waits for a bit trying to connect to DBus.
-        return None
-
-    try:
-        async with async_timeout.timeout(DBUS_CONNECT_TIMEOUT):
-            manager = await get_global_bluez_manager()
-        return manager._properties
-    except FileNotFoundError as ex:
-        setattr(_get_properties, "_has_dbus_socket", False)
-        _LOGGER.debug(
-            "Dbus socket at %s not found, will not try again until next restart: %s",
-            ex.filename,
-            ex,
-        )
-    except asyncio.TimeoutError:
-        setattr(_get_properties, "_has_dbus_socket", False)
-        _LOGGER.debug(
-            "Timed out trying to connect to DBus; will not try again until next restart"
-        )
-    except Exception as ex:  # pylint: disable=broad-except
-        _LOGGER.debug("get_properties failed: %s", ex, exc_info=True)
-
+    if IS_LINUX and (bluez_manager := await get_global_bluez_manager_with_timeout()):
+        return bluez_manager._properties  # pylint: disable=protected-access
     return None
-
-
-def _reset_dbus_socket_cache() -> None:
-    """Reset the dbus socket cache."""
-    setattr(_get_properties, "_has_dbus_socket", None)
 
 
 async def get_bluez_device(
