@@ -315,7 +315,7 @@ async def get_device_by_adapter(address: str, adapter: str) -> BLEDevice | None:
 
 async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
     """Get the properties."""
-    if IS_LINUX and (bluez_manager := await get_global_bluez_manager_with_timeout()):
+    if bluez_manager := await get_global_bluez_manager_with_timeout():
         return bluez_manager._properties  # pylint: disable=protected-access
     return None
 
