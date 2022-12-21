@@ -20,7 +20,10 @@ from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
 from bluetooth_adapters import load_history_from_managed_objects
 
-from .bluez import _reset_dbus_socket_cache  # noqa: F401
+from .bluez import (  # noqa: F401
+    _reset_dbus_socket_cache,
+    get_global_bluez_manager_with_timeout,
+)
 
 DISCONNECT_TIMEOUT = 5
 
@@ -31,11 +34,7 @@ if IS_LINUX:
     from .dbus import disconnect_devices
 
     with contextlib.suppress(ImportError):  # pragma: no cover
-        from .bluez import (  # pragma: no cover
-            defs,
-            get_global_bluez_manager,
-            get_global_bluez_manager_with_timeout,
-        )
+        from .bluez import defs, get_global_bluez_manager  # pragma: no cover
 
 
 NO_RSSI_VALUE = -127

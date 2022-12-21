@@ -3,18 +3,19 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import platform
 from typing import Any
 
 import async_timeout
 from bleak.backends.device import BLEDevice
+
+from .const import IS_LINUX
 
 DISCONNECT_TIMEOUT = 5
 DBUS_CONNECT_TIMEOUT = 8.5
 
 _LOGGER = logging.getLogger(__name__)
 
-IS_LINUX = platform.system() == "Linux"
+
 DEFAULT_ATTEMPTS = 2
 
 
