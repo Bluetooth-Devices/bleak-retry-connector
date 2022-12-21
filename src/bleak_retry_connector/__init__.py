@@ -6,11 +6,8 @@ __version__ = "2.10.2"
 
 
 import asyncio
-import contextlib
 import logging
-import platform
-import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from typing import Any, TypeVar
 
 import async_timeout
@@ -21,23 +18,22 @@ from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
 from bluetooth_adapters import load_history_from_managed_objects
 
 from .bluez import (  # noqa: F401
-    _reset_dbus_socket_cache,
-    get_global_bluez_manager_with_timeout,
+    _get_properties,
+    clear_cache,
+    get_bluez_device,
+    get_connected_devices,
+    get_device,
+    get_device_by_adapter,
+    wait_for_disconnect,
 )
+from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
 
 DISCONNECT_TIMEOUT = 5
 
-IS_LINUX = platform.system() == "Linux"
 DEFAULT_ATTEMPTS = 2
 
 if IS_LINUX:
     from .dbus import disconnect_devices
-
-    with contextlib.suppress(ImportError):  # pragma: no cover
-        from .bluez import defs, get_global_bluez_manager  # pragma: no cover
-
-
-NO_RSSI_VALUE = -127
 
 
 # Make sure bleak and dbus-fast have time
@@ -54,12 +50,12 @@ BLEAK_BACKOFF_TIME = 0.1
 # want to retry immediately.
 BLEAK_DISCONNECTED_BACKOFF_TIME = 0.0
 
-RSSI_SWITCH_THRESHOLD = 5
 
 __all__ = [
     "ble_device_description",
     "establish_connection",
     "close_stale_connections",
+    "clear_cache",
     "get_device",
     "get_device_by_adapter",
     "restore_discoveries",
@@ -199,19 +195,6 @@ def ble_device_has_changed(original: BLEDevice, new: BLEDevice) -> bool:
     )
 
 
-async def clear_cache(address: str) -> bool:
-    """Clear the cache for a device."""
-    if not IS_LINUX or not await get_device(address):
-        return False
-    with contextlib.suppress(Exception):
-        manager = await get_global_bluez_manager()
-        manager._services_cache.pop(
-            address.upper(), None
-        )  # pylint: disable=protected-access
-        return True
-    return False
-
-
 def ble_device_description(device: BLEDevice) -> str:
     """Get the device description."""
     details = device.details
@@ -230,14 +213,6 @@ def ble_device_description(device: BLEDevice) -> str:
     return base_name
 
 
-def _get_possible_paths(path: str) -> Generator[str, None, None]:
-    """Get the possible paths."""
-    # The path is deterministic so we splice up the string
-    # /org/bluez/hci2/dev_FA_23_9D_AA_45_46
-    for i in range(0, 9):
-        yield f"{path[0:14]}{i}{path[15:]}"
-
-
 async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     """Freshen the device.
 
@@ -254,11 +229,6 @@ async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
     return await get_bluez_device(
         device.name or device.address, device.details["path"], _get_rssi(device)
     )
-
-
-def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
-    """Convert an address to a BlueZ path."""
-    return f"/org/bluez/{adapter or 'hciX'}/dev_{address.upper().replace(':', '_')}"
 
 
 def calculate_backoff_time(exc: Exception) -> float:
@@ -288,135 +258,6 @@ def calculate_backoff_time(exc: Exception) -> float:
         if NORMAL_DISCONNECT in bleak_error:
             return BLEAK_DISCONNECTED_BACKOFF_TIME
     return BLEAK_BACKOFF_TIME
-
-
-async def get_device(address: str) -> BLEDevice | None:
-    """Get the device."""
-    if not IS_LINUX:
-        return None
-    return await get_bluez_device(
-        address, address_to_bluez_path(address), _log_disappearance=False
-    )
-
-
-async def get_device_by_adapter(address: str, adapter: str) -> BLEDevice | None:
-    """Get the device by adapter and address."""
-    if not IS_LINUX:
-        return None
-    if not (properties := await _get_properties()):
-        return None
-    device_path = address_to_bluez_path(address, adapter)
-    if device_path in properties and (
-        device_props := properties[device_path].get(defs.DEVICE_INTERFACE)
-    ):
-        return ble_device_from_properties(device_path, device_props)
-    return None
-
-
-async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
-    """Get the properties."""
-    if bluez_manager := await get_global_bluez_manager_with_timeout():
-        return bluez_manager._properties  # pylint: disable=protected-access
-    return None
-
-
-async def get_bluez_device(
-    name: str, path: str, rssi: int | None = None, _log_disappearance: bool = True
-) -> BLEDevice | None:
-    """Get a BLEDevice object for a BlueZ DBus path."""
-
-    best_path = device_path = path
-    rssi_to_beat: int = rssi or NO_RSSI_VALUE
-
-    if not (properties := await _get_properties()):
-        return None
-
-    if (
-        device_path not in properties
-        or defs.DEVICE_INTERFACE not in properties[device_path]
-    ):
-        # device has disappeared so take
-        # anything over the current path
-        if _log_disappearance:
-            _LOGGER.debug("%s - %s: Device has disappeared", name, device_path)
-        rssi_to_beat = NO_RSSI_VALUE
-
-    for path in _get_possible_paths(device_path):
-        if path not in properties or not (
-            device_props := properties[path].get(defs.DEVICE_INTERFACE)
-        ):
-            continue
-
-        if device_props.get("Connected"):
-            # device is connected so take it
-            _LOGGER.debug("%s - %s: Device is already connected", name, path)
-            if path == device_path:
-                # device is connected to the path we were given
-                # so we can just return None so it will be used
-                return None
-            return ble_device_from_properties(path, device_props)
-
-        if path == device_path:
-            # Device is not connected and is the original path
-            # so no need to check it since returning None will
-            # cause the device to be used anyways.
-            continue
-
-        alternate_device_rssi: int = device_props.get("RSSI") or NO_RSSI_VALUE
-        if (
-            rssi_to_beat != NO_RSSI_VALUE
-            and alternate_device_rssi - RSSI_SWITCH_THRESHOLD < rssi_to_beat
-        ):
-            continue
-        best_path = path
-        _LOGGER.debug(
-            "%s - %s: Found path %s with better RSSI %s > %s",
-            name,
-            device_path,
-            path,
-            alternate_device_rssi,
-            rssi_to_beat,
-        )
-        rssi_to_beat = alternate_device_rssi
-
-    if best_path == device_path:
-        return None
-
-    return ble_device_from_properties(
-        best_path, properties[best_path][defs.DEVICE_INTERFACE]
-    )
-
-
-def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
-    """Get a BLEDevice from a dict of properties."""
-    return BLEDevice(
-        props["Address"],
-        props["Alias"],
-        {"path": path, "props": props},
-        props.get("RSSI") or NO_RSSI_VALUE,
-        uuids=props.get("UUIDs", []),
-        manufacturer_data={
-            k: bytes(v) for k, v in props.get("ManufacturerData", {}).items()
-        },
-    )
-
-
-async def get_connected_devices(device: BLEDevice) -> list[BLEDevice]:
-    """Check if the device is connected."""
-    connected: list[BLEDevice] = []
-
-    if not isinstance(device.details, dict) or "path" not in device.details:
-        return connected
-    if not (properties := await _get_properties()):
-        return connected
-    device_path = device.details["path"]
-    for path in _get_possible_paths(device_path):
-        if path not in properties or defs.DEVICE_INTERFACE not in properties[path]:
-            continue
-        props = properties[path][defs.DEVICE_INTERFACE]
-        if props.get("Connected"):
-            connected.append(ble_device_from_properties(path, props))
-    return connected
 
 
 async def _disconnect_devices(devices: list[BLEDevice]) -> None:
@@ -449,62 +290,6 @@ async def close_stale_connections(
     if not to_disconnect:
         return
     await _disconnect_devices(to_disconnect)
-
-
-async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
-    """Wait for the device to disconnect.
-
-    After a connection failure, the device may not have
-    had time to disconnect so we wait for it to do so.
-
-    If we do not wait, we may end up connecting to the
-    same device again before it has had time to disconnect.
-    """
-    if (
-        not IS_LINUX
-        or not isinstance(device.details, dict)
-        or "path" not in device.details
-    ):
-        await asyncio.sleep(min_wait_time)
-        return
-    start = time.monotonic() if min_wait_time else 0
-    try:
-        manager = await get_global_bluez_manager()
-        async with async_timeout.timeout(DISCONNECT_TIMEOUT):
-            await manager._wait_condition(device.details["path"], "Connected", False)
-        end = time.monotonic() if min_wait_time else 0
-        waited = end - start
-        _LOGGER.debug(
-            "%s - %s: Waited %s seconds to disconnect",
-            device.name,
-            device.address,
-            waited,
-        )
-        if min_wait_time and waited < min_wait_time:
-            await asyncio.sleep(min_wait_time - waited)
-    except KeyError as ex:
-        # Device was removed from bus
-        #
-        # In testing it was found that most of the CSR adapters
-        # only support 5 slots and the broadcom only support 7 slots.
-        #
-        # When they run out of slots the device they are trying to
-        # connect to disappears from the bus so we must backoff
-        _LOGGER.debug(
-            "%s - %s: Device was removed from bus, waiting %s for it to re-appear: %s",
-            device.name,
-            device.address,
-            min_wait_time,
-            ex,
-        )
-        await asyncio.sleep(min_wait_time)
-    except Exception:  # pylint: disable=broad-except
-        _LOGGER.debug(
-            "%s - %s: Failed waiting for disconnect",
-            device.name,
-            device.address,
-            exc_info=True,
-        )
 
 
 def _get_rssi(device: BLEDevice) -> int:
