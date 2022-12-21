@@ -992,7 +992,7 @@ async def test_get_device():
     )
     bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is not None
@@ -1058,7 +1058,7 @@ async def test_clear_cache():
     )
     bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("FA:23:9D:AA:45:46")
 
         assert device is not None
@@ -1124,7 +1124,7 @@ async def test_get_device_mac_os():
     )
     bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", False):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", False):
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is None
@@ -1170,7 +1170,7 @@ async def test_get_device_already_connected():
     )
     bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("BD:24:6F:85:AA:61")
 
     assert device is not None
@@ -1237,7 +1237,7 @@ async def test_get_device_not_there():
     )
     bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("00:00:00:00:00:00")
 
     assert device is None
@@ -1345,7 +1345,9 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     with patch(
         "bleak_retry_connector._disconnect_devices"
-    ) as mock_disconnect_device, patch.object(bleak_retry_connector, "IS_LINUX", True):
+    ) as mock_disconnect_device, patch.object(
+        bleak_retry_connector.const, "IS_LINUX", True
+    ):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -1476,7 +1478,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
     ) as mock_disconnect_device, patch(
         "bleak.get_platform_client_backend_type"
     ), patch.object(
-        bleak_retry_connector, "IS_LINUX", True
+        bleak_retry_connector.const, "IS_LINUX", True
     ):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
@@ -1559,7 +1561,7 @@ async def test_get_device_by_adapter():
     )
     bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device_hci0 = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0")
         device_hci1 = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci1")
 
@@ -1647,7 +1649,7 @@ async def test_dbus_is_missing():
     )
     bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is None
@@ -1705,14 +1707,14 @@ async def test_dbus_is_missing():
         return_value=FakeBluezManager()
     )
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is None
 
     _reset_dbus_socket_cache()
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is not None
@@ -1814,7 +1816,7 @@ async def test_restore_discoveries():
     mock_backend = Mock(seen_devices=seen_devices)
     mock_scanner = Mock(_backend=mock_backend)
 
-    with patch("bleak_retry_connector.const", "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         await restore_discoveries(mock_scanner, "hci1")
 
     assert len(seen_devices) == 1
