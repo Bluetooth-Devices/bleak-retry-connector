@@ -1816,7 +1816,7 @@ async def test_restore_discoveries():
     mock_backend = Mock(seen_devices=seen_devices)
     mock_scanner = Mock(_backend=mock_backend)
 
-    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.bluez, "IS_LINUX", True):
         await restore_discoveries(mock_scanner, "hci1")
 
     assert len(seen_devices) == 1
