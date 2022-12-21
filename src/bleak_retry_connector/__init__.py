@@ -21,6 +21,7 @@ from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
 from bluetooth_adapters import load_history_from_managed_objects
 
 from .bluez import _reset_dbus_socket_cache  # noqa: F401
+from .bluez import get_global_bluez_manager_with_timeout
 
 DISCONNECT_TIMEOUT = 5
 
@@ -28,7 +29,6 @@ IS_LINUX = platform.system() == "Linux"
 DEFAULT_ATTEMPTS = 2
 
 if IS_LINUX:
-    from .bluez import get_global_bluez_manager_with_timeout
     from .dbus import disconnect_devices
 
     with contextlib.suppress(ImportError):  # pragma: no cover
