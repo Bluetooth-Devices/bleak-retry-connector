@@ -52,6 +52,7 @@ BLEAK_DISCONNECTED_BACKOFF_TIME = 0.0
 
 
 __all__ = [
+    "BleakSlotManager",  # Currently only possible for BlueZ, for MacOS we have no of knowing
     "ble_device_description",
     "establish_connection",
     "close_stale_connections",
