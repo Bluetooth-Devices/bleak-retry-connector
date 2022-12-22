@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -24,7 +23,6 @@ from bleak_retry_connector import (
     BleakConnectionError,
     BleakNotFoundError,
     BleakOutOfConnectionSlotsError,
-    _reset_dbus_socket_cache,
     ble_device_description,
     ble_device_has_changed,
     calculate_backoff_time,
@@ -36,11 +34,7 @@ from bleak_retry_connector import (
     restore_discoveries,
     retry_bluetooth_connection_error,
 )
-
-
-@pytest.fixture(autouse=True)
-def configure_test_logging(caplog):
-    caplog.set_level(logging.DEBUG)
+from bleak_retry_connector.bluez import _reset_dbus_socket_cache
 
 
 @pytest.mark.asyncio
@@ -93,10 +87,10 @@ async def test_establish_connection_with_cached_services():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
     client = await establish_connection(
         FakeBleakClientWithServiceCache,
@@ -138,10 +132,10 @@ async def test_establish_connection_with_cached_services_that_have_vanished():
         def __init__(self):
             self._properties = {}
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
     client = await establish_connection(
         FakeBleakClientWithServiceCache,
@@ -187,10 +181,10 @@ async def test_establish_connection_can_cache_services_always_patched():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
     client = await establish_connection(
         FakeBleakClientWithServiceCache,
@@ -235,10 +229,10 @@ async def test_establish_connection_can_cache_services_services_missing():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
     client = await establish_connection(
         FakeBleakClientWithServiceCache,
@@ -656,7 +650,7 @@ async def test_establish_connection_ble_device_changed():
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_better_rssi_available():
+async def test_establish_connection_better_rssi_available(mock_linux):
 
     device: BLEDevice | None = None
 
@@ -734,14 +728,12 @@ async def test_establish_connection_better_rssi_available():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True), patch(
-        "bleak.get_platform_client_backend_type"
-    ):
+    with patch("bleak.get_platform_client_backend_type"):
 
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
@@ -764,7 +756,7 @@ async def test_establish_connection_better_rssi_available():
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_other_adapter_already_connected():
+async def test_establish_connection_other_adapter_already_connected(mock_linux):
 
     device: BLEDevice | None = None
 
@@ -844,25 +836,24 @@ async def test_establish_connection_other_adapter_already_connected():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            BLEDevice(
-                "aa:bb:cc:dd:ee:ff",
-                "name",
-                {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                -80,
-                delegate=False,
-            ),
-            "test",
-            disconnected_callback=MagicMock(),
-            cached_services=collection,
-        )
+    client = await establish_connection(
+        FakeBleakClientWithServiceCache,
+        BLEDevice(
+            "aa:bb:cc:dd:ee:ff",
+            "name",
+            {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+            -80,
+            delegate=False,
+        ),
+        "test",
+        disconnected_callback=MagicMock(),
+        cached_services=collection,
+    )
 
     assert isinstance(client, FakeBleakClientWithServiceCache)
     await client.get_services() is collection
@@ -871,7 +862,7 @@ async def test_establish_connection_other_adapter_already_connected():
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_device_disappeared():
+async def test_establish_connection_device_disappeared(mock_linux):
     class FakeBleakClient(BleakClient):
         def __init__(self, ble_device_or_address, *args, **kwargs):
             ble_device_or_address.metadata["delegate"] = 0
@@ -911,14 +902,12 @@ async def test_establish_connection_device_disappeared():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch(
-        "bleak_retry_connector.calculate_backoff_time", return_value=0
-    ), patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -937,7 +926,7 @@ async def test_establish_connection_device_disappeared():
 
 
 @pytest.mark.asyncio
-async def test_get_device():
+async def test_get_device(mock_linux):
     class FakeBluezManager:
         def __init__(self):
             self._properties = {
@@ -987,20 +976,19 @@ async def test_get_device():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
-        device = await get_device("FA:23:9D:AA:45:46")
+    device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
 
 
 @pytest.mark.asyncio
-async def test_clear_cache():
+async def test_clear_cache(mock_linux):
     class FakeBluezManager:
         def __init__(self):
             self._services_cache = {"FA:23:9D:AA:45:46": "test"}
@@ -1053,23 +1041,22 @@ async def test_clear_cache():
 
     bluez_manager = FakeBluezManager()
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=bluez_manager
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
-        device = await get_device("FA:23:9D:AA:45:46")
+    device = await get_device("FA:23:9D:AA:45:46")
 
-        assert device is not None
-        assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
+    assert device is not None
+    assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
 
-        assert await clear_cache("FA:23:9D:AA:45:46")
-        assert bluez_manager._services_cache == {}
+    assert await clear_cache("FA:23:9D:AA:45:46")
+    assert bluez_manager._services_cache == {}
 
 
 @pytest.mark.asyncio
-async def test_get_device_mac_os():
+async def test_get_device_mac_os(mock_macos):
     class FakeBluezManager:
         def __init__(self):
             self._properties = {
@@ -1119,19 +1106,18 @@ async def test_get_device_mac_os():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", False):
-        device = await get_device("FA:23:9D:AA:45:46")
+    device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is None
 
 
 @pytest.mark.asyncio
-async def test_get_device_already_connected():
+async def test_get_device_already_connected(mock_linux):
     class FakeBluezManager:
         def __init__(self):
             self._properties = {
@@ -1165,13 +1151,12 @@ async def test_get_device_already_connected():
                 }
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
-        device = await get_device("BD:24:6F:85:AA:61")
+    device = await get_device("BD:24:6F:85:AA:61")
 
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_BD_24_6F_85_AA_61"
@@ -1232,19 +1217,21 @@ async def test_get_device_not_there():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("00:00:00:00:00:00")
 
     assert device is None
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_better_rssi_available_already_connected_supported_different_adapter():
+async def test_establish_connection_better_rssi_available_already_connected_supported_different_adapter(
+    mock_linux,
+):
 
     device: BLEDevice | None = None
 
@@ -1324,10 +1311,10 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
     mock_device = BLEDevice(
         "aa:bb:cc:dd:ee:ff",
@@ -1343,9 +1330,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
     assert connected[0].details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
     assert connected[1].details["path"] == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
 
-    with patch(
-        "bleak_retry_connector._disconnect_devices"
-    ) as mock_disconnect_device, patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch("bleak_retry_connector._disconnect_devices") as mock_disconnect_device:
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -1372,7 +1357,9 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_better_rssi_available_already_connected_supported_same_adapter():
+async def test_establish_connection_better_rssi_available_already_connected_supported_same_adapter(
+    mock_linux,
+):
 
     device: BLEDevice | None = None
 
@@ -1452,10 +1439,10 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
     mock_device = BLEDevice(
         "aa:bb:cc:dd:ee:ff",
@@ -1473,11 +1460,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     with patch(
         "bleak_retry_connector._disconnect_devices"
-    ) as mock_disconnect_device, patch(
-        "bleak.get_platform_client_backend_type"
-    ), patch.object(
-        bleak_retry_connector, "IS_LINUX", True
-    ):
+    ) as mock_disconnect_device, patch("bleak.get_platform_client_backend_type"):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
             BLEDevice(
@@ -1504,7 +1487,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
 
 @pytest.mark.asyncio
-async def test_get_device_by_adapter():
+async def test_get_device_by_adapter(mock_linux):
     class FakeBluezManager:
         def __init__(self):
             self._properties = {
@@ -1554,14 +1537,13 @@ async def test_get_device_by_adapter():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
-        device_hci0 = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0")
-        device_hci1 = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci1")
+    device_hci0 = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0")
+    device_hci1 = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci1")
 
     assert device_hci0 is not None
     assert device_hci0.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
@@ -1639,15 +1621,15 @@ async def test_retry_bluetooth_connection_error_non_default_max_attempts():
 
 
 @pytest.mark.asyncio
-async def test_dbus_is_missing():
+async def test_dbus_is_missing(mock_linux):
     """Test getting a device when dbus is missing."""
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         side_effect=FileNotFoundError("dbus not here")
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
+    with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
         device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is None
@@ -1701,19 +1683,17 @@ async def test_dbus_is_missing():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
-        device = await get_device("FA:23:9D:AA:45:46")
+    device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is None
 
     _reset_dbus_socket_cache()
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
-        device = await get_device("FA:23:9D:AA:45:46")
+    device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is not None
 
@@ -1743,7 +1723,7 @@ async def test_ble_device_description():
 
 
 @pytest.mark.asyncio
-async def test_restore_discoveries():
+async def test_restore_discoveries(mock_linux):
     class FakeBluezManager:
         def __init__(self):
             self._properties = {
@@ -1805,16 +1785,15 @@ async def test_restore_discoveries():
                 },
             }
 
-    bleak_retry_connector.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
-    bleak_retry_connector.defs = defs
+    bleak_retry_connector.bluez.defs = defs
     seen_devices: dict[str, tuple[BLEDevice, AdvertisementData]] = {}
 
     mock_backend = Mock(seen_devices=seen_devices)
     mock_scanner = Mock(_backend=mock_backend)
 
-    with patch.object(bleak_retry_connector, "IS_LINUX", True):
-        await restore_discoveries(mock_scanner, "hci1")
+    await restore_discoveries(mock_scanner, "hci1")
 
     assert len(seen_devices) == 1
