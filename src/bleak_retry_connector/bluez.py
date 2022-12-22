@@ -96,10 +96,8 @@ def path_from_ble_device(device: BLEDevice) -> str | None:
     return _device_details_value_or_none(device, "path")
 
 
-def _on_characteristic_value_changed(
-    interface: str, changed: dict[str, Any], invalidated: list[str]
-) -> None:
-    pass
+def _on_characteristic_value_changed(*args: Any, **kwargs: Any) -> None:
+    """Dummy callback for registering characteristic value changed."""
 
 
 class BleakSlotManager:
