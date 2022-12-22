@@ -74,7 +74,7 @@ def _reset_dbus_socket_cache() -> None:
 
 def adapter_from_path(path: str) -> str:
     """Get the adapter from a ble device path."""
-    return path.partition("/")[2]
+    return path.split("/")[3]
 
 
 def path_from_ble_device(device: BLEDevice) -> str | None:
@@ -101,16 +101,28 @@ class BleakSlotManager:
         """Initialize the class."""
         self._adapter_slots: dict[str, int] = {}
         self._allocations_by_adapter: dict[str, dict[str, DeviceWatcher]] = {}
-        self._slots: dict[str, asyncio.Semaphore] = {}
         self._manager: BlueZManager | None = None
 
     async def async_setup(self) -> None:
         """Set up the class."""
         self._manager = await get_global_bluez_manager_with_timeout()
 
-    def diagnostics(self) -> dict[str, int]:
+    def diagnostics(self) -> dict[str, Any]:
         """Return diagnostics."""
-        return {address: slot._value for address, slot in self._slots.items()}
+        return {
+            "manager": self._manager is not None,
+            "adapter_slots": self._adapter_slots,
+            "allocations_by_adapter": {
+                adapter: self._get_allocations(adapter)
+                for adapter in self._adapter_slots
+            },
+        }
+
+    def _get_allocations(self, adapter: str) -> list[str]:
+        """Get connected path allocations."""
+        if self._manager is None:
+            return []
+        return list(self._allocations_by_adapter[adapter])
 
     def remove_adapter(self, adapter: str) -> None:
         """Remove an adapter."""
@@ -129,15 +141,16 @@ class BleakSlotManager:
         if self._manager is None:
             return
         for path, device in self._manager._properties.items():
-            if defs.DEVICE_INTERFACE in device and device[defs.DEVICE_INTERFACE].get(
-                "Connected"
+            if (
+                defs.DEVICE_INTERFACE in device
+                and device[defs.DEVICE_INTERFACE].get("Connected")
+                and adapter_from_path(path) == adapter
             ):
                 self._allocate_and_watch_slot(path)
 
     def _allocate_and_watch_slot(self, path: str) -> None:
         """Setup a device watcher."""
-        if not self._manager:
-            return
+        assert self._manager is not None  # nosec
         adapter = adapter_from_path(path)
         allocations = self._allocations_by_adapter[adapter]
 
@@ -163,8 +176,7 @@ class BleakSlotManager:
 
     def _release_slot(self, path: str) -> None:
         """Unconditional release of the slot."""
-        if not self._manager:
-            return
+        assert self._manager is not None  # nosec
         adapter = adapter_from_path(path)
         allocations = self._allocations_by_adapter[adapter]
         if watcher := allocations.pop(path, None):
@@ -184,6 +196,11 @@ class BleakSlotManager:
             # Already connected
             return True
         if len(allocations) >= self._adapter_slots[adapter]:
+            _LOGGER.debug(
+                "No slots available for %s (used by: %s)",
+                path,
+                self._get_allocations(adapter),
+            )
             return False
         self._allocate_and_watch_slot(path)
         return True

@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
@@ -36,27 +35,6 @@ from bleak_retry_connector import (
     retry_bluetooth_connection_error,
 )
 from bleak_retry_connector.bluez import _reset_dbus_socket_cache
-
-
-@pytest.fixture(autouse=True)
-def configure_test_logging(caplog):
-    caplog.set_level(logging.DEBUG)
-
-
-@pytest.fixture()
-def mock_linux():
-    with patch.object(bleak_retry_connector, "IS_LINUX", True), patch.object(
-        bleak_retry_connector.bluez, "IS_LINUX", True
-    ):
-        yield
-
-
-@pytest.fixture()
-def mock_macos():
-    with patch.object(bleak_retry_connector, "IS_LINUX", False), patch.object(
-        bleak_retry_connector.bluez, "IS_LINUX", False
-    ):
-        yield
 
 
 @pytest.mark.asyncio

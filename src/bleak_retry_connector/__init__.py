@@ -18,6 +18,7 @@ from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
 from bluetooth_adapters import load_history_from_managed_objects
 
 from .bluez import (  # noqa: F401
+    BleakSlotManager,
     _get_properties,
     clear_cache,
     get_bluez_device,
