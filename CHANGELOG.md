@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.11.0 (2022-12-22)
+### Feature
+* Add connection slot manager ([#80](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/80)) ([`d8bb8d9`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/d8bb8d96fb019152fb97e4006a8e6a1d11213a7d))
+
 ## v2.10.2 (2022-12-12)
 ### Fix
 * Stop trying to get devices from bluez if dbus setup times out ([#78](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/78)) ([`a8da722`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/a8da7222d6d7ab725152141f560dc1bb681bf4cf))
