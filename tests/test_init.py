@@ -51,6 +51,14 @@ def mock_linux():
         yield
 
 
+@pytest.fixture()
+def mock_macos():
+    with patch.object(bleak_retry_connector, "IS_LINUX", False), patch.object(
+        bleak_retry_connector.bluez, "IS_LINUX", False
+    ):
+        yield
+
+
 @pytest.mark.asyncio
 async def test_establish_connection_works_first_time():
     class FakeBleakClient(BleakClient):
@@ -1070,7 +1078,7 @@ async def test_clear_cache(mock_linux):
 
 
 @pytest.mark.asyncio
-async def test_get_device_mac_os():
+async def test_get_device_mac_os(mock_macos):
     class FakeBluezManager:
         def __init__(self):
             self._properties = {
@@ -1125,8 +1133,7 @@ async def test_get_device_mac_os():
     )
     bleak_retry_connector.bluez.defs = defs
 
-    with patch.object(bleak_retry_connector.const, "IS_LINUX", False):
-        device = await get_device("FA:23:9D:AA:45:46")
+    device = await get_device("FA:23:9D:AA:45:46")
 
     assert device is None
 
