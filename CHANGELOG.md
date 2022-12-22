@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.12.0 (2022-12-22)
+### Feature
+* Add utility function to get device_source ([#81](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/81)) ([`d72ce15`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/d72ce150edba658b4d4edb43f3bbd158cba9988f))
+
 ## v2.11.0 (2022-12-22)
 ### Feature
 * Add connection slot manager ([#80](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/80)) ([`d8bb8d9`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/d8bb8d96fb019152fb97e4006a8e6a1d11213a7d))
