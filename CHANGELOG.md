@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.12.1 (2022-12-22)
+### Fix
+* _on_characteristic_value_changed in BleakSlotManager should accept any arguments ([#82](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/82)) ([`71cc37e`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/71cc37ef6b0b7492fb58aaeb9115737e95bd9f0e))
+
 ## v2.12.0 (2022-12-22)
 ### Feature
 * Add utility function to get device_source ([#81](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/81)) ([`d72ce15`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/d72ce150edba658b4d4edb43f3bbd158cba9988f))
