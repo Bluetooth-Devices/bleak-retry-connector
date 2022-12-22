@@ -67,6 +67,20 @@ async def get_global_bluez_manager_with_timeout() -> "BlueZManager" | None:
     return None
 
 
+def device_source(device: BLEDevice) -> str | None:
+    """Return the device source."""
+    return _device_details_value_or_none(device, "source")
+
+
+def _device_details_value_or_none(device: BLEDevice, key: str) -> Any | None:
+    """Return a value from device details or None."""
+    details = device.details
+    if not isinstance(details, dict) or key not in details:
+        return None
+    key_value: str = device.details[key]
+    return key_value
+
+
 def _reset_dbus_socket_cache() -> None:
     """Reset the dbus socket cache."""
     setattr(get_global_bluez_manager_with_timeout, "_has_dbus_socket", None)
@@ -79,12 +93,7 @@ def adapter_from_path(path: str) -> str:
 
 def path_from_ble_device(device: BLEDevice) -> str | None:
     """Get the adapter from a ble device."""
-    if not isinstance(device.details, dict):
-        return None
-    if "path" not in device.details:
-        return None
-    path: str = device.details["path"]
-    return path
+    return _device_details_value_or_none(device, "path")
 
 
 def _on_characteristic_value_changed(
