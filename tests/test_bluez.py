@@ -4,10 +4,11 @@ from unittest.mock import AsyncMock
 import pytest
 from bleak.backends.bluezdbus import defs
 from bleak.backends.bluezdbus.manager import DeviceWatcher
+from bleak.backends.device import BLEDevice
 
 import bleak_retry_connector
-from bleak_retry_connector import BleakSlotManager
-from bleak_retry_connector.bluez import ble_device_from_properties
+from bleak_retry_connector import BleakSlotManager, device_source
+from bleak_retry_connector.bluez import ble_device_from_properties, path_from_ble_device
 
 pytestmark = pytest.mark.asyncio
 
@@ -226,3 +227,40 @@ async def test_slot_manager_mac_os():
     slot_manager.release_slot(ble_device_hci0)
     assert slot_manager._get_allocations("hci0") == []
     slot_manager.remove_adapter("hci0")
+
+
+def test_device_source():
+    ble_device_hci0_2 = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {
+            "source": "aa:bb:cc:dd:ee:ff",
+            "path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_47",
+            "props": {},
+        },
+        -127,
+        uuids=[],
+        manufacturer_data={},
+    )
+
+    assert device_source(ble_device_hci0_2) == "aa:bb:cc:dd:ee:ff"
+
+
+def test_path_from_ble_device():
+    ble_device_hci0_2 = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {
+            "source": "aa:bb:cc:dd:ee:ff",
+            "path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_47",
+            "props": {},
+        },
+        -127,
+        uuids=[],
+        manufacturer_data={},
+    )
+
+    assert (
+        path_from_ble_device(ble_device_hci0_2)
+        == "/org/bluez/hci0/dev_FA_23_9D_AA_45_47"
+    )
