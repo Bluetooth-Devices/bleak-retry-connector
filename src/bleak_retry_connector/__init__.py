@@ -344,13 +344,13 @@ async def establish_connection(
 
     debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
     rssi: int | None = None
-    client = client_class(device, disconnected_callback=disconnected_callback, **kwargs)
-    if IS_LINUX:
-        # Bleak 0.17 will handle already connected devices for us, but
-        # we still need to disconnect if its unexpectedly connected to another
-        # adapter.
+    if IS_LINUX and (devices := await get_connected_devices(device)):
+        # Bleak 0.17 will handle already connected devices for us so
+        # if we are already connected we swap the device to the connected
+        # device.
+        device = devices[0]
 
-        await close_stale_connections(device, only_other_adapters=True)
+    client = client_class(device, disconnected_callback=disconnected_callback, **kwargs)
 
     while True:
         attempt += 1
