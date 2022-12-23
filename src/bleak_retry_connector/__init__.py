@@ -22,7 +22,6 @@ from .bluez import (  # noqa: F401
     _get_properties,
     clear_cache,
     device_source,
-    get_bluez_device,
     get_connected_devices,
     get_device,
     get_device_by_adapter,
