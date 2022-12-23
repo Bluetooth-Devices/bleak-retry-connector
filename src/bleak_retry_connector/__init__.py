@@ -248,7 +248,8 @@ def calculate_backoff_time(exc: Exception) -> float:
 
 async def _disconnect_devices(devices: list[BLEDevice]) -> None:
     """Disconnect the devices."""
-    await disconnect_devices(devices)
+    if IS_LINUX:
+        await disconnect_devices(devices)
 
 
 async def close_stale_connections(
