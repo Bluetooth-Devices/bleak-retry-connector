@@ -608,154 +608,6 @@ def test_ble_device_has_changed():
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_ble_device_changed():
-    """Test we switch BLEDevice when the underlying device has changed."""
-
-    attempts = 0
-
-    ble_device_1 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"})
-    ble_device_2 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/2"})
-    ble_device_3 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/3"})
-
-    def _get_ble_device():
-        nonlocal attempts
-
-        if attempts == 0:
-            return ble_device_1
-        if attempts == 1:
-            return ble_device_2
-        return ble_device_3
-
-    class FakeBleakClient(BleakClient):
-        def __init__(self, ble_device_or_address, *args, **kwargs):
-            self.ble_device_or_address = ble_device_or_address
-            pass
-
-        async def connect(self, *args, **kwargs):
-            nonlocal attempts
-            attempts += 1
-            if self.ble_device_or_address != ble_device_3:
-                raise BleakError("le-connection-abort-by-local")
-            pass
-
-        async def disconnect(self, *args, **kwargs):
-            pass
-
-    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
-        client = await establish_connection(
-            FakeBleakClient, ble_device_1, "test", ble_device_callback=_get_ble_device
-        )
-    assert isinstance(client, FakeBleakClient)
-    assert attempts == 3
-
-
-@pytest.mark.asyncio
-async def test_establish_connection_better_rssi_available(mock_linux):
-
-    device: BLEDevice | None = None
-
-    class FakeBleakClient(BleakClient):
-        def __init__(self, ble_device_or_address, *args, **kwargs):
-            ble_device_or_address.metadata["delegate"] = 0
-            super().__init__(ble_device_or_address, *args, **kwargs)
-            nonlocal device
-            device = ble_device_or_address
-            self._device_path = "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
-
-        async def connect(self, *args, **kwargs):
-            return True
-
-        async def disconnect(self, *args, **kwargs):
-            pass
-
-        async def get_services(self, *args, **kwargs):
-            return []
-
-    class FakeBleakClientWithServiceCache(BleakClientWithServiceCache, FakeBleakClient):
-        """Fake BleakClientWithServiceCache."""
-
-        async def get_services(self, *args, **kwargs):
-            return []
-
-    collection = BleakGATTServiceCollection()
-
-    class FakeBluezManager:
-        def __init__(self):
-            self._properties = {
-                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
-                    "UUID": "service",
-                    "Primary": True,
-                    "Characteristics": [],
-                    defs.DEVICE_INTERFACE: {
-                        "Address": "FA:23:9D:AA:45:46",
-                        "Alias": "FA:23:9D:AA:45:46",
-                        "RSSI": -30,
-                    },
-                    defs.GATT_SERVICE_INTERFACE: True,
-                },
-                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
-                    "UUID": "service",
-                    "Primary": True,
-                    "Characteristics": [],
-                    defs.DEVICE_INTERFACE: {
-                        "Address": "FA:23:9D:AA:45:46",
-                        "Alias": "FA:23:9D:AA:45:46",
-                        "RSSI": -79,
-                    },
-                    defs.GATT_SERVICE_INTERFACE: True,
-                },
-                "/org/bluez/hci2/dev_FA_23_9D_AA_45_46": {
-                    "UUID": "service",
-                    "Primary": True,
-                    "Characteristics": [],
-                    defs.DEVICE_INTERFACE: {
-                        "Address": "FA:23:9D:AA:45:46",
-                        "Alias": "FA:23:9D:AA:45:46",
-                        "RSSI": -80,
-                    },
-                    defs.GATT_SERVICE_INTERFACE: True,
-                },
-                "/org/bluez/hci3/dev_FA_23_9D_AA_45_46": {
-                    "UUID": "service",
-                    "Primary": True,
-                    "Characteristics": [],
-                    defs.DEVICE_INTERFACE: {
-                        "Address": "FA:23:9D:AA:45:46",
-                        "Alias": "FA:23:9D:AA:45:46",
-                        "RSSI": -31,
-                    },
-                    defs.GATT_SERVICE_INTERFACE: True,
-                },
-            }
-
-    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
-    )
-    bleak_retry_connector.bluez.defs = defs
-
-    with patch("bleak.get_platform_client_backend_type"):
-
-        client = await establish_connection(
-            FakeBleakClientWithServiceCache,
-            BLEDevice(
-                "aa:bb:cc:dd:ee:ff",
-                "name",
-                {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                -80,
-                delegate=False,
-            ),
-            "test",
-            disconnected_callback=MagicMock(),
-            cached_services=collection,
-        )
-
-    assert isinstance(client, FakeBleakClientWithServiceCache)
-    await client.get_services() is collection
-    assert device is not None
-    assert device.details["path"] == "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
-
-
-@pytest.mark.asyncio
 async def test_establish_connection_other_adapter_already_connected(mock_linux):
 
     device: BLEDevice | None = None
@@ -1349,11 +1201,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
     await client.get_services() is collection
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
-    assert len(mock_disconnect_device.mock_calls) == 1
-    assert (
-        mock_disconnect_device.mock_calls[0][1][0][0].details["path"]
-        == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
-    )
+    assert not mock_disconnect_device.mock_calls
 
 
 @pytest.mark.asyncio
@@ -1479,11 +1327,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
     await client.get_services() is collection
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
-    assert len(mock_disconnect_device.mock_calls) == 1
-    assert (
-        mock_disconnect_device.mock_calls[0][1][0][0].details["path"]
-        == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
-    )
+    assert not mock_disconnect_device.mock_calls
 
 
 @pytest.mark.asyncio

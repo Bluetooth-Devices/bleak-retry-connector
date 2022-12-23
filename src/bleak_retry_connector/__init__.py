@@ -22,7 +22,6 @@ from .bluez import (  # noqa: F401
     _get_properties,
     clear_cache,
     device_source,
-    get_bluez_device,
     get_connected_devices,
     get_device,
     get_device_by_adapter,
@@ -217,24 +216,6 @@ def ble_device_description(device: BLEDevice) -> str:
     return base_name
 
 
-async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
-    """Freshen the device.
-
-    There may be a better path to the device on another adapter
-    that was seen after the code that provided the BLEDevice to
-    the establish_connection function was run.
-    """
-    if (
-        not IS_LINUX
-        or not isinstance(device.details, dict)
-        or "path" not in device.details
-    ):
-        return None
-    return await get_bluez_device(
-        device.name or device.address, device.details["path"], _get_rssi(device)
-    )
-
-
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
 
@@ -266,7 +247,8 @@ def calculate_backoff_time(exc: Exception) -> float:
 
 async def _disconnect_devices(devices: list[BLEDevice]) -> None:
     """Disconnect the devices."""
-    await disconnect_devices(devices)
+    if IS_LINUX:
+        await disconnect_devices(devices)
 
 
 async def close_stale_connections(
@@ -294,13 +276,6 @@ async def close_stale_connections(
     if not to_disconnect:
         return
     await _disconnect_devices(to_disconnect)
-
-
-def _get_rssi(device: BLEDevice) -> int:
-    """Get the RSSI for the device."""
-    if not isinstance(device.details, dict) or "props" not in device.details:
-        return device.rssi
-    return device.details["props"].get("RSSI") or device.rssi or NO_RSSI_VALUE
 
 
 async def establish_connection(
@@ -342,26 +317,18 @@ async def establish_connection(
                 raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         raise BleakConnectionError(msg) from exc
 
-    create_client = True
     debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
     rssi: int | None = None
+    if IS_LINUX and (devices := await get_connected_devices(device)):
+        # Bleak 0.17 will handle already connected devices for us so
+        # if we are already connected we swap the device to the connected
+        # device.
+        device = devices[0]
+
+    client = client_class(device, disconnected_callback=disconnected_callback, **kwargs)
 
     while True:
         attempt += 1
-        original_device = device
-
-        # Its possible the BLEDevice can change between
-        # between connection attempts so we do not want
-        # to keep trying to connect to the old one if it has changed.
-        if ble_device_callback is not None:
-            device = ble_device_callback()
-
-        if fresh_device := await freshen_ble_device(device):
-            device = fresh_device
-
-        if not create_client:
-            create_client = ble_device_has_changed(original_device, device)
-
         if debug_enabled:
             _LOGGER.debug(
                 "%s - %s: Connection attempt: %s",
@@ -369,19 +336,6 @@ async def establish_connection(
                 device.address,
                 attempt,
             )
-
-        if create_client:
-            client = client_class(
-                device, disconnected_callback=disconnected_callback, **kwargs
-            )
-            create_client = False
-
-        if IS_LINUX:
-            # Bleak 0.17 will handle already connected devices for us, but
-            # we still need to disconnect if its unexpectedly connected to another
-            # adapter.
-
-            await close_stale_connections(device, only_other_adapters=True)
 
         try:
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
