@@ -319,11 +319,6 @@ async def establish_connection(
     connect_errors = 0
     transient_errors = 0
     attempt = 0
-    # Its possible the BLEDevice can change between
-    # between connection attempts so we do not want
-    # to keep trying to connect to the old one if it has changed.
-    if ble_device_callback is not None:
-        device = ble_device_callback()
 
     def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
