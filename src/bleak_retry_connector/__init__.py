@@ -319,6 +319,11 @@ async def establish_connection(
     connect_errors = 0
     transient_errors = 0
     attempt = 0
+    # Its possible the BLEDevice can change between
+    # between connection attempts so we do not want
+    # to keep trying to connect to the old one if it has changed.
+    if ble_device_callback is not None:
+        device = ble_device_callback()
 
     def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
@@ -342,26 +347,18 @@ async def establish_connection(
                 raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         raise BleakConnectionError(msg) from exc
 
-    create_client = True
     debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
     rssi: int | None = None
+    client = client_class(device, disconnected_callback=disconnected_callback, **kwargs)
+    if IS_LINUX:
+        # Bleak 0.17 will handle already connected devices for us, but
+        # we still need to disconnect if its unexpectedly connected to another
+        # adapter.
+
+        await close_stale_connections(device, only_other_adapters=True)
 
     while True:
         attempt += 1
-        original_device = device
-
-        # Its possible the BLEDevice can change between
-        # between connection attempts so we do not want
-        # to keep trying to connect to the old one if it has changed.
-        if ble_device_callback is not None:
-            device = ble_device_callback()
-
-        if fresh_device := await freshen_ble_device(device):
-            device = fresh_device
-
-        if not create_client:
-            create_client = ble_device_has_changed(original_device, device)
-
         if debug_enabled:
             _LOGGER.debug(
                 "%s - %s: Connection attempt: %s",
@@ -369,19 +366,6 @@ async def establish_connection(
                 device.address,
                 attempt,
             )
-
-        if create_client:
-            client = client_class(
-                device, disconnected_callback=disconnected_callback, **kwargs
-            )
-            create_client = False
-
-        if IS_LINUX:
-            # Bleak 0.17 will handle already connected devices for us, but
-            # we still need to disconnect if its unexpectedly connected to another
-            # adapter.
-
-            await close_stale_connections(device, only_other_adapters=True)
 
         try:
             async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
