@@ -217,24 +217,6 @@ def ble_device_description(device: BLEDevice) -> str:
     return base_name
 
 
-async def freshen_ble_device(device: BLEDevice) -> BLEDevice | None:
-    """Freshen the device.
-
-    There may be a better path to the device on another adapter
-    that was seen after the code that provided the BLEDevice to
-    the establish_connection function was run.
-    """
-    if (
-        not IS_LINUX
-        or not isinstance(device.details, dict)
-        or "path" not in device.details
-    ):
-        return None
-    return await get_bluez_device(
-        device.name or device.address, device.details["path"], _get_rssi(device)
-    )
-
-
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
 
@@ -294,13 +276,6 @@ async def close_stale_connections(
     if not to_disconnect:
         return
     await _disconnect_devices(to_disconnect)
-
-
-def _get_rssi(device: BLEDevice) -> int:
-    """Get the RSSI for the device."""
-    if not isinstance(device.details, dict) or "props" not in device.details:
-        return device.rssi
-    return device.details["props"].get("RSSI") or device.rssi or NO_RSSI_VALUE
 
 
 async def establish_connection(
