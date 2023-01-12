@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v2.13.1 (2023-01-12)
+### Fix
+* Make bluetooth-adapters install Linux only as well ([#85](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/85)) ([`910f0b7`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/910f0b7147c31d1133bc5d308d134a72e47c3ff5))
+* Only import from bluetooth_adapters when running on linux ([#84](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/84)) ([`51926f7`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/51926f7a679437df875f7cb5b6e53253ae10f0b6))
+
 ## v2.13.0 (2022-12-23)
 ### Feature
 * Remove freshen fallback logic since Home Assistant always provides us the best path to the device now ([#83](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/83)) ([`0954d2d`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/0954d2dfc7ff06f3b7445140c644aeaf7ea36384))
