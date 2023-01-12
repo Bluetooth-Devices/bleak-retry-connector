@@ -15,7 +15,6 @@ from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
-from bluetooth_adapters import load_history_from_managed_objects
 
 from .bluez import (  # noqa: F401
     BleakSlotManager,
@@ -34,6 +33,8 @@ DISCONNECT_TIMEOUT = 5
 DEFAULT_ATTEMPTS = 2
 
 if IS_LINUX:
+    from bluetooth_adapters import load_history_from_managed_objects
+
     from .dbus import disconnect_devices
 
 
