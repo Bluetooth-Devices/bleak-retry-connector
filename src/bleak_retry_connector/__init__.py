@@ -430,7 +430,7 @@ async def establish_connection(
 WrapFuncType = TypeVar("WrapFuncType", bound=Callable[..., Any])
 
 
-def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFuncType:
+def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFuncType:  # type: ignore[type-var]
     """Define a wrapper to retry on bluetooth connection error."""
 
     def _decorator_retry_bluetooth_connection_error(func: WrapFuncType) -> WrapFuncType:

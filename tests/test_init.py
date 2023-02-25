@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -364,7 +366,6 @@ async def test_establish_connection_times_out():
 
 @pytest.mark.asyncio
 async def test_establish_connection_has_transient_error():
-
     attempts = 0
 
     class FakeBleakClient(BleakClient):
@@ -389,7 +390,6 @@ async def test_establish_connection_has_transient_error():
 
 @pytest.mark.asyncio
 async def test_establish_connection_has_transient_broken_pipe_error():
-
     attempts = 0
 
     class FakeBleakClient(BleakClient):
@@ -524,7 +524,6 @@ async def test_device_disappeared_error():
 
 @pytest.mark.asyncio
 async def test_establish_connection_has_one_unknown_error():
-
     attempts = 0
 
     class FakeBleakClient(BleakClient):
@@ -548,7 +547,6 @@ async def test_establish_connection_has_one_unknown_error():
 
 @pytest.mark.asyncio
 async def test_establish_connection_has_one_many_error():
-
     attempts = 0
 
     class FakeBleakClient(BleakClient):
@@ -609,7 +607,6 @@ def test_ble_device_has_changed():
 
 @pytest.mark.asyncio
 async def test_establish_connection_other_adapter_already_connected(mock_linux):
-
     device: BLEDevice | None = None
 
     class FakeBleakClient(BleakClient):
@@ -1084,7 +1081,6 @@ async def test_get_device_not_there():
 async def test_establish_connection_better_rssi_available_already_connected_supported_different_adapter(
     mock_linux,
 ):
-
     device: BLEDevice | None = None
 
     class FakeBleakClient(BleakClient):
@@ -1208,7 +1204,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 async def test_establish_connection_better_rssi_available_already_connected_supported_same_adapter(
     mock_linux,
 ):
-
     device: BLEDevice | None = None
 
     class FakeBleakClient(BleakClient):
