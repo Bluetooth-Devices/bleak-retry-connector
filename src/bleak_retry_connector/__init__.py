@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from typing import cast
-
 __version__ = "2.13.1"
 
 
 import asyncio
 import logging
-from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, Awaitable, Callable, ParamSpec, TypeVar
 
 import async_timeout
 from bleak import BleakClient, BleakScanner
@@ -279,17 +276,20 @@ async def close_stale_connections(
     await _disconnect_devices(to_disconnect)
 
 
+AnyBleakClient = TypeVar("AnyBleakClient", bound=BleakClient)
+
+
 async def establish_connection(
-    client_class: type[BleakClient],
+    client_class: type[AnyBleakClient],
     device: BLEDevice,
     name: str,
-    disconnected_callback: Callable[[BleakClient], None] | None = None,
+    disconnected_callback: Callable[[AnyBleakClient], None] | None = None,
     max_attempts: int = MAX_CONNECT_ATTEMPTS,
     cached_services: BleakGATTServiceCollection | None = None,
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     **kwargs: Any,
-) -> BleakClient:
+) -> AnyBleakClient:
     """Establish a connection to the device."""
     timeouts = 0
     connect_errors = 0
@@ -427,22 +427,27 @@ async def establish_connection(
     raise RuntimeError("This should never happen")
 
 
-WrapFuncType = TypeVar("WrapFuncType", bound=Callable[..., Any])
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
-def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFuncType:  # type: ignore[type-var]
+def retry_bluetooth_connection_error(
+    attempts: int = DEFAULT_ATTEMPTS,
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Define a wrapper to retry on bluetooth connection error."""
 
-    def _decorator_retry_bluetooth_connection_error(func: WrapFuncType) -> WrapFuncType:
+    def _decorator_retry_bluetooth_connection_error(
+        func: Callable[P, Awaitable[T]]
+    ) -> Callable[P, Awaitable[T]]:
         """Define a wrapper to retry on bleak error.
 
         The accessory is allowed to disconnect us any time so
         we need to retry the operation.
         """
 
-        async def _async_wrap_bluetooth_connection_error_retry(
-            *args: Any, **kwargs: Any
-        ) -> Any:
+        async def _async_wrap_bluetooth_connection_error_retry(  # type: ignore[return]
+            *args: P.args, **kwargs: P.kwargs
+        ) -> T:
             for attempt in range(attempts):
                 try:
                     return await func(*args, **kwargs)
@@ -458,9 +463,9 @@ def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFu
                     )
                     await asyncio.sleep(backoff_time)
 
-        return cast(WrapFuncType, _async_wrap_bluetooth_connection_error_retry)
+        return _async_wrap_bluetooth_connection_error_retry
 
-    return cast(WrapFuncType, _decorator_retry_bluetooth_connection_error)
+    return _decorator_retry_bluetooth_connection_error
 
 
 async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None:
