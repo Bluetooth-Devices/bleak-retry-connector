@@ -279,17 +279,20 @@ async def close_stale_connections(
     await _disconnect_devices(to_disconnect)
 
 
+AnyBleakClient = TypeVar("AnyBleakClient", bound=BleakClient)
+
+
 async def establish_connection(
-    client_class: type[BleakClient],
+    client_class: type[AnyBleakClient],
     device: BLEDevice,
     name: str,
-    disconnected_callback: Callable[[BleakClient], None] | None = None,
+    disconnected_callback: Callable[[AnyBleakClient], None] | None = None,
     max_attempts: int = MAX_CONNECT_ATTEMPTS,
     cached_services: BleakGATTServiceCollection | None = None,
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     **kwargs: Any,
-) -> BleakClient:
+) -> AnyBleakClient:
     """Establish a connection to the device."""
     timeouts = 0
     connect_errors = 0
