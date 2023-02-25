@@ -1432,7 +1432,7 @@ def test_calculate_backoff_time():
 async def test_retry_bluetooth_connection_error():
     """Test that the retry_bluetooth_connection_error decorator works correctly."""
 
-    @retry_bluetooth_connection_error()  # type: ignore[misc]
+    @retry_bluetooth_connection_error()
     async def test_function():
         raise BleakDBusError(MagicMock(), MagicMock())
 
@@ -1450,7 +1450,7 @@ async def test_retry_bluetooth_connection_error():
 async def test_retry_bluetooth_connection_error_non_default_max_attempts():
     """Test that the retry_bluetooth_connection_error decorator works correctly with a different number of retries."""
 
-    @retry_bluetooth_connection_error(4)  # type: ignore[misc]
+    @retry_bluetooth_connection_error(4)
     async def test_function():
         raise BleakDBusError(MagicMock(), MagicMock())
 

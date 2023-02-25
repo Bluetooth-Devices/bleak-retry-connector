@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-from typing import cast
-
 __version__ = "2.13.1"
 
 
 import asyncio
 import logging
-from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, Awaitable, Callable, ParamSpec, TypeVar
 
 import async_timeout
 from bleak import BleakClient, BleakScanner
@@ -430,22 +427,27 @@ async def establish_connection(
     raise RuntimeError("This should never happen")
 
 
-WrapFuncType = TypeVar("WrapFuncType", bound=Callable[..., Any])
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
-def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFuncType:
+def retry_bluetooth_connection_error(
+    attempts: int = DEFAULT_ATTEMPTS,
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]:
     """Define a wrapper to retry on bluetooth connection error."""
 
-    def _decorator_retry_bluetooth_connection_error(func: WrapFuncType) -> WrapFuncType:
+    def _decorator_retry_bluetooth_connection_error(
+        func: Callable[P, Awaitable[T]]
+    ) -> Callable[P, Awaitable[T]]:
         """Define a wrapper to retry on bleak error.
 
         The accessory is allowed to disconnect us any time so
         we need to retry the operation.
         """
 
-        async def _async_wrap_bluetooth_connection_error_retry(
-            *args: Any, **kwargs: Any
-        ) -> Any:
+        async def _async_wrap_bluetooth_connection_error_retry(  # type: ignore[return]
+            *args: P.args, **kwargs: P.kwargs
+        ) -> T:
             for attempt in range(attempts):
                 try:
                     return await func(*args, **kwargs)
@@ -461,9 +463,9 @@ def retry_bluetooth_connection_error(attempts: int = DEFAULT_ATTEMPTS) -> WrapFu
                     )
                     await asyncio.sleep(backoff_time)
 
-        return cast(WrapFuncType, _async_wrap_bluetooth_connection_error_retry)
+        return _async_wrap_bluetooth_connection_error_retry
 
-    return cast(WrapFuncType, _decorator_retry_bluetooth_connection_error)
+    return _decorator_retry_bluetooth_connection_error
 
 
 async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None:
