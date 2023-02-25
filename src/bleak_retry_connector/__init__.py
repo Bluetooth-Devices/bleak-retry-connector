@@ -5,7 +5,8 @@ __version__ = "2.13.1"
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable, ParamSpec, TypeVar
+from collections.abc import Awaitable, Callable
+from typing import Any, ParamSpec, TypeVar
 
 import async_timeout
 from bleak import BleakClient, BleakScanner
