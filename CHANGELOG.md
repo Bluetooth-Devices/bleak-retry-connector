@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v3.0.0 (2023-02-25)
+### Fix
+* Bump python-semantic-release ([#90](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/90)) ([`c401988`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/c4019883c9bad3f91a20029e8adf35962a59a488))
+* Lint ([#89](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/89)) ([`c3b5ff8`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/c3b5ff8870b8a5c6cb7972d9e1a0ca677cc0c78d))
+* Typing for generic BleakClient classes and the retry_bluetooth_connection_error decorator ([#86](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/86)) ([`8ddf242`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/8ddf2426ff2fc5274dc2e8a905233a2c30f57fbb))
+
+### Breaking
+* In preparation for the use of Python 3.10 typing features such as ParamSpec, which is unavailable on Python 3.9. ([`58f9958`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/58f9958785b40d2fbade39ef7f56dab931f888a6))
+
 ## v2.13.1 (2023-01-12)
 ### Fix
 * Make bluetooth-adapters install Linux only as well ([#85](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/85)) ([`910f0b7`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/910f0b7147c31d1133bc5d308d134a72e47c3ff5))
