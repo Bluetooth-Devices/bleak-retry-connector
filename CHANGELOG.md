@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v3.0.1 (2023-03-18)
+### Fix
+* Update for bleak 0.20.0 ([#92](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/92)) ([`78f9a1e`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/78f9a1e81768ee9543595a6c8673c8c635f63244))
+
 ## v3.0.0 (2023-02-25)
 ### Fix
 * Bump python-semantic-release ([#90](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/90)) ([`c401988`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/c4019883c9bad3f91a20029e8adf35962a59a488))
