@@ -10,6 +10,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError
+from bluetooth_adapters.history import load_history_from_managed_objects
 
 import bleak_retry_connector
 from bleak_retry_connector import (
@@ -431,6 +432,7 @@ async def test_establish_connection_has_transient_error_had_advice():
                     "aa:bb:cc:dd:ee:ff",
                     "name",
                     {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+                    -127,
                 ),
                 "test",
             )
@@ -464,7 +466,9 @@ async def test_establish_connection_out_of_slots_advice():
         try:
             await establish_connection(
                 FakeBleakClient,
-                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}),
+                BLEDevice(
+                    "aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}, -127
+                ),
                 "test",
             )
         except BleakError as e:
@@ -505,6 +509,7 @@ async def test_device_disappeared_error():
                     "aa:bb:cc:dd:ee:ff",
                     "name",
                     {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+                    -127,
                 ),
                 "test",
             )
@@ -592,16 +597,16 @@ async def test_bleak_connect_overruns_timeout():
 def test_ble_device_has_changed():
     """Test that the BLEDevice has changed when the underlying device has changed."""
     assert not ble_device_has_changed(
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
     )
     assert ble_device_has_changed(
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
-        BLEDevice("ab:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
+        BLEDevice("ab:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
     )
     assert ble_device_has_changed(
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/2"}),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/2"}, -127),
     )
 
 
@@ -763,6 +768,7 @@ async def test_establish_connection_device_disappeared(mock_linux):
                 "aa:bb:cc:dd:ee:ff",
                 "name",
                 {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+                -127,
                 delegate=False,
             ),
             "test",
@@ -1543,6 +1549,7 @@ async def test_ble_device_description():
         "aa:bb:cc:dd:ee:ff",
         "name",
         {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+        -127,
     )
     assert (
         ble_device_description(device) == "aa:bb:cc:dd:ee:ff - name -> /org/bluez/hci2"
@@ -1551,11 +1558,14 @@ async def test_ble_device_description():
         "aa:bb:cc:dd:ee:ff",
         "name",
         {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+        -127,
     )
     assert (
         ble_device_description(device2) == "aa:bb:cc:dd:ee:ff - name -> /org/bluez/hci2"
     )
-    device3 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"})
+    device3 = BLEDevice(
+        "aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}, -127
+    )
     assert (
         ble_device_description(device3) == "aa:bb:cc:dd:ee:ff - name -> esphome_proxy_1"
     )
@@ -1626,6 +1636,9 @@ async def test_restore_discoveries(mock_linux):
 
     bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.load_history_from_managed_objects = (
+        load_history_from_managed_objects
     )
     bleak_retry_connector.bluez.defs = defs
     seen_devices: dict[str, tuple[BLEDevice, AdvertisementData]] = {}
