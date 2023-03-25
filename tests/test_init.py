@@ -846,7 +846,10 @@ async def test_get_device(mock_linux):
 async def test_clear_cache(mock_linux):
     class FakeBluezManager:
         def __init__(self):
-            self._services_cache = {"FA:23:9D:AA:45:46": "test"}
+            self._services_cache = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": "test",
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": "test",
+            }
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
