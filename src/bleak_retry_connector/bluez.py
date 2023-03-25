@@ -224,13 +224,17 @@ async def clear_cache(address: str) -> bool:
     """Clear the cache for a device."""
     if not IS_LINUX or not await get_device(address):
         return False
+    caches_cleared: list[str] = []
     with contextlib.suppress(Exception):
         manager = await get_global_bluez_manager()
-        manager._services_cache.pop(
-            address.upper(), None
-        )  # pylint: disable=protected-access
-        return True
-    return False
+        services_cache = manager._services_cache
+        bluez_path = address_to_bluez_path(address)
+        for path in _get_possible_paths(bluez_path):
+            if services_cache.pop(path, None):
+                caches_cleared.append(path)
+        _LOGGER.debug("Cleared cache for %s: %s", address, caches_cleared)
+        return bool(caches_cleared)
+    return bool(caches_cleared)
 
 
 async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
