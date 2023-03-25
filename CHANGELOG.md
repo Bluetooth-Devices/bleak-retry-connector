@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v3.0.2 (2023-03-25)
+### Fix
+* Bluez services cache clear was ineffective ([#93](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/93)) ([`ec86cb6`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/ec86cb6788ba075920867b5cb06d1f5fa49d18ae))
+
 ## v3.0.1 (2023-03-18)
 ### Fix
 * Update for bleak 0.20.0 ([#92](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/92)) ([`78f9a1e`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/78f9a1e81768ee9543595a6c8673c8c635f63244))
