@@ -141,8 +141,8 @@ DEVICE_MISSING_ADVICE = (
 )
 
 OUT_OF_SLOTS_ADVICE = (
-    "The proxy/adapter is out of connection slots; "
-    "Add additional proxies near this device"
+    "The proxy/adapter is out of connection slots or the device is no longer reachable; "
+    "Add additional proxies (https://esphome.github.io/bluetooth-proxies/) near this device"
 )
 
 NORMAL_DISCONNECT = "Disconnected"

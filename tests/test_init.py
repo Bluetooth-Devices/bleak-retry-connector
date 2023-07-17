@@ -476,11 +476,11 @@ async def test_establish_connection_out_of_slots_advice():
 
     assert isinstance(exc, BleakOutOfConnectionSlotsError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff: "
-        "Failed to connect: "
-        "out of connection slots: "
-        "The proxy/adapter is out of connection slots; "
-        "Add additional proxies near this device"
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect: "
+        "out of connection slots: The proxy/adapter is "
+        "out of connection slots or the device is no "
+        "longer reachable; Add additional proxies "
+        "(https://esphome.github.io/bluetooth-proxies/) near this device"
     )
 
 
