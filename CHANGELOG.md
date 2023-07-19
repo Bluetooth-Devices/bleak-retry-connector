@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v3.1.0 (2023-07-19)
+
+### Feature
+
+* Decrease backoff times ([#97](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/97)) ([`37b71c8`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/37b71c8bf1bd456de3d44ca4f7845de07c853bbc))
+* Update the out of slots message to be more clear ([#95](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/95)) ([`9269a82`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/9269a82f5f1c88c382856c88e98102d1b83dc436))
+
 ## v3.0.2 (2023-03-25)
 ### Fix
 * Bluez services cache clear was ineffective ([#93](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/93)) ([`ec86cb6`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/ec86cb6788ba075920867b5cb06d1f5fa49d18ae))
