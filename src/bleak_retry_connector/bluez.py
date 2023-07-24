@@ -237,6 +237,37 @@ async def clear_cache(address: str) -> bool:
     return bool(caches_cleared)
 
 
+REAPPEAR_WAIT_TIMEOUT = 5
+REAPPEAR_WAIT_INTERVAL = 0.5
+
+
+async def wait_for_device_to_reappear(device: BLEDevice) -> None:
+    """Wait for a device to reappear on the bus."""
+    await asyncio.sleep(0)
+    if (
+        not IS_LINUX
+        or not isinstance(device.details, dict)
+        or "path" not in device.details
+    ):
+        return
+    for i in range(int(REAPPEAR_WAIT_TIMEOUT / REAPPEAR_WAIT_INTERVAL)):
+        if await get_device(device.address):
+            _LOGGER.debug(
+                "%s - %s: Device re-appeared on bus after %s seconds",
+                device.name,
+                device.address,
+                i * REAPPEAR_WAIT_INTERVAL,
+            )
+            return
+        await asyncio.sleep(REAPPEAR_WAIT_INTERVAL)
+    _LOGGER.debug(
+        "%s - %s: Device did not re-appear on bus after %s seconds",
+        device.name,
+        device.address,
+        REAPPEAR_WAIT_TIMEOUT,
+    )
+
+
 async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
     """Wait for the device to disconnect.
 

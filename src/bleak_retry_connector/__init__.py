@@ -22,6 +22,7 @@ from .bluez import (  # noqa: F401
     get_connected_devices,
     get_device,
     get_device_by_adapter,
+    wait_for_device_to_reappear,
     wait_for_disconnect,
 )
 from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
@@ -346,6 +347,13 @@ async def establish_connection(
                     dangerous_use_bleak_cache=use_services_cache
                     or bool(cached_services),
                 )
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Connected after %s attempts",
+                        name,
+                        device.address,
+                        attempt,
+                    )
         except asyncio.TimeoutError as exc:
             timeouts += 1
             if debug_enabled:
@@ -400,24 +408,28 @@ async def establish_connection(
             bleak_error = str(exc)
             # BleakDeviceNotFoundError can mean that the adapter has run out of
             # connection slots.
-            if isinstance(exc, BleakDeviceNotFoundError) or any(
+            device_missing = isinstance(exc, BleakDeviceNotFoundError)
+            if device_missing or any(
                 error in bleak_error for error in TRANSIENT_ERRORS
             ):
                 transient_errors += 1
             else:
                 connect_errors += 1
-            backoff_time = calculate_backoff_time(exc)
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    device.address,
-                    bleak_error,
-                    backoff_time,
-                    attempt,
-                    rssi,
-                )
-            await wait_for_disconnect(device, backoff_time)
+            if device_missing:
+                await wait_for_device_to_reappear(device)
+            else:
+                backoff_time = calculate_backoff_time(exc)
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                        name,
+                        device.address,
+                        bleak_error,
+                        backoff_time,
+                        attempt,
+                        rssi,
+                    )
+                await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
         else:
             return client
