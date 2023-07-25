@@ -15,7 +15,6 @@ from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
 DISCONNECT_TIMEOUT = 5
 DBUS_CONNECT_TIMEOUT = 8.5
 
-REAPPEAR_WAIT_TIMEOUT = 5
 REAPPEAR_WAIT_INTERVAL = 0.5
 
 
@@ -240,7 +239,7 @@ async def clear_cache(address: str) -> bool:
     return bool(caches_cleared)
 
 
-async def wait_for_device_to_reappear(device: BLEDevice) -> bool:
+async def wait_for_device_to_reappear(device: BLEDevice, wait_timeout: float) -> bool:
     """Wait for a device to reappear on the bus."""
     await asyncio.sleep(0)
     if (
@@ -249,11 +248,12 @@ async def wait_for_device_to_reappear(device: BLEDevice) -> bool:
         or "path" not in device.details
         or not (properties := await _get_properties())
     ):
+        await asyncio.sleep(wait_timeout)
         return False
 
     debug = _LOGGER.isEnabledFor(logging.DEBUG)
     device_path = address_to_bluez_path(device.address)
-    for i in range(int(REAPPEAR_WAIT_TIMEOUT / REAPPEAR_WAIT_INTERVAL)):
+    for i in range(int(wait_timeout / REAPPEAR_WAIT_INTERVAL)):
         for path in _get_possible_paths(device_path):
             if path in properties and properties[path].get(defs.DEVICE_INTERFACE):
                 if debug:
@@ -278,7 +278,7 @@ async def wait_for_device_to_reappear(device: BLEDevice) -> bool:
             "%s - %s: Device did not re-appear on bus after %s seconds",
             device.name,
             device.address,
-            REAPPEAR_WAIT_TIMEOUT,
+            wait_timeout,
         )
     return False
 
@@ -330,7 +330,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
             min_wait_time,
             ex,
         )
-        await asyncio.sleep(min_wait_time)
+        await wait_for_device_to_reappear(device, min_wait_time)
     except Exception:  # pylint: disable=broad-except
         _LOGGER.debug(
             "%s - %s: Failed waiting for disconnect",

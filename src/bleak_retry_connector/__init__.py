@@ -228,7 +228,7 @@ def calculate_backoff_time(exc: Exception) -> float:
     # the adapters document how many connection slots they have so we cannot
     # know if we are out of slots or not. We can only guess based on the
     # error message and backoff.
-    if isinstance(exc, BleakDeviceNotFoundError):
+    if isinstance(exc, (BleakDeviceNotFoundError, BleakNotFoundError)):
         return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(exc, BleakError):
         bleak_error = str(exc)
@@ -419,21 +419,19 @@ async def establish_connection(
                 transient_errors += 1
             else:
                 connect_errors += 1
-            if device_missing:
-                await wait_for_device_to_reappear(device)
-            else:
-                backoff_time = calculate_backoff_time(exc)
-                if debug_enabled:
-                    _LOGGER.debug(
-                        "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                        name,
-                        device.address,
-                        bleak_error,
-                        backoff_time,
-                        attempt,
-                        rssi,
-                    )
-                await wait_for_disconnect(device, backoff_time)
+            backoff_time = calculate_backoff_time(exc)
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect: %s, device_missing: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    device.address,
+                    bleak_error,
+                    device_missing,
+                    backoff_time,
+                    attempt,
+                    rssi,
+                )
+            await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
         else:
             return client
