@@ -325,8 +325,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         # When they run out of slots the device they are trying to
         # connect to disappears from the bus so we must backoff
         _LOGGER.debug(
-            "%s - %s: Device was removed from bus (%s), waiting %s for it to re-appear: %s",
-            ex,
+            "%s - %s: Device was removed from bus, waiting %s for it to re-appear: %s",
             device.name,
             device.address,
             min_wait_time,
