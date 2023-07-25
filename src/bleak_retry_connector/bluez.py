@@ -241,7 +241,7 @@ REAPPEAR_WAIT_TIMEOUT = 5
 REAPPEAR_WAIT_INTERVAL = 0.5
 
 
-async def wait_for_device_to_reappear(device: BLEDevice) -> None:
+async def wait_for_device_to_reappear(device: BLEDevice) -> bool:
     """Wait for a device to reappear on the bus."""
     await asyncio.sleep(0)
     if (
@@ -249,23 +249,40 @@ async def wait_for_device_to_reappear(device: BLEDevice) -> None:
         or not isinstance(device.details, dict)
         or "path" not in device.details
     ):
-        return
+        return False
+    if not (properties := await _get_properties()):
+        return False
+
+    debug = _LOGGER.isEnabledFor(logging.DEBUG)
+    device_path = address_to_bluez_path(device.address)
     for i in range(int(REAPPEAR_WAIT_TIMEOUT / REAPPEAR_WAIT_INTERVAL)):
-        if await get_device(device.address):
+        for path in _get_possible_paths(device_path):
+            if path in properties and properties[path].get(defs.DEVICE_INTERFACE):
+                if debug:
+                    _LOGGER.debug(
+                        "%s - %s: Device re-appeared on bus after %s seconds as %s",
+                        device.name,
+                        device.address,
+                        i * REAPPEAR_WAIT_INTERVAL,
+                        path,
+                    )
+                return True
+        if debug:
             _LOGGER.debug(
-                "%s - %s: Device re-appeared on bus after %s seconds",
+                "%s - %s: Waiting %s for device to re-appear on bus",
                 device.name,
                 device.address,
-                i * REAPPEAR_WAIT_INTERVAL,
+                REAPPEAR_WAIT_INTERVAL,
             )
-            return
         await asyncio.sleep(REAPPEAR_WAIT_INTERVAL)
-    _LOGGER.debug(
-        "%s - %s: Device did not re-appear on bus after %s seconds",
-        device.name,
-        device.address,
-        REAPPEAR_WAIT_TIMEOUT,
-    )
+    if debug:
+        _LOGGER.debug(
+            "%s - %s: Device did not re-appear on bus after %s seconds",
+            device.name,
+            device.address,
+            REAPPEAR_WAIT_TIMEOUT,
+        )
+    return False
 
 
 async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
