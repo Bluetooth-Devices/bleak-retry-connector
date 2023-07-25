@@ -334,11 +334,9 @@ async def test_wait_for_device_to_reappear():
         manufacturer_data={},
     )
 
-    assert await wait_for_device_to_reappear(ble_device_hci0) is True
+    assert await wait_for_device_to_reappear(ble_device_hci0, 1) is True
     del bluez_manager._properties["/org/bluez/hci0/dev_FA_23_9D_AA_45_46"]
-    assert await wait_for_device_to_reappear(ble_device_hci0) is True
+    assert await wait_for_device_to_reappear(ble_device_hci0, 1) is True
     del bluez_manager._properties["/org/bluez/hci1/dev_FA_23_9D_AA_45_46"]
-    with patch.object(
-        bleak_retry_connector.bluez, "REAPPEAR_WAIT_TIMEOUT", 0.1
-    ), patch.object(bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.025):
-        assert await wait_for_device_to_reappear(ble_device_hci0) is False
+    with patch.object(bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.025):
+        assert await wait_for_device_to_reappear(ble_device_hci0, 0.1) is False

@@ -546,12 +546,8 @@ async def test_device_disappeared_and_reappears():
             pass
 
     with patch(
-        "bleak_retry_connector.calculate_backoff_time", return_value=0
-    ), patch.object(
-        bleak_retry_connector.bluez, "REAPPEAR_WAIT_TIMEOUT", 0.01
-    ), patch.object(
-        bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.0025
-    ):
+        "bleak_retry_connector.calculate_backoff_time", return_value=0.01
+    ), patch.object(bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.0025):
         try:
             await establish_connection(
                 FakeBleakClient,
