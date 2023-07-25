@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from bleak import BleakClient, BleakError
 from bleak.backends.bluezdbus import defs
+from bleak.backends.bluezdbus.manager import DeviceWatcher
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.backends.service import BleakGATTServiceCollection
@@ -442,7 +444,7 @@ async def test_establish_connection_has_transient_error_had_advice():
     assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: "
-        "Failed to connect: "
+        "Failed to connect after 9 attempt(s): "
         "le-connection-abort-by-local: "
         "Interference/range; "
         "External Bluetooth adapter w/extension may help; "
@@ -476,7 +478,7 @@ async def test_establish_connection_out_of_slots_advice():
 
     assert isinstance(exc, BleakOutOfConnectionSlotsError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff: Failed to connect: "
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s): "
         "out of connection slots: The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
@@ -519,10 +521,108 @@ async def test_device_disappeared_error():
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: "
-        "Failed to connect: "
+        "Failed to connect after 4 attempt(s): "
         "[org.freedesktop.DBus.Error.UnknownObject] "
         'Method "Connect" with signature "" on interface "org.bluez.Device1" '
         "doesn't exist: The device disappeared; "
+        "Try restarting the scanner or moving the device closer"
+    )
+
+
+@pytest.mark.asyncio
+@patch.object(bleak_retry_connector.bluez, "IS_LINUX", True)
+async def test_device_disappeared_and_reappears():
+    class FakeBluezManager:
+        def __init__(self):
+            self.watchers: set[DeviceWatcher] = set()
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -30,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -79,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+        def add_device_watcher(self, path: str, **kwargs: Any) -> DeviceWatcher:
+            """Add a watcher for device changes."""
+            watcher = DeviceWatcher(path, **kwargs)
+            self.watchers.add(watcher)
+            return watcher
+
+        async def _wait_condition(self, *args: Any, **kwargs: Any) -> None:
+            """Wait for a condition to be met."""
+            raise KeyError
+
+        def remove_device_watcher(self, watcher: DeviceWatcher) -> None:
+            """Remove a watcher for device changes."""
+            self.watchers.remove(watcher)
+
+        def is_connected(self, path: str) -> bool:
+            """Check if device is connected."""
+            return False
+
+    bluez_manager = FakeBluezManager()
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakDeviceNotFoundError(
+                '[org.freedesktop.DBus.Error.UnknownObject] Method "Connect" with '
+                'signature "" on interface '
+                '"org.bluez.Device1" '
+                "doesn't exist"
+            )
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time", return_value=0.01
+    ), patch.object(bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.0025):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice(
+                    "FA:23:9D:AA:45:46",
+                    "name",
+                    {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+                    -127,
+                ),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
+
+    assert isinstance(exc, BleakNotFoundError)
+    assert str(exc) == (
+        "test - FA:23:9D:AA:45:46: "
+        "Failed to connect after 9 attempt(s): "
+        "BleakDeviceNotFoundError: "
+        "The device disappeared; "
         "Try restarting the scanner or moving the device closer"
     )
 

@@ -9,16 +9,19 @@ from typing import Any
 
 import async_timeout
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
 
 from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
 
 DISCONNECT_TIMEOUT = 5
 DBUS_CONNECT_TIMEOUT = 8.5
 
-_LOGGER = logging.getLogger(__name__)
+REAPPEAR_WAIT_INTERVAL = 0.5
 
 
 DEFAULT_ATTEMPTS = 2
+
+_LOGGER = logging.getLogger(__name__)
 
 
 if IS_LINUX:
@@ -237,6 +240,51 @@ async def clear_cache(address: str) -> bool:
     return bool(caches_cleared)
 
 
+async def wait_for_device_to_reappear(device: BLEDevice, wait_timeout: float) -> bool:
+    """Wait for a device to reappear on the bus."""
+    await asyncio.sleep(0)
+    if (
+        not IS_LINUX
+        or not isinstance(device.details, dict)
+        or "path" not in device.details
+        or not (properties := await _get_properties())
+    ):
+        await asyncio.sleep(wait_timeout)
+        return False
+
+    debug = _LOGGER.isEnabledFor(logging.DEBUG)
+    device_path = address_to_bluez_path(device.address)
+    for i in range(int(wait_timeout / REAPPEAR_WAIT_INTERVAL)):
+        for path in _get_possible_paths(device_path):
+            if path in properties and properties[path].get(defs.DEVICE_INTERFACE):
+                if debug:
+                    _LOGGER.debug(
+                        "%s - %s: Device re-appeared on bus after %s seconds as %s",
+                        device.name,
+                        device.address,
+                        i * REAPPEAR_WAIT_INTERVAL,
+                        path,
+                    )
+                return True
+        if debug:
+            _LOGGER.debug(
+                "%s - %s: Waiting %s/%s for device to re-appear on bus",
+                device.name,
+                device.address,
+                (i + 1) * REAPPEAR_WAIT_INTERVAL,
+                wait_timeout,
+            )
+        await asyncio.sleep(REAPPEAR_WAIT_INTERVAL)
+    if debug:
+        _LOGGER.debug(
+            "%s - %s: Device did not re-appear on bus after %s seconds",
+            device.name,
+            device.address,
+            wait_timeout,
+        )
+    return False
+
+
 async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
     """Wait for the device to disconnect.
 
@@ -268,7 +316,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         )
         if min_wait_time and waited < min_wait_time:
             await asyncio.sleep(min_wait_time - waited)
-    except KeyError as ex:
+    except (BleakError, KeyError) as ex:
         # Device was removed from bus
         #
         # In testing it was found that most of the CSR adapters
@@ -283,7 +331,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
             min_wait_time,
             ex,
         )
-        await asyncio.sleep(min_wait_time)
+        await wait_for_device_to_reappear(device, min_wait_time)
     except Exception:  # pylint: disable=broad-except
         _LOGGER.debug(
             "%s - %s: Failed waiting for disconnect",

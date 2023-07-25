@@ -22,6 +22,7 @@ from .bluez import (  # noqa: F401
     get_connected_devices,
     get_device,
     get_device_by_adapter,
+    wait_for_device_to_reappear,
     wait_for_disconnect,
 )
 from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
@@ -227,7 +228,7 @@ def calculate_backoff_time(exc: Exception) -> float:
     # the adapters document how many connection slots they have so we cannot
     # know if we are out of slots or not. We can only guess based on the
     # error message and backoff.
-    if isinstance(exc, BleakDeviceNotFoundError):
+    if isinstance(exc, (BleakDeviceNotFoundError, BleakNotFoundError)):
         return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(exc, BleakError):
         bleak_error = str(exc)
@@ -304,10 +305,15 @@ async def establish_connection(
             and transient_errors < MAX_TRANSIENT_ERRORS
         ):
             return
-        msg = f"{name} - {description}: Failed to connect: {exc}"
+        msg = (
+            f"{name} - {description}: Failed to connect after "
+            f"{attempt} attempt(s): {str(exc) or type(exc).__name__}"
+        )
         # Sure would be nice if bleak gave us typed exceptions
-        if isinstance(exc, asyncio.TimeoutError) or "not found" in str(exc):
+        if isinstance(exc, asyncio.TimeoutError):
             raise BleakNotFoundError(msg) from exc
+        if isinstance(exc, BleakDeviceNotFoundError) or "not found" in str(exc):
+            raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         if isinstance(exc, BleakError):
             if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
                 raise BleakOutOfConnectionSlotsError(
@@ -346,6 +352,13 @@ async def establish_connection(
                     dangerous_use_bleak_cache=use_services_cache
                     or bool(cached_services),
                 )
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Connected after %s attempts",
+                        name,
+                        device.address,
+                        attempt,
+                    )
         except asyncio.TimeoutError as exc:
             timeouts += 1
             if debug_enabled:
@@ -400,7 +413,10 @@ async def establish_connection(
             bleak_error = str(exc)
             # BleakDeviceNotFoundError can mean that the adapter has run out of
             # connection slots.
-            if isinstance(exc, BleakDeviceNotFoundError) or any(
+            device_missing = isinstance(
+                exc, (BleakNotFoundError, BleakDeviceNotFoundError)
+            )
+            if device_missing or any(
                 error in bleak_error for error in TRANSIENT_ERRORS
             ):
                 transient_errors += 1
@@ -409,10 +425,11 @@ async def establish_connection(
             backoff_time = calculate_backoff_time(exc)
             if debug_enabled:
                 _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    "%s - %s: Failed to connect: %s, device_missing: %s, backing off: %s (attempt: %s, last rssi: %s)",
                     name,
                     device.address,
                     bleak_error,
+                    device_missing,
                     backoff_time,
                     attempt,
                     rssi,

@@ -1,5 +1,5 @@
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from bleak.backends.bluezdbus import defs
@@ -8,7 +8,11 @@ from bleak.backends.device import BLEDevice
 
 import bleak_retry_connector
 from bleak_retry_connector import BleakSlotManager, device_source
-from bleak_retry_connector.bluez import ble_device_from_properties, path_from_ble_device
+from bleak_retry_connector.bluez import (
+    ble_device_from_properties,
+    path_from_ble_device,
+    wait_for_device_to_reappear,
+)
 
 pytestmark = pytest.mark.asyncio
 
@@ -264,3 +268,75 @@ def test_path_from_ble_device():
         path_from_ble_device(ble_device_hci0_2)
         == "/org/bluez/hci0/dev_FA_23_9D_AA_45_47"
     )
+
+
+@patch.object(bleak_retry_connector.bluez, "IS_LINUX", True)
+async def test_wait_for_device_to_reappear():
+    class FakeBluezManager:
+        def __init__(self):
+            self.watchers: set[DeviceWatcher] = set()
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -30,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -79,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+        def add_device_watcher(self, path: str, **kwargs: Any) -> DeviceWatcher:
+            """Add a watcher for device changes."""
+            watcher = DeviceWatcher(path, **kwargs)
+            self.watchers.add(watcher)
+            return watcher
+
+        def remove_device_watcher(self, watcher: DeviceWatcher) -> None:
+            """Remove a watcher for device changes."""
+            self.watchers.remove(watcher)
+
+        def is_connected(self, path: str) -> bool:
+            """Check if device is connected."""
+            return False
+
+    bluez_manager = FakeBluezManager()
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    ble_device_hci0 = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {
+            "source": "aa:bb:cc:dd:ee:ff",
+            "path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "props": {},
+        },
+        -127,
+        uuids=[],
+        manufacturer_data={},
+    )
+
+    assert await wait_for_device_to_reappear(ble_device_hci0, 1) is True
+    del bluez_manager._properties["/org/bluez/hci0/dev_FA_23_9D_AA_45_46"]
+    assert await wait_for_device_to_reappear(ble_device_hci0, 1) is True
+    del bluez_manager._properties["/org/bluez/hci1/dev_FA_23_9D_AA_45_46"]
+    with patch.object(bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.025):
+        assert await wait_for_device_to_reappear(ble_device_hci0, 0.1) is False
