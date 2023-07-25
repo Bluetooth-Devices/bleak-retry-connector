@@ -307,7 +307,7 @@ async def establish_connection(
             return
         msg = (
             f"{name} - {description}: Failed to connect after "
-            f"{attempt} attempts: {str(exc) or type(exc).__name__}"
+            f"{attempt} attempt(s): {str(exc) or type(exc).__name__}"
         )
         # Sure would be nice if bleak gave us typed exceptions
         if isinstance(exc, asyncio.TimeoutError):
