@@ -271,7 +271,6 @@ def test_path_from_ble_device():
 
 
 @patch.object(bleak_retry_connector.bluez, "IS_LINUX", True)
-@pytest.mark.asyncio
 async def test_wait_for_device_to_reappear():
     class FakeBluezManager:
         def __init__(self):

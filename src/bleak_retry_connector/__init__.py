@@ -305,10 +305,12 @@ async def establish_connection(
             and transient_errors < MAX_TRANSIENT_ERRORS
         ):
             return
-        msg = f"{name} - {description}: Failed to connect: {exc}"
+        msg = f"{name} - {description}: Failed to connect: {str(exc) or type(exc).__name__}"
         # Sure would be nice if bleak gave us typed exceptions
-        if isinstance(exc, asyncio.TimeoutError) or "not found" in str(exc):
+        if isinstance(exc, asyncio.TimeoutError):
             raise BleakNotFoundError(msg) from exc
+        if isinstance(exc, BleakDeviceNotFoundError) or "not found" in str(exc):
+            raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         if isinstance(exc, BleakError):
             if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
                 raise BleakOutOfConnectionSlotsError(
@@ -408,7 +410,9 @@ async def establish_connection(
             bleak_error = str(exc)
             # BleakDeviceNotFoundError can mean that the adapter has run out of
             # connection slots.
-            device_missing = isinstance(exc, BleakDeviceNotFoundError)
+            device_missing = isinstance(
+                exc, (BleakNotFoundError, BleakDeviceNotFoundError)
+            )
             if device_missing or any(
                 error in bleak_error for error in TRANSIENT_ERRORS
             ):

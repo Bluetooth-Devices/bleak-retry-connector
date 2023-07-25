@@ -528,6 +528,55 @@ async def test_device_disappeared_error():
 
 
 @pytest.mark.asyncio
+@patch.object(bleak_retry_connector.bluez, "IS_LINUX", True)
+async def test_device_disappeared_and_reappears():
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakDeviceNotFoundError(
+                '[org.freedesktop.DBus.Error.UnknownObject] Method "Connect" with '
+                'signature "" on interface '
+                '"org.bluez.Device1" '
+                "doesn't exist"
+            )
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time", return_value=0
+    ), patch.object(
+        bleak_retry_connector.bluez, "REAPPEAR_WAIT_TIMEOUT", 0.01
+    ), patch.object(
+        bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.0025
+    ):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice(
+                    "aa:bb:cc:dd:ee:ff",
+                    "name",
+                    {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+                    -127,
+                ),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
+
+    assert isinstance(exc, BleakNotFoundError)
+    assert str(exc) == (
+        "test - aa:bb:cc:dd:ee:ff: "
+        "Failed to connect: "
+        "BleakDeviceNotFoundError: "
+        "The device disappeared; "
+        "Try restarting the scanner or moving the device closer"
+    )
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_has_one_unknown_error():
     attempts = 0
 
