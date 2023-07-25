@@ -305,7 +305,10 @@ async def establish_connection(
             and transient_errors < MAX_TRANSIENT_ERRORS
         ):
             return
-        msg = f"{name} - {description}: Failed to connect: {str(exc) or type(exc).__name__}"
+        msg = (
+            f"{name} - {description}: Failed to connect after "
+            f"{attempt} attempts: {str(exc) or type(exc).__name__}"
+        )
         # Sure would be nice if bleak gave us typed exceptions
         if isinstance(exc, asyncio.TimeoutError):
             raise BleakNotFoundError(msg) from exc
