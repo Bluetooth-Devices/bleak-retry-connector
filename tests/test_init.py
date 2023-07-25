@@ -607,7 +607,7 @@ async def test_device_disappeared_and_reappears():
             await establish_connection(
                 FakeBleakClient,
                 BLEDevice(
-                    "aa:bb:cc:dd:ee:ff",
+                    "FA:23:9D:AA:45:46",
                     "name",
                     {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
                     -127,
@@ -619,7 +619,7 @@ async def test_device_disappeared_and_reappears():
 
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff: "
+        "test - FA:23:9D:AA:45:46: "
         "Failed to connect after 9 attempts: "
         "BleakDeviceNotFoundError: "
         "The device disappeared; "
