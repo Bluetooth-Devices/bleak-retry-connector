@@ -15,10 +15,13 @@ from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
 DISCONNECT_TIMEOUT = 5
 DBUS_CONNECT_TIMEOUT = 8.5
 
-_LOGGER = logging.getLogger(__name__)
+REAPPEAR_WAIT_TIMEOUT = 5
+REAPPEAR_WAIT_INTERVAL = 0.5
 
 
 DEFAULT_ATTEMPTS = 2
+
+_LOGGER = logging.getLogger(__name__)
 
 
 if IS_LINUX:
@@ -237,10 +240,6 @@ async def clear_cache(address: str) -> bool:
     return bool(caches_cleared)
 
 
-REAPPEAR_WAIT_TIMEOUT = 5
-REAPPEAR_WAIT_INTERVAL = 0.5
-
-
 async def wait_for_device_to_reappear(device: BLEDevice) -> bool:
     """Wait for a device to reappear on the bus."""
     await asyncio.sleep(0)
@@ -248,9 +247,8 @@ async def wait_for_device_to_reappear(device: BLEDevice) -> bool:
         not IS_LINUX
         or not isinstance(device.details, dict)
         or "path" not in device.details
+        or not (properties := await _get_properties())
     ):
-        return False
-    if not (properties := await _get_properties()):
         return False
 
     debug = _LOGGER.isEnabledFor(logging.DEBUG)
