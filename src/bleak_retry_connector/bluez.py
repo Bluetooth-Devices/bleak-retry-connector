@@ -270,7 +270,7 @@ async def wait_for_device_to_reappear(device: BLEDevice, wait_timeout: float) ->
                 "%s - %s: Waiting %s/%s for device to re-appear on bus",
                 device.name,
                 device.address,
-                i * REAPPEAR_WAIT_INTERVAL,
+                (i + 1) * REAPPEAR_WAIT_INTERVAL,
                 wait_timeout,
             )
         await asyncio.sleep(REAPPEAR_WAIT_INTERVAL)
