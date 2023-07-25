@@ -442,7 +442,7 @@ async def test_establish_connection_has_transient_error_had_advice():
     assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: "
-        "Failed to connect: "
+        "Failed to connect after 9 attempts: "
         "le-connection-abort-by-local: "
         "Interference/range; "
         "External Bluetooth adapter w/extension may help; "
@@ -476,7 +476,7 @@ async def test_establish_connection_out_of_slots_advice():
 
     assert isinstance(exc, BleakOutOfConnectionSlotsError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff: Failed to connect: "
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempts: "
         "out of connection slots: The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
@@ -519,7 +519,7 @@ async def test_device_disappeared_error():
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: "
-        "Failed to connect: "
+        "Failed to connect after 4 attempts: "
         "[org.freedesktop.DBus.Error.UnknownObject] "
         'Method "Connect" with signature "" on interface "org.bluez.Device1" '
         "doesn't exist: The device disappeared; "
@@ -565,7 +565,7 @@ async def test_device_disappeared_and_reappears():
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: "
-        "Failed to connect: "
+        "Failed to connect after 9 attempts: "
         "BleakDeviceNotFoundError: "
         "The device disappeared; "
         "Try restarting the scanner or moving the device closer"
