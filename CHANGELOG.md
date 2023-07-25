@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.1.1 (2023-07-25)
+
+### Fix
+
+* Check more often for a device to reappear after the adapter runs out of slots ([#100](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/100)) ([`4c9c9c0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/4c9c9c0670c79d9425e26b761a20d588dd259a26))
+
 ## v3.1.0 (2023-07-19)
 
 ### Feature
