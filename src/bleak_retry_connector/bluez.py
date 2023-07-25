@@ -9,6 +9,7 @@ from typing import Any
 
 import async_timeout
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
 
 from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
 
@@ -315,7 +316,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         )
         if min_wait_time and waited < min_wait_time:
             await asyncio.sleep(min_wait_time - waited)
-    except KeyError as ex:
+    except (BleakError, KeyError) as ex:
         # Device was removed from bus
         #
         # In testing it was found that most of the CSR adapters

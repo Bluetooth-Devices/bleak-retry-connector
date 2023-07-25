@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from bleak import BleakClient, BleakError
 from bleak.backends.bluezdbus import defs
+from bleak.backends.bluezdbus.manager import DeviceWatcher
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.backends.service import BleakGATTServiceCollection
@@ -530,6 +532,59 @@ async def test_device_disappeared_error():
 @pytest.mark.asyncio
 @patch.object(bleak_retry_connector.bluez, "IS_LINUX", True)
 async def test_device_disappeared_and_reappears():
+    class FakeBluezManager:
+        def __init__(self):
+            self.watchers: set[DeviceWatcher] = set()
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -30,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -79,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+        def add_device_watcher(self, path: str, **kwargs: Any) -> DeviceWatcher:
+            """Add a watcher for device changes."""
+            watcher = DeviceWatcher(path, **kwargs)
+            self.watchers.add(watcher)
+            return watcher
+
+        async def _wait_condition(self, *args: Any, **kwargs: Any) -> None:
+            """Wait for a condition to be met."""
+            raise KeyError
+
+        def remove_device_watcher(self, watcher: DeviceWatcher) -> None:
+            """Remove a watcher for device changes."""
+            self.watchers.remove(watcher)
+
+        def is_connected(self, path: str) -> bool:
+            """Check if device is connected."""
+            return False
+
+    bluez_manager = FakeBluezManager()
+    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):
             pass
