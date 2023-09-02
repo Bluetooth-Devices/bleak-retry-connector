@@ -23,13 +23,13 @@ packages = [
 "Changelog" = "https://github.com/bluetooth-devices/bleak-retry-connector/blob/main/CHANGELOG.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<3.13"
 
 # Documentation Dependencies
 Sphinx = {version = "^5.0", optional = true}
 sphinx-rtd-theme = {version = "^1.0", optional = true}
 myst-parser = {version = "^0.18", optional = true}
-bleak = ">=0.19.0"
+bleak = ">=0.21.0"
 async-timeout = ">=4.0.1"
 dbus-fast = {version = ">=1.14.0", markers = "platform_system == \"Linux\""}
 bluetooth-adapters = {version = ">=0.15.2", markers = "platform_system == \"Linux\""}
