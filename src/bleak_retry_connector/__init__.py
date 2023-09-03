@@ -101,7 +101,7 @@ BLEAK_TIMEOUT = 20.0
 # This also accounts for the time it
 # takes for the esp32s to disconnect
 #
-BLEAK_SAFETY_TIMEOUT = 30.0
+BLEAK_SAFETY_TIMEOUT = 60.0
 
 TRANSIENT_ERRORS_LONG_BACKOFF = {
     "ESP_GATT_ERROR",
