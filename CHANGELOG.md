@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.1.2 (2023-09-03)
+
+### Fix
+
+* Increase bleak safety timeout to allow for longer disconnect timeout ([#101](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/101)) ([`39380a7`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/39380a744b9aed832b51ad20671af86b99186560))
+
 ## v3.1.1 (2023-07-25)
 
 ### Fix
