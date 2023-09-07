@@ -7,11 +7,11 @@ import time
 from collections.abc import Generator
 from typing import Any
 
-import async_timeout
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
 from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
+from .util import asyncio_timeout
 
 DISCONNECT_TIMEOUT = 5
 DBUS_CONNECT_TIMEOUT = 8.5
@@ -48,7 +48,7 @@ async def get_global_bluez_manager_with_timeout() -> "BlueZManager" | None:
         return None
 
     try:
-        async with async_timeout.timeout(DBUS_CONNECT_TIMEOUT):
+        async with asyncio_timeout(DBUS_CONNECT_TIMEOUT):
             return await get_global_bluez_manager()
     except FileNotFoundError as ex:
         setattr(get_global_bluez_manager_with_timeout, "_has_dbus_socket", False)
@@ -304,7 +304,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
     start = time.monotonic() if min_wait_time else 0
     try:
         manager = await get_global_bluez_manager()
-        async with async_timeout.timeout(DISCONNECT_TIMEOUT):
+        async with asyncio_timeout(DISCONNECT_TIMEOUT):
             await manager._wait_condition(device.details["path"], "Connected", False)
         end = time.monotonic() if min_wait_time else 0
         waited = end - start
