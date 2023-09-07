@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.1.3 (2023-09-07)
+
+### Fix
+
+* Ensure timeouts work with py3.11 ([#102](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/102)) ([`4951aef`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/4951aefd9de0e22235dbbd64a15357e67f496d87))
+
 ## v3.1.2 (2023-09-03)
 
 ### Fix
