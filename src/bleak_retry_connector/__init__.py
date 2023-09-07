@@ -8,7 +8,6 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, ParamSpec, TypeVar
 
-import async_timeout
 from bleak import BleakClient, BleakScanner
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTServiceCollection
@@ -26,6 +25,7 @@ from .bluez import (  # noqa: F401
     wait_for_disconnect,
 )
 from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
+from .util import asyncio_timeout
 
 DISCONNECT_TIMEOUT = 5
 
@@ -346,7 +346,7 @@ async def establish_connection(
             )
 
         try:
-            async with async_timeout.timeout(BLEAK_SAFETY_TIMEOUT):
+            async with asyncio_timeout(BLEAK_SAFETY_TIMEOUT):
                 await client.connect(
                     timeout=BLEAK_TIMEOUT,
                     dangerous_use_bleak_cache=use_services_cache
