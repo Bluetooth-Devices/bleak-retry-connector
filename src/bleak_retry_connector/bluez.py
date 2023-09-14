@@ -210,7 +210,6 @@ async def clear_cache(address: str) -> bool:
                     member="RemoveDevice",
                 )
             )
-        return bool(caches_cleared)
     return bool(caches_cleared)
 
 
