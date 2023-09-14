@@ -15,7 +15,9 @@ def configure_test_logging(caplog):
 def mock_linux():
     with patch.object(bleak_retry_connector, "IS_LINUX", True), patch.object(
         bleak_retry_connector.bluez, "IS_LINUX", True
-    ), patch("bleak.backends.scanner.platform.system", return_value="Linux"):
+    ), patch.object(bleak_retry_connector.bleak_manager, "IS_LINUX", True), patch(
+        "bleak.backends.scanner.platform.system", return_value="Linux"
+    ):
         yield
 
 
@@ -23,5 +25,5 @@ def mock_linux():
 def mock_macos():
     with patch.object(bleak_retry_connector, "IS_LINUX", False), patch.object(
         bleak_retry_connector.bluez, "IS_LINUX", False
-    ):
+    ), patch.object(bleak_retry_connector.bleak_manager, "IS_LINUX", False):
         yield

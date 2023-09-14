@@ -10,16 +10,18 @@ from typing import Any
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
-from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
+from .bleak_manager import get_global_bluez_manager_with_timeout
+from .const import (
+    DISCONNECT_TIMEOUT,
+    IS_LINUX,
+    NO_RSSI_VALUE,
+    REAPPEAR_WAIT_INTERVAL,
+    RSSI_SWITCH_THRESHOLD,
+)
 from .util import asyncio_timeout
 
-DISCONNECT_TIMEOUT = 5
-DBUS_CONNECT_TIMEOUT = 8.5
-
-REAPPEAR_WAIT_INTERVAL = 0.5
-
-
-DEFAULT_ATTEMPTS = 2
+if IS_LINUX:
+    from dbus_fast.message import Message
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,44 +32,7 @@ if IS_LINUX:
         from bleak.backends.bluezdbus.manager import (  # pragma: no cover
             BlueZManager,
             DeviceWatcher,
-            get_global_bluez_manager,
         )
-
-
-async def get_global_bluez_manager_with_timeout() -> "BlueZManager" | None:
-    """Get the properties."""
-    if not IS_LINUX:
-        return None
-    if (
-        getattr(get_global_bluez_manager_with_timeout, "_has_dbus_socket", None)
-        is False
-    ):
-        # We are not running on a system with DBus do don't
-        # keep trying to call get_global_bluez_manager as it
-        # waits for a bit trying to connect to DBus.
-        return None
-
-    try:
-        async with asyncio_timeout(DBUS_CONNECT_TIMEOUT):
-            return await get_global_bluez_manager()
-    except FileNotFoundError as ex:
-        setattr(get_global_bluez_manager_with_timeout, "_has_dbus_socket", False)
-        _LOGGER.debug(
-            "Dbus socket at %s not found, will not try again until next restart: %s",
-            ex.filename,
-            ex,
-        )
-    except asyncio.TimeoutError:
-        setattr(get_global_bluez_manager_with_timeout, "_has_dbus_socket", False)
-        _LOGGER.debug(
-            "Timed out trying to connect to DBus; will not try again until next restart"
-        )
-    except Exception as ex:  # pylint: disable=broad-except
-        _LOGGER.debug(
-            "get_global_bluez_manager_with_timeout failed: %s", ex, exc_info=True
-        )
-
-    return None
 
 
 def device_source(device: BLEDevice) -> str | None:
@@ -82,11 +47,6 @@ def _device_details_value_or_none(device: BLEDevice, key: str) -> Any | None:
         return None
     key_value: str = device.details[key]
     return key_value
-
-
-def _reset_dbus_socket_cache() -> None:
-    """Reset the dbus socket cache."""
-    setattr(get_global_bluez_manager_with_timeout, "_has_dbus_socket", None)
 
 
 def adapter_from_path(path: str) -> str:
@@ -229,15 +189,44 @@ async def clear_cache(address: str) -> bool:
         return False
     caches_cleared: list[str] = []
     with contextlib.suppress(Exception):
-        manager = await get_global_bluez_manager()
+        if not (manager := await get_global_bluez_manager_with_timeout()):
+            _LOGGER.warning("Failed to clear cache for %s because no manager", address)
+            return False
         services_cache = manager._services_cache
         bluez_path = address_to_bluez_path(address)
         for path in _get_possible_paths(bluez_path):
             if services_cache.pop(path, None):
                 caches_cleared.append(path)
         _LOGGER.debug("Cleared cache for %s: %s", address, caches_cleared)
-        return bool(caches_cleared)
+        async with asyncio_timeout(DISCONNECT_TIMEOUT):
+            for device_path in caches_cleared:
+                # Send since we are going to ignore errors
+                # in case the device is already gone
+                await manager._bus.send(
+                    Message(
+                        destination=defs.BLUEZ_SERVICE,
+                        path=adapter_path_from_device_path(device_path),
+                        interface=defs.ADAPTER_INTERFACE,
+                        member="RemoveDevice",
+                        signature="o",
+                        body=[device_path],
+                    )
+                )
     return bool(caches_cleared)
+
+
+def adapter_path_from_device_path(device_path: str) -> str:
+    """
+    Scrape the adapter path from a D-Bus device path.
+
+    Args:
+        device_path: The D-Bus object path of the device.
+
+    Returns:
+        A D-Bus object path of the adapter.
+    """
+    # /org/bluez/hci1/dev_FA_23_9D_AA_45_46
+    return device_path[:15]
 
 
 async def wait_for_device_to_reappear(device: BLEDevice, wait_timeout: float) -> bool:
@@ -303,7 +292,13 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         return
     start = time.monotonic() if min_wait_time else 0
     try:
-        manager = await get_global_bluez_manager()
+        if not (manager := await get_global_bluez_manager_with_timeout()):
+            _LOGGER.debug(
+                "%s - %s: Failed to wait for disconnect because no manager",
+                device.name,
+                device.address,
+            )
+            return
         async with asyncio_timeout(DISCONNECT_TIMEOUT):
             await manager._wait_condition(device.details["path"], "Connected", False)
         end = time.monotonic() if min_wait_time else 0
