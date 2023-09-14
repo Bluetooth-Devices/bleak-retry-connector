@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.2.1 (2023-09-14)
+
+### Fix
+
+* Correct fetching the global bluez manager when its not running ([#106](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/106)) ([`38c63a9`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/38c63a974dd05f7a1e42d647e3ca13884e9b4e62))
+
 ## v3.2.0 (2023-09-14)
 
 ### Feature
