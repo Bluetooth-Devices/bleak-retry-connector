@@ -29,7 +29,7 @@ async def get_global_bluez_manager_with_timeout() -> "BlueZManager" | None:
         return None
 
     loop = asyncio.get_running_loop()
-    if _global_instances and (manager := _global_instances[loop]):
+    if _global_instances and (manager := _global_instances.get(loop)):
         return manager
 
     if (
