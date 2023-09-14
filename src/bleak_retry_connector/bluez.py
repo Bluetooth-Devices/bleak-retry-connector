@@ -22,8 +22,6 @@ from .util import asyncio_timeout
 
 if IS_LINUX:
     from dbus_fast.message import Message
-else:
-    Message = None
 
 _LOGGER = logging.getLogger(__name__)
 
