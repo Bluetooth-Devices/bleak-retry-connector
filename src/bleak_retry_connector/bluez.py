@@ -201,15 +201,16 @@ async def clear_cache(address: str) -> bool:
             if services_cache.pop(path, None):
                 caches_cleared.append(path)
         _LOGGER.debug("Cleared cache for %s: %s", address, caches_cleared)
-        for device_path in caches_cleared:
-            await manager._bus.send(
-                Message(
-                    destination=defs.BLUEZ_SERVICE,
-                    path=device_path,
-                    interface=defs.DEVICE_INTERFACE,
-                    member="RemoveDevice",
+        async with asyncio_timeout(DISCONNECT_TIMEOUT):
+            for device_path in caches_cleared:
+                await manager._bus.send(
+                    Message(
+                        destination=defs.BLUEZ_SERVICE,
+                        path=device_path,
+                        interface=defs.DEVICE_INTERFACE,
+                        member="RemoveDevice",
+                    )
                 )
-            )
     return bool(caches_cleared)
 
 
