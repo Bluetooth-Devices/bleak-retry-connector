@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.2.0 (2023-09-14)
+
+### Feature
+
+* Remove devices on cache clear to cleanup disk cache ([#103](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/103)) ([`349e0de`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/349e0deeb2bee443e82d23b816bbd7036a476718))
+
 ## v3.1.3 (2023-09-07)
 
 ### Fix
