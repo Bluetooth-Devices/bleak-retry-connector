@@ -3,14 +3,13 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from typing import Any
 
 from .const import DBUS_CONNECT_TIMEOUT, IS_LINUX
 from .util import asyncio_timeout
 
 _LOGGER = logging.getLogger(__name__)
 
-_global_instances: dict[asyncio.AbstractEventLoop, Any] | None = None
+_global_instances: dict[asyncio.AbstractEventLoop, BlueZManager] | None = None
 if IS_LINUX:
     with contextlib.suppress(ImportError):  # pragma: no cover
         from bleak.backends.bluezdbus.manager import (  # pragma: no cover
