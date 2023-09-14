@@ -272,8 +272,7 @@ def test_path_from_ble_device():
     )
 
 
-@patch.object(bleak_retry_connector.bluez, "IS_LINUX", True)
-async def test_wait_for_device_to_reappear():
+async def test_wait_for_device_to_reappear(mock_linux):
     class FakeBluezManager:
         def __init__(self):
             self.watchers: set[DeviceWatcher] = set()
