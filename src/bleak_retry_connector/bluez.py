@@ -189,8 +189,7 @@ async def clear_cache(address: str) -> bool:
         return False
     caches_cleared: list[str] = []
     with contextlib.suppress(Exception):
-        manager = await get_global_bluez_manager_with_timeout()
-        if not manager:
+        if not (manager := await get_global_bluez_manager_with_timeout()):
             _LOGGER.warning("Failed to clear cache for %s because no manager", address)
             return False
         services_cache = manager._services_cache
@@ -293,8 +292,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         return
     start = time.monotonic() if min_wait_time else 0
     try:
-        manager = await get_global_bluez_manager_with_timeout()
-        if not manager:
+        if not (manager := await get_global_bluez_manager_with_timeout()):
             _LOGGER.debug(
                 "%s - %s: Failed to wait for disconnect because no manager",
                 device.name,
