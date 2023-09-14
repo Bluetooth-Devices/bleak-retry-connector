@@ -86,7 +86,7 @@ async def test_slot_manager(mock_linux):
             """Check if device is connected."""
             return False
 
-    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
     bleak_retry_connector.bluez.defs = defs
@@ -194,7 +194,9 @@ async def test_slot_manager(mock_linux):
 async def test_slot_manager_mac_os():
     """Test the slot manager"""
 
-    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(return_value=None)
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=None
+    )
     bleak_retry_connector.bluez.defs = defs
 
     slot_manager = BleakSlotManager()
@@ -316,7 +318,7 @@ async def test_wait_for_device_to_reappear():
             return False
 
     bluez_manager = FakeBluezManager()
-    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         return_value=bluez_manager
     )
     bleak_retry_connector.bluez.defs = defs
