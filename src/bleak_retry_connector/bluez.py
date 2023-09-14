@@ -203,15 +203,33 @@ async def clear_cache(address: str) -> bool:
         _LOGGER.debug("Cleared cache for %s: %s", address, caches_cleared)
         async with asyncio_timeout(DISCONNECT_TIMEOUT):
             for device_path in caches_cleared:
+                # Send since we are going to ignore errors
+                # in case the device is already gone
                 await manager._bus.send(
                     Message(
                         destination=defs.BLUEZ_SERVICE,
-                        path=device_path,
-                        interface=defs.DEVICE_INTERFACE,
+                        path=adapter_path_from_device_path(device_path),
+                        interface=defs.ADAPTER_INTERFACE,
                         member="RemoveDevice",
+                        signature="o",
+                        body=[device_path],
                     )
                 )
     return bool(caches_cleared)
+
+
+def adapter_path_from_device_path(device_path: str) -> str:
+    """
+    Scrape the adapter path from a D-Bus device path.
+
+    Args:
+        device_path: The D-Bus object path of the device.
+
+    Returns:
+        A D-Bus object path of the adapter.
+    """
+    # /org/bluez/hci1/dev_FA_23_9D_AA_45_46
+    return device_path[:15]
 
 
 async def wait_for_device_to_reappear(device: BLEDevice, wait_timeout: float) -> bool:
