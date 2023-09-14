@@ -29,8 +29,8 @@ async def get_global_bluez_manager_with_timeout() -> "BlueZManager" | None:
         return None
 
     loop = asyncio.get_running_loop()
-    if _global_instances and _global_instances[loop] is not None:
-        return _global_instances[loop]
+    if _global_instances and (manager := _global_instances[loop]):
+        return manager
 
     if (
         getattr(get_global_bluez_manager_with_timeout, "_has_dbus_socket", None)
