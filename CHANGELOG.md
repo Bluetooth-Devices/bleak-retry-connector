@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.3.0 (2023-10-25)
+
+### Feature
+
+* Handle services changed during connecting ([#108](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/108)) ([`1c65413`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1c65413cad1e6c42d6bf2c0a8cdec82d9d9a7484))
+
 ## v3.2.1 (2023-09-14)
 
 ### Fix
