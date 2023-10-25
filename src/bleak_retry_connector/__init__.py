@@ -372,6 +372,27 @@ async def establish_connection(
             backoff_time = calculate_backoff_time(exc)
             await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
+        except KeyError as exc:
+            # Likely: KeyError: 'org.bluez.GattService1' from bleak
+            # ideally we would get a better error from bleak, but this is
+            # better than nothing.
+            # self._properties[service_path][defs.GATT_SERVICE_INTERFACE]
+            transient_errors += 1
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Failed to connect due to services changes: %s (attempt: %s, last rssi: %s)",
+                    name,
+                    device.address,
+                    str(exc),
+                    attempt,
+                    rssi,
+                )
+            if isinstance(client, BleakClientWithServiceCache):
+                await client.clear_cache()
+                await client.disconnect()
+                backoff_time = calculate_backoff_time(exc)
+                await wait_for_disconnect(device, backoff_time)
+            _raise_if_needed(name, device.address, exc)
         except BrokenPipeError as exc:
             # BrokenPipeError is raised by dbus-next when the device disconnects
             #
