@@ -4,13 +4,11 @@ import contextlib
 
 from bleak.backends.bluezdbus import defs
 from bleak.backends.device import BLEDevice
-from dbus_fast.aio.message_bus import MessageBus
-from dbus_fast.constants import BusType
 from dbus_fast.message import Message
 
+from .bleak_manager import get_global_bluez_manager_with_timeout
+from .const import DISCONNECT_TIMEOUT
 from .util import asyncio_timeout
-
-DISCONNECT_TIMEOUT = 5
 
 
 async def disconnect_devices(devices: list[BLEDevice]) -> None:
@@ -22,8 +20,13 @@ async def disconnect_devices(devices: list[BLEDevice]) -> None:
     ]
     if not valid_devices:
         return
-    bus = await MessageBus(bus_type=BusType.SYSTEM, negotiate_unix_fd=True).connect()
+    if not (bluez_manager := await get_global_bluez_manager_with_timeout()):
+        return
+    bus = bluez_manager._bus
     for device in valid_devices:
+        # https://bleak.readthedocs.io/en/latest/troubleshooting.html#id4
+        # Try to remove the device as well in the hope that it will
+        # clear the disk cache of the device.
         with contextlib.suppress(Exception):
             async with asyncio_timeout(DISCONNECT_TIMEOUT):
                 await bus.call(
@@ -34,4 +37,3 @@ async def disconnect_devices(devices: list[BLEDevice]) -> None:
                         member="Disconnect",
                     )
                 )
-    bus.disconnect()

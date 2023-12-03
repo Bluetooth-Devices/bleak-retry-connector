@@ -9,6 +9,7 @@ from bleak.backends.device import BLEDevice
 import bleak_retry_connector
 from bleak_retry_connector import BleakSlotManager, device_source
 from bleak_retry_connector.bluez import (
+    adapter_path_from_device_path,
     ble_device_from_properties,
     path_from_ble_device,
     wait_for_device_to_reappear,
@@ -86,7 +87,7 @@ async def test_slot_manager(mock_linux):
             """Check if device is connected."""
             return False
 
-    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
     bleak_retry_connector.bluez.defs = defs
@@ -194,7 +195,9 @@ async def test_slot_manager(mock_linux):
 async def test_slot_manager_mac_os():
     """Test the slot manager"""
 
-    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(return_value=None)
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=None
+    )
     bleak_retry_connector.bluez.defs = defs
 
     slot_manager = BleakSlotManager()
@@ -270,8 +273,7 @@ def test_path_from_ble_device():
     )
 
 
-@patch.object(bleak_retry_connector.bluez, "IS_LINUX", True)
-async def test_wait_for_device_to_reappear():
+async def test_wait_for_device_to_reappear(mock_linux):
     class FakeBluezManager:
         def __init__(self):
             self.watchers: set[DeviceWatcher] = set()
@@ -316,7 +318,7 @@ async def test_wait_for_device_to_reappear():
             return False
 
     bluez_manager = FakeBluezManager()
-    bleak_retry_connector.bluez.get_global_bluez_manager = AsyncMock(
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         return_value=bluez_manager
     )
     bleak_retry_connector.bluez.defs = defs
@@ -340,3 +342,10 @@ async def test_wait_for_device_to_reappear():
     del bluez_manager._properties["/org/bluez/hci1/dev_FA_23_9D_AA_45_46"]
     with patch.object(bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.025):
         assert await wait_for_device_to_reappear(ble_device_hci0, 0.1) is False
+
+
+async def test_adapter_path_from_device_path(mock_linux):
+    assert (
+        adapter_path_from_device_path("/org/bluez/hci1/dev_FA_23_9D_AA_45_46")
+        == "/org/bluez/hci1"
+    )

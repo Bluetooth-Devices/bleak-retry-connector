@@ -2,6 +2,24 @@
 
 <!--next-version-placeholder-->
 
+## v3.3.0 (2023-10-25)
+
+### Feature
+
+* Handle services changed during connecting ([#108](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/108)) ([`1c65413`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1c65413cad1e6c42d6bf2c0a8cdec82d9d9a7484))
+
+## v3.2.1 (2023-09-14)
+
+### Fix
+
+* Correct fetching the global bluez manager when its not running ([#106](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/106)) ([`38c63a9`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/38c63a974dd05f7a1e42d647e3ca13884e9b4e62))
+
+## v3.2.0 (2023-09-14)
+
+### Feature
+
+* Remove devices on cache clear to cleanup disk cache ([#103](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/103)) ([`349e0de`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/349e0deeb2bee443e82d23b816bbd7036a476718))
+
 ## v3.1.3 (2023-09-07)
 
 ### Fix
