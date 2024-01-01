@@ -12,7 +12,6 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
 from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError
-from bluetooth_adapters.history import load_history_from_managed_objects
 
 import bleak_retry_connector
 from bleak_retry_connector import (
@@ -32,6 +31,7 @@ from bleak_retry_connector import (
     ble_device_has_changed,
     calculate_backoff_time,
     clear_cache,
+    close_stale_connections_by_address,
     establish_connection,
     get_connected_devices,
     get_device,
@@ -1707,6 +1707,7 @@ async def test_ble_device_description():
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif("not bleak_retry_connector.const.IS_LINUX")
 async def test_restore_discoveries(mock_linux):
     class FakeBluezManager:
         def __init__(self):
@@ -1772,6 +1773,8 @@ async def test_restore_discoveries(mock_linux):
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         return_value=FakeBluezManager()
     )
+    from bluetooth_adapters.history import load_history_from_managed_objects
+
     bleak_retry_connector.load_history_from_managed_objects = (
         load_history_from_managed_objects
     )
@@ -1784,3 +1787,73 @@ async def test_restore_discoveries(mock_linux):
     await restore_discoveries(mock_scanner, "hci1")
 
     assert len(seen_devices) == 1
+
+
+@pytest.mark.asyncio
+async def test_close_stale_connections_by_address(mock_linux):
+    class FakeBluezManager:
+        def __init__(self):
+            self._services_cache = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": "test",
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": "test",
+            }
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -30,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -79,
+                        "Connected": True,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci2/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -80,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+                "/org/bluez/hci3/dev_FA_23_9D_AA_45_46": {
+                    "UUID": "service",
+                    "Primary": True,
+                    "Characteristics": [],
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -31,
+                    },
+                    defs.GATT_SERVICE_INTERFACE: True,
+                },
+            }
+
+    bluez_manager = FakeBluezManager()
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    with patch.object(
+        bleak_retry_connector, "disconnect_devices", AsyncMock()
+    ) as mock_disconnect_devices:
+        await close_stale_connections_by_address("FA:23:9D:AA:45:46")
+    assert len(mock_disconnect_devices.mock_calls) == 1

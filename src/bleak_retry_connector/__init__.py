@@ -35,6 +35,9 @@ if IS_LINUX:
     from bluetooth_adapters import load_history_from_managed_objects
 
     from .dbus import disconnect_devices
+else:
+    load_history_from_managed_objects = None
+    disconnect_devices = None  # type: ignore[assignment]
 
 
 # Make sure bleak and dbus-fast have time
@@ -57,6 +60,7 @@ __all__ = [
     "ble_device_description",
     "establish_connection",
     "close_stale_connections",
+    "close_stale_connections_by_address",
     "clear_cache",
     "get_device",
     "get_device_by_adapter",
@@ -249,6 +253,15 @@ async def _disconnect_devices(devices: list[BLEDevice]) -> None:
     """Disconnect the devices."""
     if IS_LINUX:
         await disconnect_devices(devices)
+
+
+async def close_stale_connections_by_address(
+    address: str, only_other_adapters: bool = False
+) -> None:
+    """Close stale connections by address."""
+    if not IS_LINUX or not (device := await get_device(address)):
+        return
+    await close_stale_connections(device, only_other_adapters)
 
 
 async def close_stale_connections(
