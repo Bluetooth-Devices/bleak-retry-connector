@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.4.0 (2024-01-01)
+
+### Feature
+
+* Add close_stale_connections_by_address ([#110](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/110)) ([`74de12f`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/74de12fb5a9269bce677cb76ae0f05daf1af343a))
+
 ## v3.3.0 (2023-10-25)
 
 ### Feature
