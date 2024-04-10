@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.5.0 (2024-04-10)
+
+### Feature
+
+* Add device path to the disconnect debug logging ([#111](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/111)) ([`8e010b3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/8e010b3f3754b156e68699f5727be77d4f8412a3))
+
 ## v3.4.0 (2024-01-01)
 
 ### Feature
