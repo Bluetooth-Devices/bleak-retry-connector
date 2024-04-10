@@ -290,6 +290,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
     ):
         await asyncio.sleep(min_wait_time)
         return
+    device_path = device.details["path"]
     start = time.monotonic() if min_wait_time else 0
     try:
         if not (manager := await get_global_bluez_manager_with_timeout()):
@@ -300,7 +301,7 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
             )
             return
         async with asyncio_timeout(DISCONNECT_TIMEOUT):
-            await manager._wait_condition(device.details["path"], "Connected", False)
+            await manager._wait_condition(device_path, "Connected", False)
         end = time.monotonic() if min_wait_time else 0
         waited = end - start
         _LOGGER.debug(
@@ -320,9 +321,10 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         # When they run out of slots the device they are trying to
         # connect to disappears from the bus so we must backoff
         _LOGGER.debug(
-            "%s - %s: Device was removed from bus, waiting %s for it to re-appear: (%s) %s",
+            "%s - %s: Device was removed from bus at %s, waiting %s for it to re-appear: (%s) %s",
             device.name,
             device.address,
+            device_path,
             min_wait_time,
             type(ex),
             ex,
@@ -330,9 +332,10 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         await wait_for_device_to_reappear(device, min_wait_time)
     except Exception:  # pylint: disable=broad-except
         _LOGGER.debug(
-            "%s - %s: Failed waiting for disconnect",
+            "%s - %s: Failed waiting for disconnect at %s",
             device.name,
             device.address,
+            device_path,
             exc_info=True,
         )
 
