@@ -64,7 +64,6 @@ def _on_characteristic_value_changed(*args: Any, **kwargs: Any) -> None:
 
 
 class BleakSlotManager:
-
     """A class to manage the connection slots."""
 
     def __init__(self) -> None:
