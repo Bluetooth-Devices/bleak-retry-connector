@@ -23,7 +23,7 @@ if IS_LINUX:
         )
 
 
-async def get_global_bluez_manager_with_timeout() -> "BlueZManager" | None:
+async def get_global_bluez_manager_with_timeout() -> BlueZManager | None:
     """Get the properties."""
     if not IS_LINUX:
         return None
