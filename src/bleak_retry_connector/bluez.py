@@ -452,7 +452,7 @@ def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
     return f"/org/bluez/{adapter or 'hciX'}/dev_{address.upper().replace(':', '_')}"
 
 
-def _get_possible_paths(path: str) -> Generator[str, None, None]:
+def _get_possible_paths(path: str) -> Generator[str]:
     """Get the possible paths."""
     # The path is deterministic so we splice up the string
     # /org/bluez/hci2/dev_FA_23_9D_AA_45_46
