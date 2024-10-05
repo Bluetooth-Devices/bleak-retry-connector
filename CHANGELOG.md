@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.6.0 (2024-10-05)
+
+### Feature
+
+* Add support for Python 3.13 ([#119](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/119)) ([`f2c3fa5`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f2c3fa58217d4133b83aafd5ea885edc9e78ae85))
+
 ## v3.5.0 (2024-04-10)
 
 ### Feature
