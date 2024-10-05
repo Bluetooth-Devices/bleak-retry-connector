@@ -23,7 +23,7 @@ packages = [
 "Changelog" = "https://github.com/bluetooth-devices/bleak-retry-connector/blob/main/CHANGELOG.md"
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.13"
+python = ">=3.10,<3.14"
 
 # Documentation Dependencies
 bleak = ">=0.21.0"
