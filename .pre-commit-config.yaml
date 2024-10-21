@@ -36,7 +36,7 @@ repos:
         additional_dependencies:
           - prettier@2.8.4
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.17.0
+    rev: v3.18.0
     hooks:
       - id: pyupgrade
         args: [--py310-plus]
@@ -45,7 +45,7 @@ repos:
     hooks:
       - id: isort
   - repo: https://github.com/psf/black
-    rev: 24.8.0
+    rev: 24.10.0
     hooks:
       - id: black
   - repo: https://github.com/codespell-project/codespell
@@ -57,7 +57,7 @@ repos:
     hooks:
       - id: flake8
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: v1.12.1
     hooks:
       - id: mypy
         additional_dependencies: []
