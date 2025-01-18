@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.7.0 (2025-01-18)
+
+### Feature
+
+* Add support for getting callbacks on slot allocation change ([#133](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/133)) ([`ae21ecb`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/ae21ecb8524555dceafbbe47fb5d3b62efd51f1a))
+
 ## v3.6.0 (2024-10-05)
 
 ### Feature
