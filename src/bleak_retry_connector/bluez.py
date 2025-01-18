@@ -4,7 +4,9 @@ import asyncio
 import contextlib
 import logging
 import time
-from collections.abc import Generator
+from collections.abc import Callable, Generator
+from enum import Enum
+from functools import partial
 from typing import Any
 
 from bleak.backends.device import BLEDevice
@@ -35,6 +37,13 @@ if IS_LINUX:
         )
 
 
+class AllocationChange(Enum):
+    """Allocation change."""
+
+    ALLOCATED = 1
+    RELEASED = 2
+
+
 def device_source(device: BLEDevice) -> str | None:
     """Return the device source."""
     return _device_details_value_or_none(device, "source")
@@ -54,6 +63,11 @@ def adapter_from_path(path: str) -> str:
     return path.split("/")[3]
 
 
+def address_from_path(path: str) -> str:
+    """Get the address from a ble device path."""
+    return path.split("/")[-1].removeprefix("dev_").replace("_", ":").upper()
+
+
 def path_from_ble_device(device: BLEDevice) -> str | None:
     """Get the adapter from a ble device."""
     return _device_details_value_or_none(device, "path")
@@ -71,6 +85,7 @@ class BleakSlotManager:
         self._adapter_slots: dict[str, int] = {}
         self._allocations_by_adapter: dict[str, dict[str, DeviceWatcher]] = {}
         self._manager: BlueZManager | None = None
+        self._callbacks: set[Callable[[AllocationChange, str, str, str], None]] = set()
 
     async def async_setup(self) -> None:
         """Set up the class."""
@@ -103,6 +118,19 @@ class BleakSlotManager:
             self._manager.remove_device_watcher(watcher)
         del self._allocations_by_adapter[adapter]
 
+    def register_allocation_callback(
+        self, callback: Callable[[AllocationChange, str, str, str], None]
+    ) -> Callable[[], None]:
+        """Register a callback for when allocations change."""
+        self._callbacks.add(callback)
+        return partial(self.unregister_allocation_callback, callback)
+
+    def unregister_allocation_callback(
+        self, callback: Callable[[AllocationChange, str, str, str], None]
+    ) -> None:
+        """Unregister a callback."""
+        self._callbacks.discard(callback)
+
     def register_adapter(self, adapter: str, slots: int) -> None:
         """Register an adapter."""
         self._allocations_by_adapter[adapter] = {}
@@ -132,6 +160,7 @@ class BleakSlotManager:
             on_connected_changed=_on_device_connected_changed,
             on_characteristic_value_changed=_on_characteristic_value_changed,
         )
+        self._call_callbacks(AllocationChange.ALLOCATED, path)
 
     def release_slot(self, device: BLEDevice) -> None:
         """Release a slot."""
@@ -150,6 +179,17 @@ class BleakSlotManager:
         allocations = self._allocations_by_adapter[adapter]
         if watcher := allocations.pop(path, None):
             self._manager.remove_device_watcher(watcher)
+        self._call_callbacks(AllocationChange.RELEASED, path)
+
+    def _call_callbacks(self, change: AllocationChange, path: str) -> None:
+        """Call the callbacks."""
+        for callback_ in self._callbacks:
+            try:
+                callback_(
+                    change, path, adapter_from_path(path), address_from_path(path)
+                )
+            except Exception:  # pylint
+                _LOGGER.exception("Error in callback")
 
     def allocate_slot(self, device: BLEDevice) -> bool:
         """Allocate a slot."""
