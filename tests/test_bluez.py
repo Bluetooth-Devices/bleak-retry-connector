@@ -7,7 +7,12 @@ from bleak.backends.bluezdbus.manager import DeviceWatcher
 from bleak.backends.device import BLEDevice
 
 import bleak_retry_connector
-from bleak_retry_connector import BleakSlotManager, device_source
+from bleak_retry_connector import (
+    AllocationChange,
+    AllocationChangeEvent,
+    BleakSlotManager,
+    device_source,
+)
 from bleak_retry_connector.bluez import (
     adapter_path_from_device_path,
     ble_device_from_properties,
@@ -98,6 +103,23 @@ async def test_slot_manager(mock_linux):
     slot_manager.register_adapter("hci0", 1)
     slot_manager.register_adapter("hci1", 2)
     slot_manager.register_adapter("hci2", 1)
+    changes = []
+
+    def _failing_allocation_callback(event: AllocationChangeEvent) -> None:
+        raise Exception("Test")
+
+    def _allocation_callback(event: AllocationChangeEvent) -> None:
+        change = event.change
+        path = event.path
+        adapter = event.adapter
+        address = event.address
+
+        changes.append((change, path, adapter, address))
+
+    cancel_fail = slot_manager.register_allocation_callback(
+        _failing_allocation_callback
+    )
+    cancel = slot_manager.register_allocation_callback(_allocation_callback)
 
     ble_device_hci2 = ble_device_from_properties(
         "/org/bluez/hci2/dev_FA_23_9D_AA_45_45",
@@ -133,23 +155,49 @@ async def test_slot_manager(mock_linux):
     )
 
     assert slot_manager.allocate_slot(ble_device_hci2) is False
+    assert not changes
     # Make sure we can allocate an already connected device
     # since there is always a race condition between the
     # slot manager and the device connecting
     assert slot_manager.allocate_slot(ble_device_hci2_already_connected) is True
+    assert not changes
 
     assert slot_manager.allocate_slot(ble_device_hci0) is True
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        )
+    ]
     assert slot_manager._get_allocations("hci0") == [
         "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
     ]
 
     # Make sure we can allocate the same device again
     assert slot_manager.allocate_slot(ble_device_hci0) is True
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
     assert slot_manager._get_allocations("hci0") == [
         "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
     ]
 
     assert slot_manager.allocate_slot(ble_device_hci0_2) is False
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
     assert slot_manager._get_allocations("hci0") == [
         "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
     ]
@@ -161,13 +209,54 @@ async def test_slot_manager(mock_linux):
     assert slot_manager._get_allocations("hci0") == [
         "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
     ]
-
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
     watcher.on_connected_changed(False)
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
     assert slot_manager._get_allocations("hci0") == []
 
     assert slot_manager.allocate_slot(ble_device_hci0) is True
     assert slot_manager._get_allocations("hci0") == [
         "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
+    ]
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
     ]
 
     assert slot_manager.diagnostics() == {
@@ -181,15 +270,171 @@ async def test_slot_manager(mock_linux):
     }
 
     slot_manager.release_slot(ble_device_hci0)
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
     assert slot_manager._get_allocations("hci0") == []
 
     assert slot_manager.allocate_slot(ble_device_hci0) is True
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
     assert slot_manager._get_allocations("hci0") == [
         "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
     ]
     slot_manager.remove_adapter("hci0")
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
     assert slot_manager.allocate_slot(ble_device_hci0) is True
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
     assert slot_manager.allocate_slot(ble_device_hci0_2) is True
+    assert changes == [
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.RELEASED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+        (
+            AllocationChange.ALLOCATED,
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+            "hci0",
+            "FA:23:9D:AA:45:46",
+        ),
+    ]
+    cancel_fail()
+    cancel()
 
 
 async def test_slot_manager_mac_os():
