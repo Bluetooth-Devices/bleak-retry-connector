@@ -15,6 +15,7 @@ from bleak.exc import BleakDBusError, BleakDeviceNotFoundError, BleakError
 
 from .bluez import (  # noqa: F401
     AllocationChange,
+    AllocationChangeEvent,
     BleakSlotManager,
     _get_properties,
     clear_cache,

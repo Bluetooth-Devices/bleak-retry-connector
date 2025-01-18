@@ -7,7 +7,12 @@ from bleak.backends.bluezdbus.manager import DeviceWatcher
 from bleak.backends.device import BLEDevice
 
 import bleak_retry_connector
-from bleak_retry_connector import AllocationChange, BleakSlotManager, device_source
+from bleak_retry_connector import (
+    AllocationChange,
+    AllocationChangeEvent,
+    BleakSlotManager,
+    device_source,
+)
 from bleak_retry_connector.bluez import (
     adapter_path_from_device_path,
     ble_device_from_properties,
@@ -100,15 +105,16 @@ async def test_slot_manager(mock_linux):
     slot_manager.register_adapter("hci2", 1)
     changes = []
 
-    def _failing_allocation_callback(
-        change: AllocationChange, path: str, adapter: str, device: str
-    ) -> None:
+    def _failing_allocation_callback(event: AllocationChangeEvent) -> None:
         raise Exception("Test")
 
-    def _allocation_callback(
-        change: AllocationChange, path: str, adapter: str, device: str
-    ) -> None:
-        changes.append((change, path, adapter, device))
+    def _allocation_callback(event: AllocationChangeEvent) -> None:
+        change = event.change
+        path = event.path
+        adapter = event.adapter
+        address = event.address
+
+        changes.append((change, path, adapter, address))
 
     cancel_fail = slot_manager.register_allocation_callback(
         _failing_allocation_callback
