@@ -32,7 +32,7 @@ dbus-fast = {version = ">=1.14.0", markers = "platform_system == \"Linux\""}
 bluetooth-adapters = {version = ">=0.15.2", markers = "platform_system == \"Linux\""}
 
 [tool.poetry.dev-dependencies]
-pytest = "^7.0"
+pytest = "^8.3"
 pytest-cov = "^6.0"
 pytest-asyncio = "^0.23.8"
 
