@@ -49,7 +49,7 @@ class AllocationChange(Enum):
 class AllocationChangeEvent:
 
     change: AllocationChange
-    path: str
+    path: str | None  # D-Bus object path of the device
     adapter: str
     address: str
 
