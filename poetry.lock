@@ -73,13 +73,13 @@ files = [
 
 [[package]]
 name = "bluetooth-adapters"
-version = "0.20.2"
+version = "0.21.0"
 description = "Tools to enumerate and find Bluetooth Adapters"
 optional = false
 python-versions = "<3.14,>=3.9"
 files = [
-    {file = "bluetooth_adapters-0.20.2-py3-none-any.whl", hash = "sha256:92e6113b9fc1bfd99fd5ca4aef064b805db75e6293b303cb2432c1c9dcd63d7a"},
-    {file = "bluetooth_adapters-0.20.2.tar.gz", hash = "sha256:88bfba4ab8678c1bb3416851b3e6f497d4b8a368c8de1bc4e517743081ad2f55"},
+    {file = "bluetooth_adapters-0.21.0-py3-none-any.whl", hash = "sha256:e6e858f2e7dcceca1f66dff45bc4667ac55b57b1d20776bb55d83a04b71bb096"},
+    {file = "bluetooth_adapters-0.21.0.tar.gz", hash = "sha256:baf79ab54367c70a48de941a734b09554ec8edb863f3a08cfdcf542749743e78"},
 ]
 
 [package.dependencies]
