@@ -34,7 +34,7 @@ bluetooth-adapters = {version = ">=0.15.2", markers = "platform_system == \"Linu
 [tool.poetry.dev-dependencies]
 pytest = "^8.3"
 pytest-cov = "^6.0"
-pytest-asyncio = "^0.23.8"
+pytest-asyncio = "^0.25.2"
 
 [tool.poetry.group.dev.dependencies]
 dbus-fast = ">=1.4.0"
