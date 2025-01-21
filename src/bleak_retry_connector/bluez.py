@@ -50,8 +50,17 @@ class AllocationChangeEvent:
 
     change: AllocationChange
     path: str | None  # D-Bus object path of the device
-    adapter: str
-    address: str
+    adapter: str  # Adapter/Controller (hciX)
+    address: str  # Address of the remote BLE device
+
+
+@dataclass(slots=True)
+class Allocations:
+
+    adapter: str  # Adapter/Controller (hciX)
+    slots: int  # Number of slots
+    free: int  # Number of free slots
+    allocated: list[str]  # Addresses of connected devices
 
 
 def device_source(device: BLEDevice) -> str | None:
@@ -111,6 +120,15 @@ class BleakSlotManager:
                 for adapter in self._adapter_slots
             },
         }
+
+    def get_allocations(self, adapter: str) -> Allocations:
+        """Get the allocations."""
+        slots = self._adapter_slots.get(adapter, 0)
+        allocated = [
+            address_from_path(path) for path in self._allocations_by_adapter[adapter]
+        ]
+        free = slots - len(allocated)
+        return Allocations(adapter, slots, free, allocated)
 
     def _get_allocations(self, adapter: str) -> list[str]:
         """Get connected path allocations."""
