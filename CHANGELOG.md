@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.8.0 (2025-01-21)
+
+### Feature
+
+* Add method to fetch current allocations ([#138](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/138)) ([`4dc325b`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/4dc325b4db5afc613064ba1257987a4a0e00fa7e))
+
 ## v3.7.0 (2025-01-18)
 
 ### Feature
