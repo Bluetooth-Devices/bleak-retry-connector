@@ -492,7 +492,7 @@ def retry_bluetooth_connection_error(
     """Define a wrapper to retry on bluetooth connection error."""
 
     def _decorator_retry_bluetooth_connection_error(
-        func: Callable[P, Awaitable[T]]
+        func: Callable[P, Awaitable[T]],
     ) -> Callable[P, Awaitable[T]]:
         """Define a wrapper to retry on bleak error.
 
