@@ -1,12 +1,20 @@
-[tool.poetry]
+[project]
 name = "bleak-retry-connector"
 version = "3.8.0"
 description = "A connector for Bleak Clients that handles transient connection failures"
-authors = ["J. Nick Koston <nick@koston.org>"]
+authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
 license = "MIT"
 readme = "README.md"
-repository = "https://github.com/bluetooth-devices/bleak-retry-connector"
-documentation = "https://bleak-retry-connector.readthedocs.io"
+requires-python = ">=3.10"
+dynamic = ["classifiers", "dependencies"]
+
+[project.urls]
+"Documentation" = "https://bleak-retry-connector.readthedocs.io"
+"Repository" = "https://github.com/bluetooth-devices/bleak-retry-connector"
+"Bug Tracker" = "https://github.com/bluetooth-devices/bleak-retry-connector/issues"
+"Changelog" = "https://github.com/bluetooth-devices/bleak-retry-connector/blob/main/CHANGELOG.md"
+
+[tool.poetry]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
@@ -18,10 +26,6 @@ packages = [
     { include = "bleak_retry_connector", from = "src" },
 ]
 
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/bluetooth-devices/bleak-retry-connector/issues"
-"Changelog" = "https://github.com/bluetooth-devices/bleak-retry-connector/blob/main/CHANGELOG.md"
-
 [tool.poetry.dependencies]
 python = ">=3.10,<3.14"
 
@@ -31,17 +35,15 @@ async-timeout = {version = ">=3.0.0", python = "<3.11"}
 dbus-fast = {version = ">=1.14.0", markers = "platform_system == \"Linux\""}
 bluetooth-adapters = {version = ">=0.15.2", markers = "platform_system == \"Linux\""}
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
+dbus-fast = ">=1.4.0"
 pytest = "^8.3"
 pytest-cov = "^6.0"
 pytest-asyncio = "^0.25.3"
 
-[tool.poetry.group.dev.dependencies]
-dbus-fast = ">=1.4.0"
-
 [tool.semantic_release]
 branch = "main"
-version_toml = "pyproject.toml:tool.poetry.version"
+version_toml = "pyproject.toml:project.version"
 version_variable = "src/bleak_retry_connector/__init__.py:__version__"
 build_command = "pip install poetry && poetry build"
 
@@ -88,5 +90,5 @@ module = "docs.*"
 ignore_errors = true
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
