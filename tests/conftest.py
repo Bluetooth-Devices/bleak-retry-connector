@@ -13,17 +13,20 @@ def configure_test_logging(caplog):
 
 @pytest.fixture()
 def mock_linux():
-    with patch.object(bleak_retry_connector, "IS_LINUX", True), patch.object(
-        bleak_retry_connector.bluez, "IS_LINUX", True
-    ), patch.object(bleak_retry_connector.bleak_manager, "IS_LINUX", True), patch(
-        "bleak.backends.scanner.platform.system", return_value="Linux"
+    with (
+        patch.object(bleak_retry_connector, "IS_LINUX", True),
+        patch.object(bleak_retry_connector.bluez, "IS_LINUX", True),
+        patch.object(bleak_retry_connector.bleak_manager, "IS_LINUX", True),
+        patch("bleak.backends.scanner.platform.system", return_value="Linux"),
     ):
         yield
 
 
 @pytest.fixture()
 def mock_macos():
-    with patch.object(bleak_retry_connector, "IS_LINUX", False), patch.object(
-        bleak_retry_connector.bluez, "IS_LINUX", False
-    ), patch.object(bleak_retry_connector.bleak_manager, "IS_LINUX", False):
+    with (
+        patch.object(bleak_retry_connector, "IS_LINUX", False),
+        patch.object(bleak_retry_connector.bluez, "IS_LINUX", False),
+        patch.object(bleak_retry_connector.bleak_manager, "IS_LINUX", False),
+    ):
         yield
