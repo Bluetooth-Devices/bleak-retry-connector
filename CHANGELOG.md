@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.8.1 (2025-02-04)
+
+### Fix
+
+* Update poetry to v2 ([#144](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/144)) ([`9b45308`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/9b45308e6055c4a42c50228b2e21b20e2adfd604))
+
 ## v3.8.0 (2025-01-21)
 
 ### Feature
