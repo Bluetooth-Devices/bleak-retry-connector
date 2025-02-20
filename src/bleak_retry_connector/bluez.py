@@ -284,6 +284,27 @@ async def clear_cache(address: str) -> bool:
     return bool(caches_cleared)
 
 
+async def stop_discovery(adapter_name: str) -> None:
+    """Stop discovery on an adapter.
+
+    :param adapter_name: The adapter name (hciX).
+    """
+    if manager := await get_global_bluez_manager_with_timeout():
+        adapter_path = f"/org/bluez/{adapter_name}"
+        await manager._bus.send(
+            Message(
+                destination=defs.BLUEZ_SERVICE,
+                path=adapter_path,
+                interface=defs.ADAPTER_INTERFACE,
+                member="StopDiscovery",
+            )
+        )
+    else:
+        _LOGGER.error(
+            "Failed to stop discovery for %s because no manager", adapter_name
+        )
+
+
 def adapter_path_from_device_path(device_path: str) -> str:
     """
     Scrape the adapter path from a D-Bus device path.
