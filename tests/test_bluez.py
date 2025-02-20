@@ -1,5 +1,5 @@
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from bleak.backends.bluezdbus import defs
@@ -18,6 +18,7 @@ from bleak_retry_connector.bluez import (
     adapter_path_from_device_path,
     ble_device_from_properties,
     path_from_ble_device,
+    stop_discovery,
     wait_for_device_to_reappear,
 )
 
@@ -639,3 +640,23 @@ async def test_adapter_path_from_device_path(mock_linux):
         adapter_path_from_device_path("/org/bluez/hci1/dev_FA_23_9D_AA_45_46")
         == "/org/bluez/hci1"
     )
+
+
+async def test_stop_discovery(mock_linux):
+    """Test stopping discovery"""
+
+    class FakeBluezManager:
+        def __init__(self) -> None:
+            """Mock initializer."""
+            self._bus = MagicMock(send=AsyncMock())
+
+    manager = FakeBluezManager()
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+    bleak_retry_connector.bluez.Message = MagicMock()
+
+    await stop_discovery("hci0")
+    assert manager._bus.send.called
