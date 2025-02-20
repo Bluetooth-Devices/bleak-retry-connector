@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v3.9.0 (2025-02-20)
+
+### Feature
+
+* Add internal stop_discovery method for habluetooth ([#148](https://github.com/Bluetooth-Devices/bleak-retry-connector/issues/148)) ([`ae9feac`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/ae9feac7138ace0ba62cb30112f29a3ce6f47b28))
+
 ## v3.8.1 (2025-02-04)
 
 ### Fix
