@@ -660,3 +660,18 @@ async def test_stop_discovery(mock_linux):
 
     await stop_discovery("hci0")
     assert manager._bus.send.called
+
+
+async def test_stop_discovery_no_manager(
+    mock_linux: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Test stopping discovery no manager."""
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=None
+    )
+    bleak_retry_connector.bluez.defs = defs
+    bleak_retry_connector.bluez.Message = MagicMock()
+
+    await stop_discovery("hci0")
+    assert "Failed to stop discovery" in caplog.text
