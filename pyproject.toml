@@ -27,13 +27,11 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<3.14"
-
-# Documentation Dependencies
-bleak = ">=0.21.0"
+python = ">=3.10"
+bleak = {version = ">=0.21.0", python = ">=3.10,<3.14"}
 async-timeout = {version = ">=3.0.0", python = "<3.11"}
 dbus-fast = {version = ">=1.14.0", markers = "platform_system == \"Linux\""}
-bluetooth-adapters = {version = ">=0.15.2", markers = "platform_system == \"Linux\""}
+bluetooth-adapters = {version = ">=0.15.2", markers = "platform_system == \"Linux\"", python = ">=3.10,<3.14"}
 
 [tool.poetry.group.dev.dependencies]
 dbus-fast = ">=1.4.0"
@@ -43,8 +41,8 @@ pytest-asyncio = "^0.25.3"
 
 [tool.semantic_release]
 branch = "main"
-version_toml = "pyproject.toml:project.version"
-version_variable = "src/bleak_retry_connector/__init__.py:__version__"
+version_toml = ["pyproject.toml:project.version"]
+version_variables = ["src/bleak_retry_connector/__init__.py:__version__"]
 build_command = "pip install poetry && poetry build"
 
 [tool.pytest.ini_options]
