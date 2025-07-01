@@ -468,7 +468,6 @@ async def test_establish_connection_has_transient_error_had_advice():
                     "aa:bb:cc:dd:ee:ff",
                     "name",
                     {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                    -127,
                 ),
                 "test",
             )
@@ -502,9 +501,7 @@ async def test_establish_connection_out_of_slots_advice():
         try:
             await establish_connection(
                 FakeBleakClient,
-                BLEDevice(
-                    "aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}, -127
-                ),
+                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}),
                 "test",
             )
         except BleakError as e:
@@ -545,7 +542,6 @@ async def test_device_disappeared_error():
                     "aa:bb:cc:dd:ee:ff",
                     "name",
                     {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                    -127,
                 ),
                 "test",
             )
@@ -645,7 +641,6 @@ async def test_device_disappeared_and_reappears():
                     "FA:23:9D:AA:45:46",
                     "name",
                     {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                    -127,
                 ),
                 "test",
             )
@@ -733,16 +728,16 @@ async def test_bleak_connect_overruns_timeout():
 def test_ble_device_has_changed():
     """Test that the BLEDevice has changed when the underlying device has changed."""
     assert not ble_device_has_changed(
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
     )
     assert ble_device_has_changed(
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
-        BLEDevice("ab:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+        BLEDevice("ab:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
     )
     assert ble_device_has_changed(
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}, -127),
-        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/2"}, -127),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/1"}),
+        BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"path": "/dev/2"}),
     )
 
 
@@ -752,7 +747,7 @@ async def test_establish_connection_other_adapter_already_connected(mock_linux):
 
     class FakeBleakClient(BleakClient):
         def __init__(self, ble_device_or_address, *args, **kwargs):
-            ble_device_or_address.metadata["delegate"] = 0
+            ble_device_or_address.details["delegate"] = 0
             super().__init__(ble_device_or_address, *args, **kwargs)
             nonlocal device
             device = ble_device_or_address
@@ -837,7 +832,6 @@ async def test_establish_connection_other_adapter_already_connected(mock_linux):
             "aa:bb:cc:dd:ee:ff",
             "name",
             {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-            -80,
             delegate=False,
         ),
         "test",
@@ -855,7 +849,7 @@ async def test_establish_connection_other_adapter_already_connected(mock_linux):
 async def test_establish_connection_device_disappeared(mock_linux):
     class FakeBleakClient(BleakClient):
         def __init__(self, ble_device_or_address, *args, **kwargs):
-            ble_device_or_address.metadata["delegate"] = 0
+            ble_device_or_address.details["delegate"] = 0
             super().__init__(ble_device_or_address, *args, **kwargs)
             self._device_path = "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
 
@@ -904,7 +898,6 @@ async def test_establish_connection_device_disappeared(mock_linux):
                 "aa:bb:cc:dd:ee:ff",
                 "name",
                 {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                -127,
                 delegate=False,
             ),
             "test",
@@ -1230,7 +1223,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     class FakeBleakClient(BleakClient):
         def __init__(self, ble_device_or_address, *args, **kwargs):
-            ble_device_or_address.metadata["delegate"] = 0
+            ble_device_or_address.details["delegate"] = 0
             super().__init__(ble_device_or_address, *args, **kwargs)
             nonlocal device
             device = ble_device_or_address
@@ -1313,7 +1306,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
         "aa:bb:cc:dd:ee:ff",
         "name",
         {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-        -80,
         delegate=False,
     )
 
@@ -1330,7 +1322,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
                 "FA:23:9D:AA:45:46",
                 "name",
                 {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                -80,
                 delegate=False,
             ),
             "test",
@@ -1353,7 +1344,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     class FakeBleakClient(BleakClient):
         def __init__(self, ble_device_or_address, *args, **kwargs):
-            ble_device_or_address.metadata["delegate"] = 0
+            ble_device_or_address.details["delegate"] = 0
             super().__init__(ble_device_or_address, *args, **kwargs)
             nonlocal device
             device = ble_device_or_address
@@ -1436,7 +1427,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
         "aa:bb:cc:dd:ee:ff",
         "name",
         {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-        -80,
         delegate=False,
     )
 
@@ -1456,7 +1446,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
                 "FA:23:9D:AA:45:46",
                 "name",
                 {"path": "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"},
-                -80,
                 delegate=False,
             ),
             "test",
@@ -1689,7 +1678,6 @@ async def test_ble_device_description():
         "aa:bb:cc:dd:ee:ff",
         "name",
         {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-        -127,
     )
     assert (
         ble_device_description(device) == "aa:bb:cc:dd:ee:ff - name -> /org/bluez/hci2"
@@ -1698,14 +1686,11 @@ async def test_ble_device_description():
         "aa:bb:cc:dd:ee:ff",
         "name",
         {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-        -127,
     )
     assert (
         ble_device_description(device2) == "aa:bb:cc:dd:ee:ff - name -> /org/bluez/hci2"
     )
-    device3 = BLEDevice(
-        "aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}, -127
-    )
+    device3 = BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"})
     assert (
         ble_device_description(device3) == "aa:bb:cc:dd:ee:ff - name -> esphome_proxy_1"
     )

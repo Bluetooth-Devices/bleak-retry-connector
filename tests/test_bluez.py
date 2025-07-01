@@ -536,9 +536,6 @@ def test_device_source():
             "path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_47",
             "props": {},
         },
-        -127,
-        uuids=[],
-        manufacturer_data={},
     )
 
     assert device_source(ble_device_hci0_2) == "aa:bb:cc:dd:ee:ff"
@@ -553,9 +550,6 @@ def test_path_from_ble_device():
             "path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_47",
             "props": {},
         },
-        -127,
-        uuids=[],
-        manufacturer_data={},
     )
 
     assert (
@@ -622,9 +616,6 @@ async def test_wait_for_device_to_reappear(mock_linux):
             "path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
             "props": {},
         },
-        -127,
-        uuids=[],
-        manufacturer_data={},
     )
 
     assert await wait_for_device_to_reappear(ble_device_hci0, 1) is True
