@@ -314,6 +314,8 @@ async def establish_connection(
     transient_errors = 0
     attempt = 0
 
+    _LOGGER.warning("Device: %s - %s", device, device.details)
+
     def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
         if (
