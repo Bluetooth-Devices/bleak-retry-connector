@@ -535,6 +535,7 @@ async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None:
         return
     backend = scanner._backend
     before = len(backend.seen_devices)
+    details: dict[str, Any]
     backend.seen_devices.update(
         {
             path: (device, history.advertisement_data)
