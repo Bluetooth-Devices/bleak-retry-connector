@@ -69,7 +69,10 @@ async def test_establish_connection_passes_retry_client_flag():
             # Remove _is_retry_client before calling super() if it exists
             # since the base BleakClient doesn't expect it
             kwargs.pop("_is_retry_client", None)
-            super().__init__(*args, **kwargs)
+            # Don't call super().__init__ to avoid platform-specific initialization
+            self._device_path = None
+            self._device_info = None
+            self._backend = None
 
         async def connect(self, *args, **kwargs):
             pass
@@ -79,7 +82,6 @@ async def test_establish_connection_passes_retry_client_flag():
 
     device = MagicMock(spec=BLEDevice)
     device.address = "00:00:00:00:00:01"
-    device.details = (MagicMock(), MagicMock())  # Tuple for platform-specific details
 
     client = await establish_connection(
         FakeBleakClient, device, "test", disconnected_callback=MagicMock()
