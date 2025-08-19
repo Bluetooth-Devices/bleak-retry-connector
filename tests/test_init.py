@@ -58,6 +58,41 @@ async def test_establish_connection_works_first_time():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_passes_retry_client_flag():
+    """Test that establish_connection passes _is_retry_client=True to the client."""
+    received_kwargs = {}
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            # Capture the kwargs passed to __init__
+            received_kwargs.update(kwargs)
+            # Remove _is_retry_client before calling super() if it exists
+            # since the base BleakClient doesn't expect it
+            kwargs.pop("_is_retry_client", None)
+            # Don't call super().__init__ to avoid platform-specific initialization
+            self._device_path = None
+            self._device_info = None
+            self._backend = None
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    device = MagicMock(spec=BLEDevice)
+    device.address = "00:00:00:00:00:01"
+
+    client = await establish_connection(
+        FakeBleakClient, device, "test", disconnected_callback=MagicMock()
+    )
+
+    assert isinstance(client, FakeBleakClient)
+    assert "_is_retry_client" in received_kwargs
+    assert received_kwargs["_is_retry_client"] is True
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_with_cached_services():
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):
