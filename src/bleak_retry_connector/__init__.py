@@ -359,7 +359,12 @@ async def establish_connection(
         # device.
         device = devices[0]
 
-    client = client_class(device, disconnected_callback=disconnected_callback, **kwargs)
+    client = client_class(
+        device,
+        disconnected_callback=disconnected_callback,
+        _is_retry_client=True,
+        **kwargs,
+    )
 
     while True:
         attempt += 1
