@@ -1,5 +1,24 @@
 # Usage Guide
 
+## Why Use bleak-retry-connector?
+
+This package provides robust retry logic and intelligent backoff strategies for establishing BLE connections. Key benefits include:
+
+- **Automatic retry with backoff** - Handles transient connection failures with intelligent retry timing
+- **Connection slot management** - Critical for ESPHome Bluetooth proxies that have limited connection slots
+- **Service caching** - Speeds up reconnections by caching GATT services
+- **Platform-specific optimizations** - Special handling for Linux/BlueZ, macOS, and ESP32 devices
+- **Error categorization** - Distinguishes between transient errors, missing devices, and out-of-slots conditions
+
+### Essential for ESPHome Bluetooth Proxies
+
+If you're using ESPHome Bluetooth proxies, this package is **critical** because:
+
+1. **Proper slot management** - ESP32 devices have limited connection slots that must be carefully managed
+2. **Handles ESP-specific errors** - Recognizes ESP32 error codes like `ESP_GATT_CONN_CONN_CANCEL` (out of slots)
+3. **Appropriate backoff timing** - Uses longer backoff (4 seconds) when slots are exhausted to allow proper cleanup
+4. **Prevents slot exhaustion** - Manages connection attempts to avoid overwhelming the proxy
+
 ## BleakClientWithServiceCache
 
 `BleakClientWithServiceCache` is a subclass of `BleakClient` that provides service caching capabilities for faster reconnections.
