@@ -38,6 +38,68 @@ Install this via pip (or your favourite package manager):
 
 `pip install bleak-retry-connector`
 
+## Usage
+
+### Quick Start
+
+Replace your direct `BleakClient.connect()` calls with `establish_connection()` for automatic retry logic and better error handling:
+
+```python
+import asyncio
+from bleak import BleakScanner
+from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
+
+async def connect_to_device():
+    # Find your device
+    device = await BleakScanner.find_device_by_address("AA:BB:CC:DD:EE:FF")
+
+    if device is None:
+        print("Device not found!")
+        return
+
+    # Establish connection with automatic retry logic
+    client = await establish_connection(
+        BleakClientWithServiceCache,  # Use BleakClientWithServiceCache for service caching
+        device,
+        device.name or "Unknown Device",
+        max_attempts=3  # Will retry up to 3 times with backoff
+    )
+
+    try:
+        # Use the connected client normally
+        services = await client.get_services()
+        print(f"Connected! Found {len(services)} services")
+
+        # Read a characteristic
+        value = await client.read_gatt_char("00002a00-0000-1000-8000-00805f9b34fb")
+        print(f"Read value: {value}")
+
+    finally:
+        await client.disconnect()
+
+# Run the example
+asyncio.run(connect_to_device())
+```
+
+### Why Use bleak-retry-connector?
+
+- **Automatic Retry Logic**: Handles transient connection failures automatically
+- **Intelligent Backoff**: Uses appropriate delays between retry attempts
+- **Service Caching**: `BleakClientWithServiceCache` caches services for faster reconnections
+- **Better Error Messages**: Provides clear, actionable error messages
+- **Platform-Specific Handling**: Manages quirks across different operating systems
+- **Connection Slot Management**: Handles limited connection slots on some devices
+
+### Common Connection Issues This Solves
+
+- Device not found errors that resolve on retry
+- Connection timeouts on first attempt
+- "Out of connection slots" errors on ESP32 devices
+- Interference from other Bluetooth operations
+- Platform-specific connection quirks
+
+For detailed documentation and advanced usage, see the [full documentation](https://bleak-retry-connector.readthedocs.io/en/latest/usage.html).
+
 ## Contributors ✨
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
