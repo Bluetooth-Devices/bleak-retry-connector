@@ -39,6 +39,12 @@ pytest = "^8.4"
 pytest-cov = "^6.2"
 pytest-asyncio = "^1.1.0"
 
+
+[tool.poetry.group.docs.dependencies]
+myst-parser = ">=4.0.1"
+sphinx-rtd-theme = ">=3.0.2"
+sphinx = ">=8"
+
 [tool.semantic_release]
 branch = "main"
 version_toml = ["pyproject.toml:project.version"]

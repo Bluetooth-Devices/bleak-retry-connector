@@ -1,0 +1,7 @@
+# Documentation dependencies
+# This file is used by ReadTheDocs to install dependencies
+# These match the poetry docs group dependencies
+
+myst-parser>=4.0.1
+sphinx-rtd-theme>=3.0.2
+sphinx>=8
