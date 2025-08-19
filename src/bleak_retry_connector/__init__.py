@@ -121,7 +121,18 @@ TRANSIENT_ERRORS_MEDIUM_BACKOFF = {
 
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
 
-OUT_OF_SLOTS_ERRORS = {"available connection", "connection slot"}
+# ESP_GATT_CONN_CONN_CANCEL (0x100) indicates the ESP32 rejected the connection due to
+# limited resources (HCI error 0x0d). This happens when ESPHome incorrectly marks a
+# connection slot as free at ESP_GATTC_DISCONNECT_EVT instead of waiting for
+# ESP_GATTC_CLOSE_EVT, causing a race where we try to use a slot that isn't actually
+# available yet. The 4-second backoff gives time for the slot to truly become available
+# and for the state to sync with Home Assistant.
+# See: https://github.com/espressif/esp-idf/issues/17452
+OUT_OF_SLOTS_ERRORS = {
+    "available connection",
+    "connection slot",
+    "ESP_GATT_CONN_CONN_CANCEL",
+}
 
 TRANSIENT_ERRORS = {
     "le-connection-abort-by-local",
@@ -129,7 +140,6 @@ TRANSIENT_ERRORS = {
     "ESP_GATT_CONN_FAIL_ESTABLISH",
     "ESP_GATT_CONN_TERMINATE_PEER_USER",
     "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
-    "ESP_GATT_CONN_CONN_CANCEL",
 } | OUT_OF_SLOTS_ERRORS
 
 # Currently the same as transient error
