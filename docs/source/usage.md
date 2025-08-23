@@ -86,10 +86,31 @@ Returns the connected client instance of the specified `client_class`.
 
 ### Exceptions
 
+`establish_connection` can raise the following exceptions after exhausting retry attempts:
+
 - **BleakNotFoundError**: Device was not found or disappeared
+
+  - Raised when the device cannot be found
+  - Raised on `asyncio.TimeoutError` after all retries
+  - Raised when `BleakDeviceNotFoundError` occurs
+  - Raised when device is missing from the adapter
+
 - **BleakOutOfConnectionSlotsError**: Adapter/proxy has no available connection slots
+
+  - Raised when local Bluetooth adapters or ESP32 proxies are out of connection slots
+  - Common with errors containing "ESP_GATT_CONN_CONN_CANCEL", "connection slot", or "available connection"
+  - For local adapters: disconnect unused devices or use a different adapter
+  - For ESP32 proxies: add more proxies or disconnect other devices
+
 - **BleakAbortedError**: Connection was aborted due to interference or range issues
+
+  - Raised for transient connection failures that suggest environmental issues
+  - Common with errors like "le-connection-abort-by-local", "br-connection-canceled"
+  - Indicates interference, range problems, or USB 3.0 port interference
+
 - **BleakConnectionError**: General connection failure after all retries
+  - Raised for any other connection errors that don't fit the above categories
+  - The fallback exception when connection cannot be established
 
 ### Basic Example
 
