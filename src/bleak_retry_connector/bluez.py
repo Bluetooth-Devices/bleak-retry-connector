@@ -124,15 +124,18 @@ class BleakSlotManager:
     def get_allocations(self, adapter: str) -> Allocations:
         """Get the allocations."""
         slots = self._adapter_slots.get(adapter, 0)
-        allocated = [
-            address_from_path(path) for path in self._allocations_by_adapter[adapter]
-        ]
+        allocated: list[str] = []
+        if adapter in self._allocations_by_adapter:
+            allocated = [
+                address_from_path(path)
+                for path in self._allocations_by_adapter[adapter]
+            ]
         free = slots - len(allocated)
         return Allocations(adapter, slots, free, allocated)
 
     def _get_allocations(self, adapter: str) -> list[str]:
         """Get connected path allocations."""
-        if self._manager is None:
+        if self._manager is None or adapter not in self._allocations_by_adapter:
             return []
         return list(self._allocations_by_adapter[adapter])
 
@@ -204,6 +207,12 @@ class BleakSlotManager:
         """Unconditional release of the slot."""
         assert self._manager is not None  # nosec
         adapter = adapter_from_path(path)
+        if adapter not in self._allocations_by_adapter:
+            # Adapter was already removed (e.g., unplugged)
+            _LOGGER.debug(
+                "Cannot release slot for %s: adapter %s not found", path, adapter
+            )
+            return
         allocations = self._allocations_by_adapter[adapter]
         if watcher := allocations.pop(path, None):
             self._manager.remove_device_watcher(watcher)
