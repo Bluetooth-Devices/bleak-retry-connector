@@ -483,6 +483,77 @@ async def test_slot_manager(mock_linux):
     cancel()
 
 
+async def test_slot_manager_adapter_removal_during_disconnect(mock_linux):
+    """Test that adapter removal during disconnect doesn't cause KeyError."""
+
+    class FakeBluezManager:
+        def __init__(self):
+            self.watchers: set[DeviceWatcher] = set()
+            self._properties = {
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "Test Device",
+                        "RSSI": -60,
+                    },
+                },
+            }
+
+        def add_device_watcher(self, path: str, **kwargs: Any) -> DeviceWatcher:
+            """Add a watcher for device changes."""
+            watcher = DeviceWatcher(path, **kwargs)
+            self.watchers.add(watcher)
+            return watcher
+
+        def remove_device_watcher(self, watcher: DeviceWatcher) -> None:
+            """Remove a watcher for device changes."""
+            self.watchers.discard(watcher)
+
+        def is_connected(self, path: str) -> bool:
+            """Check if device is connected."""
+            return False
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    slot_manager = BleakSlotManager()
+    await slot_manager.async_setup()
+
+    # Register adapter and allocate a slot
+    slot_manager.register_adapter("hci1", 5)
+
+    ble_device = ble_device_from_properties(
+        "/org/bluez/hci1/dev_FA_23_9D_AA_45_46",
+        {
+            "Address": "FA:23:9D:AA:45:46",
+            "Alias": "Test Device",
+            "RSSI": -60,
+        },
+    )
+
+    # Allocate the slot
+    assert slot_manager.allocate_slot(ble_device) is True
+
+    # Store the watcher to simulate disconnect event later
+    watcher: DeviceWatcher = slot_manager._allocations_by_adapter["hci1"][
+        "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
+    ]
+
+    # Simulate adapter removal (e.g., adapter unplugged)
+    slot_manager.remove_adapter("hci1")
+
+    # Now simulate the disconnect event firing after adapter removal
+    # This should not raise a KeyError
+    watcher.on_connected_changed(False)
+
+    # Verify the adapter is gone and methods handle it gracefully
+    assert slot_manager._get_allocations("hci1") == []
+    assert slot_manager.get_allocations("hci1") == Allocations("hci1", 0, 0, [])
+
+
 async def test_slot_manager_mac_os():
     """Test the slot manager"""
 
