@@ -124,7 +124,7 @@ class BleakSlotManager:
     def get_allocations(self, adapter: str) -> Allocations:
         """Get the allocations."""
         slots = self._adapter_slots.get(adapter, 0)
-        allocated = []
+        allocated: list[str] = []
         if adapter in self._allocations_by_adapter:
             allocated = [
                 address_from_path(path)
