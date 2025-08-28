@@ -19,11 +19,14 @@ from .bluez import (  # noqa: F401
     Allocations,
     BleakSlotManager,
     _get_properties,
+    _get_services_cache,
     clear_cache,
     device_source,
     get_connected_devices,
     get_device,
     get_device_by_adapter,
+    get_global_bluez_manager_with_timeout,
+    path_from_ble_device,
     wait_for_device_to_reappear,
     wait_for_disconnect,
 )
@@ -233,6 +236,78 @@ def ble_device_description(device: BLEDevice) -> str:
     return base_name
 
 
+async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
+    """Check if the device has valid services in cache that are still present in properties.
+
+    This function validates that cached services are still valid by checking if they
+    exist in the BlueZ manager's properties. Due to race conditions, the properties
+    and services cache can become out of sync. If properties have disappeared but
+    the services cache still contains them, the cache is stale and should not be used.
+
+    Returns True only if:
+    - We're on Linux
+    - The device is a BlueZ device (has a path)
+    - The BlueZ manager is available
+    - Services are cached for the device
+    - All cached services are still present in the D-Bus properties
+    """
+    if not IS_LINUX:
+        return False
+
+    # Check if this is a BlueZ device
+    if not (device_path := path_from_ble_device(device)):
+        return False
+
+    # Get the services cache
+    if not (services_cache := await _get_services_cache()):
+        _LOGGER.debug(
+            "%s - %s: No services cache available, cannot validate",
+            device.name or "Unknown",
+            device.address,
+        )
+        return False
+
+    # Check if services are cached for this device
+    if not (cached_services := services_cache.get(device_path)):
+        _LOGGER.debug(
+            "%s - %s: No cached services found for device path %s",
+            device.name or "Unknown",
+            device.address,
+            device_path,
+        )
+        return False
+
+    # Get current properties to check if cached services are still present
+    if not (properties := await _get_properties()):
+        _LOGGER.debug(
+            "%s - %s: Could not get properties to validate cache",
+            device.name or "Unknown",
+            device.address,
+        )
+        return False
+
+    # Check if all cached services are still present in properties
+    # The cached_services is a dict where keys are service paths
+    for service_path in cached_services:
+        if service_path not in properties:
+            # Service is in cache but not in properties (not on the bus)
+            _LOGGER.debug(
+                "%s - %s: Cached service %s not found in properties, cache invalid",
+                device.name or "Unknown",
+                device.address,
+                service_path,
+            )
+            return False
+
+    _LOGGER.debug(
+        "%s - %s: All %d cached services are valid and present in properties",
+        device.name or "Unknown",
+        device.address,
+        len(cached_services),
+    )
+    return True
+
+
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
 
@@ -378,10 +453,14 @@ async def establish_connection(
 
         try:
             async with asyncio_timeout(BLEAK_SAFETY_TIMEOUT):
+                # Only use cache if we have valid services in the cache
+                should_use_cache = use_services_cache or bool(cached_services)
+                if should_use_cache:
+                    should_use_cache = await _has_valid_services_in_cache(device)
+
                 await client.connect(
                     timeout=BLEAK_TIMEOUT,
-                    dangerous_use_bleak_cache=use_services_cache
-                    or bool(cached_services),
+                    dangerous_use_bleak_cache=should_use_cache,
                 )
                 if debug_enabled:
                     _LOGGER.debug(

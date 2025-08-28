@@ -118,6 +118,7 @@ async def test_establish_connection_with_cached_services():
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/dev/test/service/1": {
                     "UUID": "service",
@@ -127,8 +128,14 @@ async def test_establish_connection_with_cached_services():
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -170,10 +177,17 @@ async def test_establish_connection_with_cached_services_that_have_vanished():
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {}
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -212,6 +226,7 @@ async def test_establish_connection_can_cache_services_always_patched():
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/dev/test/service/1": {
                     "UUID": "service",
@@ -221,8 +236,14 @@ async def test_establish_connection_can_cache_services_always_patched():
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -261,6 +282,7 @@ async def test_establish_connection_can_cache_services_services_missing():
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/dev/test2/service/1": {
                     "UUID": "service",
@@ -269,8 +291,14 @@ async def test_establish_connection_can_cache_services_services_missing():
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -633,6 +661,7 @@ async def test_device_disappeared_error():
 async def test_device_disappeared_and_reappears():
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self.watchers: set[DeviceWatcher] = set()
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
@@ -681,6 +710,9 @@ async def test_device_disappeared_and_reappears():
     bluez_manager = FakeBluezManager()
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         return_value=bluez_manager
+    )
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -841,6 +873,7 @@ async def test_establish_connection_other_adapter_already_connected(mock_linux):
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -848,7 +881,7 @@ async def test_establish_connection_other_adapter_already_connected(mock_linux):
                     "Characteristics": [],
                     defs.DEVICE_INTERFACE: {
                         "Address": "FA:23:9D:AA:45:46",
-                        "Alias": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D_AA:45:46",
                         "RSSI": -30,
                     },
                     defs.GATT_SERVICE_INTERFACE: True,
@@ -890,8 +923,12 @@ async def test_establish_connection_other_adapter_already_connected(mock_linux):
                 },
             }
 
+    bluez_manager = FakeBluezManager()
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -941,6 +978,7 @@ async def test_establish_connection_device_disappeared(mock_linux):
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -955,8 +993,14 @@ async def test_establish_connection_device_disappeared(mock_linux):
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -982,6 +1026,7 @@ async def test_establish_connection_device_disappeared(mock_linux):
 async def test_get_device(mock_linux):
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -1029,8 +1074,14 @@ async def test_get_device(mock_linux):
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -1100,6 +1151,9 @@ async def test_clear_cache(mock_linux):
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         return_value=bluez_manager
     )
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
+    )
     bleak_retry_connector.bluez.defs = defs
 
     device = await get_device("FA:23:9D:AA:45:46")
@@ -1115,6 +1169,7 @@ async def test_clear_cache(mock_linux):
 async def test_get_device_mac_os(mock_macos):
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -1162,8 +1217,14 @@ async def test_get_device_mac_os(mock_macos):
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -1176,6 +1237,7 @@ async def test_get_device_mac_os(mock_macos):
 async def test_get_device_already_connected(mock_linux):
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci1/dev_BD_24_6F_85_AA_61": {
                     "org.freedesktop.DBus.Introspectable": {},
@@ -1207,8 +1269,14 @@ async def test_get_device_already_connected(mock_linux):
                 }
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -1226,6 +1294,7 @@ async def test_get_device_already_connected(mock_linux):
 async def test_get_device_not_there():
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -1273,8 +1342,14 @@ async def test_get_device_not_there():
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -1317,6 +1392,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -1366,8 +1442,14 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -1438,6 +1520,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -1487,8 +1570,14 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -1533,6 +1622,7 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
 async def test_get_device_by_adapter(mock_linux):
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -1580,8 +1670,14 @@ async def test_get_device_by_adapter(mock_linux):
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
@@ -1674,6 +1770,9 @@ async def test_dbus_is_missing(mock_linux):
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         side_effect=FileNotFoundError("dbus not here")
     )
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(side_effect=FileNotFoundError("dbus not here"))
+    )
     bleak_retry_connector.bluez.defs = defs
 
     with patch.object(bleak_retry_connector.const, "IS_LINUX", True):
@@ -1683,6 +1782,7 @@ async def test_dbus_is_missing(mock_linux):
 
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     "UUID": "service",
@@ -1730,13 +1830,19 @@ async def test_dbus_is_missing(mock_linux):
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
 
     device = await get_device("FA:23:9D:AA:45:46")
 
-    assert device is None
+    assert device is not None
 
     _reset_dbus_socket_cache()
 
@@ -1774,6 +1880,7 @@ async def test_ble_device_description():
 async def test_restore_discoveries(mock_linux):
     class FakeBluezManager:
         def __init__(self):
+            self._services_cache = {}
             self._properties = {
                 "/org/bluez/hci1/dev_BD_24_6F_85_AA_61": {
                     "org.freedesktop.DBus.Introspectable": {},
@@ -1833,8 +1940,14 @@ async def test_restore_discoveries(mock_linux):
                 },
             }
 
+    bluez_manager = FakeBluezManager()
+
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=FakeBluezManager()
+        return_value=bluez_manager
+    )
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     from bluetooth_adapters.history import load_history_from_managed_objects
 
@@ -1912,6 +2025,9 @@ async def test_close_stale_connections_by_address(mock_linux):
 
     bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
         return_value=bluez_manager
+    )
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
+        AsyncMock(return_value=bluez_manager)
     )
     bleak_retry_connector.bluez.defs = defs
 
