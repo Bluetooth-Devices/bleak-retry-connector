@@ -288,14 +288,14 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
 
     # Check if all cached services are still present in properties
     # The cached_services is a dict where keys are service paths
-    for service_path in cached_services:
-        if service_path not in properties:
+    for service in cached_services:
+        if service.obj[0] not in properties:
             # Service is in cache but not in properties (not on the bus)
             _LOGGER.debug(
                 "%s - %s: Cached service %s not found in properties, cache invalid",
                 device.name or "Unknown",
                 device.address,
-                service_path,
+                service,
             )
             return False
 

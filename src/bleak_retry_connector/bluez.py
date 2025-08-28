@@ -10,6 +10,7 @@ from enum import Enum
 from functools import partial
 from typing import Any
 
+from bleak import BleakGATTServiceCollection
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
@@ -261,7 +262,7 @@ async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
     return None
 
 
-async def _get_services_cache() -> dict[str, dict[str, Any]] | None:
+async def _get_services_cache() -> dict[str, BleakGATTServiceCollection] | None:
     """Get the services cache."""
     if bluez_manager := await get_global_bluez_manager_with_timeout():
         return bluez_manager._services_cache  # pylint: disable=protected-access
