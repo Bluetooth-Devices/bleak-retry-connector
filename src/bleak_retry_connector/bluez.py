@@ -10,6 +10,7 @@ from enum import Enum
 from functools import partial
 from typing import Any
 
+from bleak import BleakGATTServiceCollection
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
@@ -261,16 +262,27 @@ async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
     return None
 
 
+async def _get_services_cache() -> dict[str, BleakGATTServiceCollection] | None:
+    """Get the services cache."""
+    if bluez_manager := await get_global_bluez_manager_with_timeout():
+        return bluez_manager._services_cache  # pylint: disable=protected-access
+    return None
+
+
 async def clear_cache(address: str) -> bool:
     """Clear the cache for a device."""
     if not IS_LINUX or not await get_device(address):
         return False
     caches_cleared: list[str] = []
     with contextlib.suppress(Exception):
+        if (services_cache := await _get_services_cache()) is None:
+            _LOGGER.warning(
+                "Failed to clear cache for %s because no services cache", address
+            )
+            return False
         if not (manager := await get_global_bluez_manager_with_timeout()):
             _LOGGER.warning("Failed to clear cache for %s because no manager", address)
             return False
-        services_cache = manager._services_cache
         bluez_path = address_to_bluez_path(address)
         for path in _get_possible_paths(bluez_path):
             if services_cache.pop(path, None):
