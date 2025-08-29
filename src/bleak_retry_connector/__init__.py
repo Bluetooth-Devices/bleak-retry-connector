@@ -236,26 +236,30 @@ def ble_device_description(device: BLEDevice) -> str:
 
 
 async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
-    """Check if the device has valid services in cache that are still present in properties.
+    """Check if the device has valid services in cache.
 
-    This function validates that cached services are still valid by checking if they
-    exist in the BlueZ manager's properties. Due to race conditions, the properties
-    and services cache can become out of sync. If properties have disappeared but
-    the services cache still contains them, the cache is stale and should not be used.
+    For non-Linux platforms (macOS, ESPHome proxies), the cache is always valid
+    and we return True to allow using cached services.
 
-    Returns True only if:
-    - We're on Linux
-    - The device is a BlueZ device (has a path)
-    - The BlueZ manager is available
-    - Services are cached for the device
-    - All cached services are still present in the D-Bus properties
+    For Linux/BlueZ, this function validates that cached services are still valid
+    by checking if they exist in the BlueZ manager's properties. Due to race
+    conditions, the properties and services cache can become out of sync. If
+    properties have disappeared but the services cache still contains them, the
+    cache is stale and should not be used.
+
+    Returns:
+    - True for non-Linux platforms (cache always valid)
+    - True for Linux if all cached services are still present in D-Bus properties
+    - False for Linux if cache is stale or unavailable
     """
     if not IS_LINUX:
-        return False
+        # Cache is always valid on macOS and ESPHome proxies
+        return True
 
     # Check if this is a BlueZ device
     if not (device_path := path_from_ble_device(device)):
-        return False
+        # Not a BlueZ device (might be ESPHome proxy), cache is valid
+        return True
 
     # Get the services cache
     if not (services_cache := await _get_services_cache()):
