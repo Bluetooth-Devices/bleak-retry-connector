@@ -2036,3 +2036,106 @@ async def test_close_stale_connections_by_address(mock_linux):
     ) as mock_disconnect_devices:
         await close_stale_connections_by_address("FA:23:9D:AA:45:46")
     assert len(mock_disconnect_devices.mock_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_success(mock_linux):
+    """Test successful validation when all cached services are present in properties."""
+    from bleak.backends.service import BleakGATTService
+
+    class FakeBleakClient(BleakClient):
+        """Fake BleakClient."""
+
+        async def connect(self, **kwargs):
+            """Connect."""
+
+        async def disconnect(self):
+            """Disconnect."""
+
+        async def get_services(self):
+            """Get services."""
+            return []
+
+    # Create a proper BleakGATTServiceCollection with services
+    collection = BleakGATTServiceCollection()
+
+    # Add a service that will be present in properties
+    service_path = "/org/bluez/hci0/dev_FA_23_9D_AA_45_46/service0001"
+    service_props = {
+        "UUID": "0000180a-0000-1000-8000-00805f9b34fb",
+        "Primary": True,
+        "Characteristics": [],
+    }
+    service = BleakGATTService(
+        obj=(service_path, service_props),
+        handle=1,
+        uuid="0000180a-0000-1000-8000-00805f9b34fb",
+    )
+    collection.add_service(service)
+
+    # Add another service
+    service_path2 = "/org/bluez/hci0/dev_FA_23_9D_AA_45_46/service0002"
+    service_props2 = {
+        "UUID": "0000180f-0000-1000-8000-00805f9b34fb",
+        "Primary": True,
+        "Characteristics": [],
+    }
+    service2 = BleakGATTService(
+        obj=(service_path2, service_props2),
+        handle=2,
+        uuid="0000180f-0000-1000-8000-00805f9b34fb",
+    )
+    collection.add_service(service2)
+
+    class FakeBluezManager:
+        def __init__(self):
+            # Services cache contains our collection for the device
+            self._services_cache = {"/org/bluez/hci0/dev_FA_23_9D_AA_45_46": collection}
+            # Properties contain both service paths
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "org.bluez.Device1": {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Connected": False,
+                    }
+                },
+                # Both services are present in properties
+                service_path: service_props,
+                service_path2: service_props2,
+            }
+
+    bluez_manager = FakeBluezManager()
+
+    bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+        rssi=-50,
+    )
+
+    # Capture the log to verify the success message
+    with patch.object(
+        bleak_retry_connector,
+        "_has_valid_services_in_cache",
+        wraps=bleak_retry_connector._has_valid_services_in_cache,
+    ) as mock_validate:
+        client = await bleak_retry_connector.establish_connection(
+            FakeBleakClient,
+            device,
+            "Test Device",
+            use_services_cache=True,
+        )
+
+        # Verify the validation was called
+        mock_validate.assert_called_once()
+
+        # Call the wrapped function directly to verify it returns True
+        result = await bleak_retry_connector._has_valid_services_in_cache(device)
+        assert result is True
+
+    assert client is not None
