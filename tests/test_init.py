@@ -2277,3 +2277,36 @@ async def test_has_valid_services_in_cache_no_services(mock_linux):
         use_services_cache=True,
     )
     assert client is not None
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_non_linux(mock_macos):
+    """Test that cache is always valid on non-Linux platforms."""
+
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/some/macos/path"},
+        rssi=-50,
+    )
+
+    # Should return True on non-Linux platforms
+    result = await bleak_retry_connector._has_valid_services_in_cache(device)
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_esphome_proxy(mock_linux):
+    """Test that cache is always valid for ESPHome proxy devices."""
+
+    # Device without a BlueZ path (ESPHome proxy device)
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"source": "192.168.1.100"},  # ESPHome proxy source
+        rssi=-50,
+    )
+
+    # Should return True for non-BlueZ devices (ESPHome proxy)
+    result = await bleak_retry_connector._has_valid_services_in_cache(device)
+    assert result is True
