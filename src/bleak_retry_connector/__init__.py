@@ -303,7 +303,7 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
         "%s - %s: All %d cached services are valid and present in properties",
         device.name or "Unknown",
         device.address,
-        len(cached_services),
+        len(cached_services.services),
     )
     return True
 
