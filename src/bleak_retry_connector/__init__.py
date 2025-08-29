@@ -296,7 +296,7 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
         return False
 
     # Check if all cached services are still present in properties
-    # The cached_services is a dict where keys are service paths
+    # The cached_services is a BleakGATTServiceCollection object
     for service in cached_services:
         if service.obj[0] not in properties:
             # Service is in cache but not in properties (not on the bus)

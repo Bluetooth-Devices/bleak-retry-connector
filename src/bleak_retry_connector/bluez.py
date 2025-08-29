@@ -275,7 +275,7 @@ async def clear_cache(address: str) -> bool:
         return False
     caches_cleared: list[str] = []
     with contextlib.suppress(Exception):
-        if not (services_cache := await _get_services_cache()):
+        if (services_cache := await _get_services_cache()) is None:
             _LOGGER.warning(
                 "Failed to clear cache for %s because no services cache", address
             )

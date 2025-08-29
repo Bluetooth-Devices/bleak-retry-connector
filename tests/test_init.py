@@ -2139,3 +2139,143 @@ async def test_has_valid_services_in_cache_success(mock_linux):
         assert result is True
 
     assert client is not None
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_service_missing(mock_linux):
+    """Test validation fails when a cached service is not in properties."""
+    from bleak.backends.service import BleakGATTService
+
+    class FakeBleakClient(BleakClient):
+        """Fake BleakClient."""
+
+        async def connect(self, **kwargs):
+            """Connect."""
+
+        async def disconnect(self):
+            """Disconnect."""
+
+        async def get_services(self):
+            """Get services."""
+            return []
+
+    # Create a proper BleakGATTServiceCollection with services
+    collection = BleakGATTServiceCollection()
+
+    # Add a service that will NOT be present in properties
+    service_path = "/org/bluez/hci0/dev_FA_23_9D_AA_45_46/service0001"
+    service_props = {
+        "UUID": "0000180a-0000-1000-8000-00805f9b34fb",
+        "Primary": True,
+        "Characteristics": [],
+    }
+    service = BleakGATTService(
+        obj=(service_path, service_props),
+        handle=1,
+        uuid="0000180a-0000-1000-8000-00805f9b34fb",
+    )
+    collection.add_service(service)
+
+    class FakeBluezManager:
+        def __init__(self):
+            # Services cache contains our collection for the device
+            self._services_cache = {"/org/bluez/hci0/dev_FA_23_9D_AA_45_46": collection}
+            # Properties do NOT contain the service path - service is missing
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "org.bluez.Device1": {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Connected": False,
+                    }
+                },
+                # service_path is NOT in properties
+            }
+
+    bluez_manager = FakeBluezManager()
+
+    bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+        rssi=-50,
+    )
+
+    # Call the function directly to verify it returns False
+    result = await bleak_retry_connector._has_valid_services_in_cache(device)
+    assert result is False
+
+    # Verify that the cache is not used when validation fails
+    client = await bleak_retry_connector.establish_connection(
+        FakeBleakClient,
+        device,
+        "Test Device",
+        use_services_cache=True,
+    )
+    assert client is not None
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_no_services(mock_linux):
+    """Test validation returns False when there are no services in the collection."""
+
+    class FakeBleakClient(BleakClient):
+        """Fake BleakClient."""
+
+        async def connect(self, **kwargs):
+            """Connect."""
+
+        async def disconnect(self):
+            """Disconnect."""
+
+        async def get_services(self):
+            """Get services."""
+            return []
+
+    # Create an empty BleakGATTServiceCollection (no services)
+    collection = BleakGATTServiceCollection()
+
+    class FakeBluezManager:
+        def __init__(self):
+            # Services cache contains an empty collection for the device
+            self._services_cache = {"/org/bluez/hci0/dev_FA_23_9D_AA_45_46": collection}
+            # Properties exist but collection has no services
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "org.bluez.Device1": {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Connected": False,
+                    }
+                },
+            }
+
+    bluez_manager = FakeBluezManager()
+
+    bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+        rssi=-50,
+    )
+
+    # Call the function directly to verify it returns False
+    result = await bleak_retry_connector._has_valid_services_in_cache(device)
+    assert result is False
+
+    # Verify that the cache is not used when there are no services
+    client = await bleak_retry_connector.establish_connection(
+        FakeBleakClient,
+        device,
+        "Test Device",
+        use_services_cache=True,
+    )
+    assert client is not None
