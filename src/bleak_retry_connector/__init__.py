@@ -286,6 +286,16 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
         )
         return False
 
+    service_count = len(cached_services.services)
+    if not service_count:
+        _LOGGER.debug(
+            "%s - %s: No cached services found for device path %s",
+            device.name or "Unknown",
+            device.address,
+            device_path,
+        )
+        return False
+
     # Check if all cached services are still present in properties
     # The cached_services is a dict where keys are service paths
     for service in cached_services:
@@ -303,7 +313,7 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
         "%s - %s: All %d cached services are valid and present in properties",
         device.name or "Unknown",
         device.address,
-        len(cached_services.services),
+        service_count,
     )
     return True
 
