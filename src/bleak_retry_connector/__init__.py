@@ -25,7 +25,6 @@ from .bluez import (  # noqa: F401
     get_connected_devices,
     get_device,
     get_device_by_adapter,
-    get_global_bluez_manager_with_timeout,
     path_from_ble_device,
     wait_for_device_to_reappear,
     wait_for_disconnect,
