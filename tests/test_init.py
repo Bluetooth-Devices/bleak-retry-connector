@@ -10,7 +10,7 @@ from bleak.backends.bluezdbus import defs
 from bleak.backends.bluezdbus.manager import DeviceWatcher
 from bleak.backends.device import BLEDevice
 from bleak.backends.scanner import AdvertisementData
-from bleak.backends.service import BleakGATTServiceCollection
+from bleak.backends.service import BleakGATTService, BleakGATTServiceCollection
 from bleak.exc import BleakDBusError, BleakDeviceNotFoundError
 
 import bleak_retry_connector
@@ -2041,7 +2041,6 @@ async def test_close_stale_connections_by_address(mock_linux):
 @pytest.mark.asyncio
 async def test_has_valid_services_in_cache_success(mock_linux):
     """Test successful validation when all cached services are present in properties."""
-    from bleak.backends.service import BleakGATTService
 
     class FakeBleakClient(BleakClient):
         """Fake BleakClient."""
@@ -2144,7 +2143,6 @@ async def test_has_valid_services_in_cache_success(mock_linux):
 @pytest.mark.asyncio
 async def test_has_valid_services_in_cache_service_missing(mock_linux):
     """Test validation fails when a cached service is not in properties."""
-    from bleak.backends.service import BleakGATTService
 
     class FakeBleakClient(BleakClient):
         """Fake BleakClient."""
