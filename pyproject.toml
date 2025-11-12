@@ -27,11 +27,11 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.10"
-bleak = {version = ">=1", python = ">=3.10,<3.14"}
+python = ">=3.10,<4.0"
+bleak = ">=1"
 async-timeout = {version = ">=3.0.0", python = "<3.11"}
 dbus-fast = {version = ">=1.14.0", markers = "platform_system == \"Linux\""}
-bluetooth-adapters = {version = ">=0.15.2", markers = "platform_system == \"Linux\"", python = ">=3.10,<3.14"}
+bluetooth-adapters = {version = ">=0.15.2", markers = "platform_system == \"Linux\""}
 
 [tool.poetry.group.dev.dependencies]
 dbus-fast = ">=1.4.0"
