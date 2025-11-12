@@ -100,15 +100,15 @@ pythonista = ["bleak-pythonista (>=0.1.1)"]
 
 [[package]]
 name = "bluetooth-adapters"
-version = "2.0.0"
+version = "2.1.1"
 description = "Tools to enumerate and find Bluetooth Adapters"
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 markers = "platform_system == \"Linux\""
 files = [
-    {file = "bluetooth_adapters-2.0.0-py3-none-any.whl", hash = "sha256:7eff2c48dd3170e8ccf91888ddc97d847faa24cdd2678cf4b78166c1999171a8"},
-    {file = "bluetooth_adapters-2.0.0.tar.gz", hash = "sha256:ecdba203e806a90ea503cc32acfe11eafdc10813abac4591545d174da78d3c55"},
+    {file = "bluetooth_adapters-2.1.1-py3-none-any.whl", hash = "sha256:1f93026e530dcb2f4515a92955fa6f85934f928b009a181ee57edc8b4affd25c"},
+    {file = "bluetooth_adapters-2.1.1.tar.gz", hash = "sha256:f289e0f08814f74252a28862f488283680584744430d7eac45820f9c20ba041a"},
 ]
 
 [package.dependencies]
