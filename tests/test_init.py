@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import bleak
 import pytest
 from bleak import BleakClient, BleakError
 from bleak.backends.bluezdbus import defs
@@ -1594,9 +1595,10 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
     assert connected[0].details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
     assert connected[1].details["path"] == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
 
+    backend_info = bleak.get_platform_client_backend_type()
     with (
         patch("bleak_retry_connector._disconnect_devices") as mock_disconnect_device,
-        patch("bleak.get_platform_client_backend_type"),
+        patch("bleak.get_platform_client_backend_type", return_value=backend_info),
     ):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,

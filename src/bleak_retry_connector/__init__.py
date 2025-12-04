@@ -472,6 +472,7 @@ async def establish_connection(
                     should_use_cache = await _has_valid_services_in_cache(device)
 
                 await client.connect(
+                    pair=False,
                     timeout=BLEAK_TIMEOUT,
                     dangerous_use_bleak_cache=should_use_cache,
                 )
