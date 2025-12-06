@@ -404,6 +404,7 @@ async def establish_connection(
     cached_services: BleakGATTServiceCollection | None = None,
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
+    pair: bool = False,
     **kwargs: Any,
 ) -> AnyBleakClient:
     """Establish a connection to the device."""
@@ -450,6 +451,7 @@ async def establish_connection(
     client = client_class(
         device,
         disconnected_callback=disconnected_callback,
+        pair=pair,
         _is_retry_client=True,
         **kwargs,
     )

@@ -4,6 +4,7 @@ import asyncio
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import bleak
 import pytest
 from bleak import BleakClient, BleakError
 from bleak.backends.bluezdbus import defs
@@ -90,6 +91,40 @@ async def test_establish_connection_passes_retry_client_flag():
     assert isinstance(client, FakeBleakClient)
     assert "_is_retry_client" in received_kwargs
     assert received_kwargs["_is_retry_client"] is True
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_passes_pair_flag():
+    """Test that establish_connection passes pair=True to the client."""
+    received_kwargs = {}
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            # Capture the kwargs passed to __init__
+            received_kwargs.update(kwargs)
+            # Remove kwargs that base BleakClient doesn't expect
+            kwargs.pop("_is_retry_client", None)
+            # Don't call super().__init__ to avoid platform-specific initialization
+            self._device_path = None
+            self._device_info = None
+            self._backend = None
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    device = MagicMock(spec=BLEDevice)
+    device.address = "00:00:00:00:00:01"
+
+    client = await establish_connection(
+        FakeBleakClient, device, "test", disconnected_callback=MagicMock(), pair=True
+    )
+
+    assert isinstance(client, FakeBleakClient)
+    assert "pair" in received_kwargs
+    assert received_kwargs["pair"] is True
 
 
 @pytest.mark.asyncio
@@ -1594,9 +1629,10 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
     assert connected[0].details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
     assert connected[1].details["path"] == "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"
 
+    backend_info = bleak.get_platform_client_backend_type()
     with (
         patch("bleak_retry_connector._disconnect_devices") as mock_disconnect_device,
-        patch("bleak.get_platform_client_backend_type"),
+        patch("bleak.get_platform_client_backend_type", return_value=backend_info),
     ):
         client = await establish_connection(
             FakeBleakClientWithServiceCache,
