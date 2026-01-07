@@ -1,6 +1,6 @@
 [project]
 name = "bleak-retry-connector"
-version = "4.4.4"
+version = "4.5.0"
 description = "A connector for Bleak Clients that handles transient connection failures"
 authors = [{ name = "J. Nick Koston", email = "nick@koston.org" }]
 license = "MIT"
