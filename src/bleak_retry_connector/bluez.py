@@ -385,7 +385,30 @@ async def wait_for_device_to_reappear(device: BLEDevice, wait_timeout: float) ->
     return False
 
 
-async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
+async def _is_device_connected(device_path: str) -> bool:
+    """Check if BlueZ still reports the device as Connected via D-Bus.
+
+    Returns ``False`` if the properties cannot be read (e.g. no manager)
+    or the device path is not in the properties tree.
+    """
+    properties = await _get_properties()
+    if properties is None:
+        return False
+    for path in _get_possible_paths(device_path):
+        if (
+            path in properties
+            and defs.DEVICE_INTERFACE in properties[path]
+            and properties[path][defs.DEVICE_INTERFACE].get("Connected")
+        ):
+            return True
+    return False
+
+
+async def wait_for_disconnect(
+    device: BLEDevice,
+    min_wait_time: float,
+    validate_hci: bool = False,
+) -> None:
     """Wait for the device to disconnect.
 
     After a connection failure, the device may not have
@@ -393,6 +416,13 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
 
     If we do not wait, we may end up connecting to the
     same device again before it has had time to disconnect.
+
+    When *validate_hci* is ``True`` and the disconnect wait times out,
+    the function checks whether BlueZ still reports the device as
+    ``Connected``.  If it does, this indicates a phantom or stuck
+    connection -- the D-Bus state is stale.  In that case
+    ``clear_cache()`` is called to force-remove the device from BlueZ,
+    breaking the phantom cycle before the next connection attempt.
     """
     if (
         not IS_LINUX
@@ -423,6 +453,21 @@ async def wait_for_disconnect(device: BLEDevice, min_wait_time: float) -> None:
         )
         if min_wait_time and waited < min_wait_time:
             await asyncio.sleep(min_wait_time - waited)
+    except TimeoutError:
+        _LOGGER.debug(
+            "%s - %s: Timed out waiting for disconnect at %s",
+            device.name,
+            device.address,
+            device_path,
+        )
+        if validate_hci and await _is_device_connected(device_path):
+            _LOGGER.warning(
+                "%s - %s: Device still Connected after disconnect timeout"
+                " — clearing stale BlueZ state (phantom likely)",
+                device.name,
+                device.address,
+            )
+            await clear_cache(device.address)
     except (BleakError, KeyError) as ex:
         # Device was removed from bus
         #

@@ -495,7 +495,7 @@ async def establish_connection(
                     rssi,
                 )
             backoff_time = calculate_backoff_time(exc)
-            await wait_for_disconnect(device, backoff_time)
+            await wait_for_disconnect(device, backoff_time, validate_hci=True)
             _raise_if_needed(name, device.address, exc)
         except KeyError as exc:
             # Likely: KeyError: 'org.bluez.GattService1' from bleak
@@ -516,7 +516,7 @@ async def establish_connection(
                 await client.clear_cache()
                 await client.disconnect()
                 backoff_time = calculate_backoff_time(exc)
-                await wait_for_disconnect(device, backoff_time)
+                await wait_for_disconnect(device, backoff_time, validate_hci=True)
             _raise_if_needed(name, device.address, exc)
         except BrokenPipeError as exc:
             # BrokenPipeError is raised by dbus-next when the device disconnects
@@ -553,7 +553,7 @@ async def establish_connection(
                     attempt,
                     rssi,
                 )
-            await wait_for_disconnect(device, backoff_time)
+            await wait_for_disconnect(device, backoff_time, validate_hci=True)
             _raise_if_needed(name, device.address, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
@@ -580,7 +580,7 @@ async def establish_connection(
                     attempt,
                     rssi,
                 )
-            await wait_for_disconnect(device, backoff_time)
+            await wait_for_disconnect(device, backoff_time, validate_hci=True)
             _raise_if_needed(name, device.address, exc)
         else:
             return client

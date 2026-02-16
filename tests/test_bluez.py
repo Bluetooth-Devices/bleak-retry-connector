@@ -15,11 +15,13 @@ from bleak_retry_connector import (
     device_source,
 )
 from bleak_retry_connector.bluez import (
+    _is_device_connected,
     adapter_path_from_device_path,
     ble_device_from_properties,
     path_from_ble_device,
     stop_discovery,
     wait_for_device_to_reappear,
+    wait_for_disconnect,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -737,3 +739,212 @@ async def test_stop_discovery_no_manager(
 
     await stop_discovery("hci0")
     assert "Failed to stop discovery" in caplog.text
+
+
+async def test_is_device_connected_true(mock_linux):
+    """_is_device_connected returns True when BlueZ reports Connected."""
+
+    properties: dict[str, dict[str, dict[str, Any]]] = {
+        "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+            defs.DEVICE_INTERFACE: {
+                "Address": "AA:BB:CC:DD:EE:FF",
+                "Connected": True,
+            }
+        }
+    }
+
+    class FakeBluezManager:
+        _properties = properties
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+
+    result = await _is_device_connected("/org/bluez/hciX/dev_AA_BB_CC_DD_EE_FF")
+    assert result is True
+
+
+async def test_is_device_connected_false(mock_linux):
+    """_is_device_connected returns False when device is not Connected."""
+
+    properties: dict[str, dict[str, dict[str, Any]]] = {
+        "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+            defs.DEVICE_INTERFACE: {
+                "Address": "AA:BB:CC:DD:EE:FF",
+                "Connected": False,
+            }
+        }
+    }
+
+    class FakeBluezManager:
+        _properties = properties
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+
+    result = await _is_device_connected("/org/bluez/hciX/dev_AA_BB_CC_DD_EE_FF")
+    assert result is False
+
+
+async def test_is_device_connected_no_manager(mock_linux):
+    """_is_device_connected returns False when there is no manager."""
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=None
+    )
+
+    result = await _is_device_connected("/org/bluez/hciX/dev_AA_BB_CC_DD_EE_FF")
+    assert result is False
+
+
+async def test_wait_for_disconnect_validate_hci_clears_phantom(
+    mock_linux: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """When validate_hci=True and disconnect times out with device still
+    Connected, clear_cache should be called to clean up the phantom."""
+
+    properties: dict[str, dict[str, dict[str, Any]]] = {
+        "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+            defs.DEVICE_INTERFACE: {
+                "Address": "AA:BB:CC:DD:EE:FF",
+                "Alias": "test-device",
+                "Connected": True,
+            }
+        }
+    }
+
+    class FakeBluezManager:
+        _properties = properties
+
+        async def _wait_condition(self, path, prop, value):
+            raise TimeoutError("disconnect timeout")
+
+    manager = FakeBluezManager()
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=manager
+    )
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "test-device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+
+    with patch(
+        "bleak_retry_connector.bluez.clear_cache",
+        new_callable=AsyncMock,
+    ) as mock_clear_cache:
+        await wait_for_disconnect(device, 0.0, validate_hci=True)
+
+    mock_clear_cache.assert_awaited_once_with("AA:BB:CC:DD:EE:FF")
+    assert "still Connected after disconnect timeout" in caplog.text
+    assert "phantom likely" in caplog.text
+
+
+async def test_wait_for_disconnect_validate_hci_no_clear_when_disconnected(
+    mock_linux: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """When validate_hci=True but the device is no longer Connected after
+    the timeout, clear_cache should NOT be called."""
+
+    properties: dict[str, dict[str, dict[str, Any]]] = {
+        "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+            defs.DEVICE_INTERFACE: {
+                "Address": "AA:BB:CC:DD:EE:FF",
+                "Alias": "test-device",
+                "Connected": False,
+            }
+        }
+    }
+
+    class FakeBluezManager:
+        _properties = properties
+
+        async def _wait_condition(self, path, prop, value):
+            raise TimeoutError("disconnect timeout")
+
+    manager = FakeBluezManager()
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=manager
+    )
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "test-device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+
+    with patch(
+        "bleak_retry_connector.bluez.clear_cache",
+        new_callable=AsyncMock,
+    ) as mock_clear_cache:
+        await wait_for_disconnect(device, 0.0, validate_hci=True)
+
+    mock_clear_cache.assert_not_awaited()
+
+
+async def test_wait_for_disconnect_no_validate_hci_on_timeout(
+    mock_linux: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """When validate_hci=False (default), disconnect timeout does NOT
+    trigger clear_cache even if device is still Connected."""
+
+    properties: dict[str, dict[str, dict[str, Any]]] = {
+        "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+            defs.DEVICE_INTERFACE: {
+                "Address": "AA:BB:CC:DD:EE:FF",
+                "Alias": "test-device",
+                "Connected": True,
+            }
+        }
+    }
+
+    class FakeBluezManager:
+        _properties = properties
+
+        async def _wait_condition(self, path, prop, value):
+            raise TimeoutError("disconnect timeout")
+
+    manager = FakeBluezManager()
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=manager
+    )
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "test-device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+
+    with patch(
+        "bleak_retry_connector.bluez.clear_cache",
+        new_callable=AsyncMock,
+    ) as mock_clear_cache:
+        await wait_for_disconnect(device, 0.0, validate_hci=False)
+
+    mock_clear_cache.assert_not_awaited()
+
+
+async def test_wait_for_disconnect_validate_hci_non_linux() -> None:
+    """On non-Linux, validate_hci has no effect (early return to sleep)."""
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "test-device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+
+    with (
+        patch.object(bleak_retry_connector.bluez, "IS_LINUX", False),
+        patch(
+            "bleak_retry_connector.bluez.clear_cache",
+            new_callable=AsyncMock,
+        ) as mock_clear_cache,
+    ):
+        await wait_for_disconnect(device, 0.0, validate_hci=True)
+
+    mock_clear_cache.assert_not_awaited()
