@@ -29,7 +29,8 @@ from .bluez import (  # noqa: F401
     wait_for_device_to_reappear,
     wait_for_disconnect,
 )
-from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
+from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD, LockConfig
+from .lock import acquire_lock, release_lock
 from .util import asyncio_timeout
 
 DISCONNECT_TIMEOUT = 5
@@ -78,6 +79,7 @@ __all__ = [
     "BLEAK_RETRY_EXCEPTIONS",
     "RSSI_SWITCH_THRESHOLD",
     "NO_RSSI_VALUE",
+    "LockConfig",
 ]
 
 
@@ -405,9 +407,24 @@ async def establish_connection(
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     pair: bool = False,
+    lock_config: LockConfig | None = None,
+    in_process_semaphore: asyncio.Semaphore | None = None,
     **kwargs: Any,
 ) -> AnyBleakClient:
-    """Establish a connection to the device."""
+    """Establish a connection to the device.
+
+    When *lock_config* is provided with ``enabled=True``, a per-adapter
+    file lock (``fcntl.flock``) is held during each connection attempt
+    to serialize BLE operations across processes sharing the same
+    adapter.  The lock is released after each attempt so other processes
+    can interleave between retries.
+
+    When *in_process_semaphore* is provided, it is acquired before each
+    connection attempt and released afterward.  This serializes BLE
+    operations within the same process (useful when multiple asyncio
+    tasks share an adapter).  Both parameters can be used together for
+    full cross-process + in-process serialization.
+    """
     timeouts = 0
     connect_errors = 0
     transient_errors = 0
@@ -465,6 +482,18 @@ async def establish_connection(
                 device.address,
                 attempt,
             )
+
+        # Acquire per-adapter file lock and/or in-process semaphore
+        # before the connection attempt.  Released in the finally block
+        # so other processes/tasks can interleave between retries.
+        lock_fd: int | None = None
+        semaphore_acquired = False
+        if lock_config is not None:
+            adapter = kwargs.get("adapter")
+            lock_fd = await acquire_lock(lock_config, adapter)
+        if in_process_semaphore is not None:
+            await in_process_semaphore.acquire()
+            semaphore_acquired = True
 
         try:
             async with asyncio_timeout(BLEAK_SAFETY_TIMEOUT):
@@ -584,6 +613,10 @@ async def establish_connection(
             _raise_if_needed(name, device.address, exc)
         else:
             return client
+        finally:
+            release_lock(lock_fd)
+            if semaphore_acquired and in_process_semaphore is not None:
+                in_process_semaphore.release()
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)
