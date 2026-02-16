@@ -584,6 +584,163 @@ async def test_establish_connection_has_transient_error_had_advice():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_adapter_rotation_round_robins():
+    """When adapters are provided, each retry uses the next adapter."""
+    adapters_used = []
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            self._adapter = kwargs.get("adapter")
+            adapters_used.append(self._adapter)
+
+        async def connect(self, *args, **kwargs):
+            if len(adapters_used) < 3:
+                raise BleakError("connection failed")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        client = await establish_connection(
+            FakeBleakClient,
+            BLEDevice(
+                "aa:bb:cc:dd:ee:ff",
+                "name",
+                {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+            ),
+            "test",
+            adapters=["hci0", "hci1"],
+        )
+
+    assert isinstance(client, FakeBleakClient)
+    assert adapters_used == ["hci0", "hci1", "hci0"]
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_adapter_rotation_succeeds_on_second_adapter():
+    """Connection fails on adapter 0 but succeeds on adapter 1."""
+    adapters_seen = []
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            self._adapter = kwargs.get("adapter")
+            adapters_seen.append(self._adapter)
+
+        async def connect(self, *args, **kwargs):
+            if self._adapter == "hci0":
+                raise BleakError("hci0 is stuck")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        client = await establish_connection(
+            FakeBleakClient,
+            BLEDevice(
+                "aa:bb:cc:dd:ee:ff",
+                "name",
+                {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+            ),
+            "test",
+            adapters=["hci0", "hci1"],
+        )
+
+    assert isinstance(client, FakeBleakClient)
+    assert adapters_seen == ["hci0", "hci1"]
+    assert client._adapter == "hci1"
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_adapter_rotation_wraps_around():
+    """Adapter list wraps around after exhausting all adapters."""
+    adapters_seen = []
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            self._adapter = kwargs.get("adapter")
+            adapters_seen.append(self._adapter)
+
+        async def connect(self, *args, **kwargs):
+            if len(adapters_seen) < 5:
+                raise BleakError("keep trying")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        client = await establish_connection(
+            FakeBleakClient,
+            BLEDevice(
+                "aa:bb:cc:dd:ee:ff",
+                "name",
+                {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+            ),
+            "test",
+            max_attempts=6,
+            adapters=["hci0", "hci1", "hci2"],
+        )
+
+    assert isinstance(client, FakeBleakClient)
+    assert adapters_seen == ["hci0", "hci1", "hci2", "hci0", "hci1"]
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_no_adapters_unchanged_behavior():
+    """Without adapters parameter, behavior is identical to current."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    client = await establish_connection(
+        FakeBleakClient,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+    )
+    assert isinstance(client, FakeBleakClient)
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_single_adapter_rotation():
+    """Single adapter in list still works (no rotation, just explicit adapter)."""
+    adapters_seen = []
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            self._adapter = kwargs.get("adapter")
+            adapters_seen.append(self._adapter)
+
+        async def connect(self, *args, **kwargs):
+            if len(adapters_seen) < 2:
+                raise BleakError("retry once")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        client = await establish_connection(
+            FakeBleakClient,
+            BLEDevice(
+                "aa:bb:cc:dd:ee:ff",
+                "name",
+                {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+            ),
+            "test",
+            adapters=["hci1"],
+        )
+
+    assert isinstance(client, FakeBleakClient)
+    assert adapters_seen == ["hci1", "hci1"]
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_out_of_slots_advice():
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):
@@ -2346,3 +2503,64 @@ async def test_has_valid_services_in_cache_esphome_proxy(mock_linux):
     # Should return True for non-BlueZ devices (ESPHome proxy)
     result = await bleak_retry_connector._has_valid_services_in_cache(device)
     assert result is True
+
+
+def test_pick_adapter_round_robin():
+    """_pick_adapter round-robins through the adapter list."""
+    from bleak_retry_connector import _pick_adapter
+
+    adapters = ["hci0", "hci1", "hci2"]
+    assert _pick_adapter(adapters, 0) == "hci0"
+    assert _pick_adapter(adapters, 1) == "hci1"
+    assert _pick_adapter(adapters, 2) == "hci2"
+    assert _pick_adapter(adapters, 3) == "hci0"
+    assert _pick_adapter(adapters, 4) == "hci1"
+
+
+def test_pick_adapter_single():
+    """_pick_adapter with a single adapter always returns it."""
+    from bleak_retry_connector import _pick_adapter
+
+    assert _pick_adapter(["hci0"], 0) == "hci0"
+    assert _pick_adapter(["hci0"], 5) == "hci0"
+
+
+def test_make_device_for_adapter():
+    """_make_device_for_adapter creates a BLEDevice targeting the given adapter."""
+    from bleak_retry_connector import _make_device_for_adapter
+
+    device = BLEDevice(
+        "aa:bb:cc:dd:ee:ff",
+        "name",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+    new_dev = _make_device_for_adapter(device, "hci1")
+    assert new_dev.address == "aa:bb:cc:dd:ee:ff"
+    assert new_dev.details["path"] == "/org/bluez/hci1/dev_AA_BB_CC_DD_EE_FF"
+
+
+def test_discover_adapters_with_sys_path(tmp_path):
+    """discover_adapters reads /sys/class/bluetooth/ for hci* entries."""
+    from bleak_retry_connector.bluez import discover_adapters
+
+    bt_path = tmp_path / "bluetooth"
+    bt_path.mkdir()
+    (bt_path / "hci0").mkdir()
+    (bt_path / "hci1").mkdir()
+    (bt_path / "rfkill0").mkdir()
+
+    with patch("bleak_retry_connector.bluez.pathlib.Path", return_value=bt_path):
+        result = discover_adapters()
+
+    assert result == ["hci0", "hci1"]
+
+
+def test_discover_adapters_no_sys_path():
+    """discover_adapters returns ['hci0'] when /sys/class/bluetooth is absent."""
+    from bleak_retry_connector.bluez import discover_adapters
+
+    with patch("bleak_retry_connector.bluez.pathlib.Path") as mock_path:
+        mock_path.return_value.exists.return_value = False
+        result = discover_adapters()
+
+    assert result == ["hci0"]

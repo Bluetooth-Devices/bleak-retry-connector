@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import pathlib
 import time
 from collections.abc import Callable, Generator
 from dataclasses import dataclass
@@ -579,3 +580,19 @@ def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
         props["Alias"],
         {"path": path, "props": props},
     )
+
+
+def discover_adapters() -> list[str]:
+    """Discover available BLE adapters on the system.
+
+    Reads /sys/class/bluetooth/ for hci* entries.
+
+    Returns a sorted list of adapter names (e.g., ["hci0", "hci1"]).
+    Returns ["hci0"] as a safe default if no adapters can be discovered.
+    """
+    bt_path = pathlib.Path("/sys/class/bluetooth")
+    if bt_path.exists():
+        adapters = sorted(d.name for d in bt_path.iterdir() if d.name.startswith("hci"))
+        if adapters:
+            return adapters
+    return ["hci0"]
