@@ -584,6 +584,183 @@ async def test_establish_connection_has_transient_error_had_advice():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_safety_timer_cancelled_on_success():
+    """Safety timer is cancelled when connection succeeds normally."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.IS_LINUX", True):
+        client = await establish_connection(
+            FakeBleakClient,
+            MagicMock(),
+            "test",
+            safety_timer=True,
+        )
+
+    assert isinstance(client, FakeBleakClient)
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_safety_timer_false_no_thread():
+    """safety_timer=False (default) does not create a thread."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.threading.Timer") as mock_timer:
+        client = await establish_connection(
+            FakeBleakClient,
+            MagicMock(),
+            "test",
+            safety_timer=False,
+        )
+
+    assert isinstance(client, FakeBleakClient)
+    mock_timer.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_safety_timer_fires_on_stuck():
+    """Safety timer fires cleanup when connect is stuck."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakError("stuck forever")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    timer_callback = None
+
+    class FakeTimer:
+        def __init__(self, timeout, callback):
+            nonlocal timer_callback
+            self.timeout = timeout
+            timer_callback = callback
+            self.cancelled = False
+
+        daemon = True
+
+        def start(self):
+            pass
+
+        def cancel(self):
+            self.cancelled = True
+
+    with (
+        patch("bleak_retry_connector.IS_LINUX", True),
+        patch("bleak_retry_connector.threading.Timer", FakeTimer),
+        patch(
+            "bleak_retry_connector._find_bluetoothctl",
+            return_value="/usr/bin/bluetoothctl",
+        ),
+        patch("bleak_retry_connector.subprocess.run") as mock_subprocess,
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice(
+                    "aa:bb:cc:dd:ee:ff",
+                    "name",
+                    {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+                ),
+                "test",
+                safety_timer=True,
+            )
+        except BleakError:
+            pass
+
+        # Simulate the timer firing (inside the patch context)
+        assert timer_callback is not None
+        timer_callback()
+
+        mock_subprocess.assert_called_once()
+        call_args = mock_subprocess.call_args
+        assert call_args[0][0] == [
+            "/usr/bin/bluetoothctl",
+            "remove",
+            "aa:bb:cc:dd:ee:ff",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_safety_timer_fallback_no_bluetoothctl():
+    """Without bluetoothctl, safety timer falls back to clear_cache."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakError("stuck")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    timer_callback = None
+
+    class FakeTimer:
+        def __init__(self, timeout, callback):
+            nonlocal timer_callback
+            timer_callback = callback
+            self.cancelled = False
+
+        daemon = True
+
+        def start(self):
+            pass
+
+        def cancel(self):
+            self.cancelled = True
+
+    with (
+        patch("bleak_retry_connector.IS_LINUX", True),
+        patch("bleak_retry_connector.threading.Timer", FakeTimer),
+        patch("bleak_retry_connector._find_bluetoothctl", return_value=None),
+        patch("bleak_retry_connector.asyncio.run_coroutine_threadsafe") as mock_rcts,
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice(
+                    "aa:bb:cc:dd:ee:ff",
+                    "name",
+                    {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+                ),
+                "test",
+                safety_timer=True,
+            )
+        except BleakError:
+            pass
+
+        # Simulate the timer firing (inside the patch context)
+        assert timer_callback is not None
+        timer_callback()
+
+        mock_rcts.assert_called_once()
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_out_of_slots_advice():
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):

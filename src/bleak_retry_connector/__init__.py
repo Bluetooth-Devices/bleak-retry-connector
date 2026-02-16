@@ -5,6 +5,9 @@ __version__ = "4.5.0"
 
 import asyncio
 import logging
+import shutil
+import subprocess  # nosec
+import threading
 from collections.abc import Awaitable, Callable
 from typing import Any, ParamSpec, TypeVar
 
@@ -29,7 +32,7 @@ from .bluez import (  # noqa: F401
     wait_for_device_to_reappear,
     wait_for_disconnect,
 )
-from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
+from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD, THREAD_SAFETY_TIMEOUT
 from .util import asyncio_timeout
 
 DISCONNECT_TIMEOUT = 5
@@ -78,6 +81,7 @@ __all__ = [
     "BLEAK_RETRY_EXCEPTIONS",
     "RSSI_SWITCH_THRESHOLD",
     "NO_RSSI_VALUE",
+    "THREAD_SAFETY_TIMEOUT",
 ]
 
 
@@ -395,6 +399,11 @@ async def close_stale_connections(
 AnyBleakClient = TypeVar("AnyBleakClient", bound=BleakClient)
 
 
+def _find_bluetoothctl() -> str | None:
+    """Find the bluetoothctl binary, or None if not available."""
+    return shutil.which("bluetoothctl")
+
+
 async def establish_connection(
     client_class: type[AnyBleakClient],
     device: BLEDevice,
@@ -405,9 +414,22 @@ async def establish_connection(
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     pair: bool = False,
+    safety_timer: bool = False,
     **kwargs: Any,
 ) -> AnyBleakClient:
-    """Establish a connection to the device."""
+    """Establish a connection to the device.
+
+    When *safety_timer* is ``True``, a daemon ``threading.Timer`` runs
+    independently of the asyncio event loop.  If the entire
+    ``establish_connection`` call takes longer than
+    ``THREAD_SAFETY_TIMEOUT`` (45 s), the timer fires and clears stale
+    BlueZ state via ``bluetoothctl remove`` in a subprocess.  This
+    handles the case where a D-Bus call blocks the event loop so the
+    asyncio safety timeout never fires.
+
+    The timer is opt-in because it spawns a thread and may call
+    ``subprocess.run``; existing callers are unaffected.
+    """
     timeouts = 0
     connect_errors = 0
     transient_errors = 0
@@ -456,139 +478,190 @@ async def establish_connection(
         **kwargs,
     )
 
-    while True:
-        attempt += 1
-        if debug_enabled:
-            _LOGGER.debug(
-                "%s - %s: Connection attempt: %s",
+    # Thread-level safety timer: runs independently of the asyncio event
+    # loop so it can fire even when a synchronous D-Bus call blocks the
+    # loop.  The callback uses subprocess.run (not the event loop) to
+    # clear stale BlueZ state.
+    timer: threading.Timer | None = None
+    if safety_timer and IS_LINUX:
+        device_address = device.address
+        bluetoothctl = _find_bluetoothctl()
+        loop = asyncio.get_running_loop()
+
+        def _safety_timer_callback() -> None:
+            """Fire from a daemon thread when the event loop appears stuck."""
+            _LOGGER.warning(
+                "%s - %s: Safety timer fired after %s s"
+                " — clearing stale BlueZ state",
                 name,
-                device.address,
-                attempt,
+                device_address,
+                THREAD_SAFETY_TIMEOUT,
             )
+            if bluetoothctl:
+                try:
+                    subprocess.run(  # nosec
+                        [bluetoothctl, "remove", device_address],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                except Exception:
+                    _LOGGER.debug(
+                        "%s - %s: Safety timer bluetoothctl failed",
+                        name,
+                        device_address,
+                        exc_info=True,
+                    )
+            else:
+                # Fallback: schedule on the event loop.  May not execute
+                # if the loop is truly stuck, but will run once it unblocks.
+                try:
+                    asyncio.run_coroutine_threadsafe(clear_cache(device_address), loop)
+                except Exception:
+                    _LOGGER.debug(
+                        "%s - %s: Safety timer fallback clear_cache failed",
+                        name,
+                        device_address,
+                        exc_info=True,
+                    )
 
-        try:
-            async with asyncio_timeout(BLEAK_SAFETY_TIMEOUT):
-                # Only use cache if we have valid services in the cache
-                should_use_cache = use_services_cache or bool(cached_services)
-                if should_use_cache:
-                    should_use_cache = await _has_valid_services_in_cache(device)
+        timer = threading.Timer(THREAD_SAFETY_TIMEOUT, _safety_timer_callback)
+        timer.daemon = True
+        timer.start()
 
-                await client.connect(
-                    timeout=BLEAK_TIMEOUT,
-                    dangerous_use_bleak_cache=should_use_cache,
+    try:
+        while True:
+            attempt += 1
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Connection attempt: %s",
+                    name,
+                    device.address,
+                    attempt,
                 )
+
+            try:
+                async with asyncio_timeout(BLEAK_SAFETY_TIMEOUT):
+                    # Only use cache if we have valid services in the cache
+                    should_use_cache = use_services_cache or bool(cached_services)
+                    if should_use_cache:
+                        should_use_cache = await _has_valid_services_in_cache(device)
+
+                    await client.connect(
+                        timeout=BLEAK_TIMEOUT,
+                        dangerous_use_bleak_cache=should_use_cache,
+                    )
+                    if debug_enabled:
+                        _LOGGER.debug(
+                            "%s - %s: Connected after %s attempts",
+                            name,
+                            device.address,
+                            attempt,
+                        )
+            except asyncio.TimeoutError as exc:
+                timeouts += 1
                 if debug_enabled:
                     _LOGGER.debug(
-                        "%s - %s: Connected after %s attempts",
+                        "%s - %s: Timed out trying to connect"
+                        " (attempt: %s, last rssi: %s)",
                         name,
                         device.address,
                         attempt,
+                        rssi,
                     )
-        except asyncio.TimeoutError as exc:
-            timeouts += 1
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s - %s: Timed out trying to connect (attempt: %s, last rssi: %s)",
-                    name,
-                    device.address,
-                    attempt,
-                    rssi,
-                )
-            backoff_time = calculate_backoff_time(exc)
-            await wait_for_disconnect(device, backoff_time)
-            _raise_if_needed(name, device.address, exc)
-        except KeyError as exc:
-            # Likely: KeyError: 'org.bluez.GattService1' from bleak
-            # ideally we would get a better error from bleak, but this is
-            # better than nothing.
-            # self._properties[service_path][defs.GATT_SERVICE_INTERFACE]
-            transient_errors += 1
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect due to services changes: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    device.address,
-                    str(exc),
-                    attempt,
-                    rssi,
-                )
-            if isinstance(client, BleakClientWithServiceCache):
-                await client.clear_cache()
-                await client.disconnect()
                 backoff_time = calculate_backoff_time(exc)
                 await wait_for_disconnect(device, backoff_time)
-            _raise_if_needed(name, device.address, exc)
-        except BrokenPipeError as exc:
-            # BrokenPipeError is raised by dbus-next when the device disconnects
-            #
-            # bleak.exc.BleakDBusError: [org.bluez.Error] le-connection-abort-by-local
-            # During handling of the above exception, another exception occurred:
-            # Traceback (most recent call last):
-            # File "bleak/backends/bluezdbus/client.py", line 177, in connect
-            #   reply = await self._bus.call(
-            # File "dbus_next/aio/message_bus.py", line 63, in write_callback
-            #   self.offset += self.sock.send(self.buf[self.offset:])
-            # BrokenPipeError: [Errno 32] Broken pipe
-            transient_errors += 1
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    device.address,
-                    str(exc),
-                    attempt,
-                    rssi,
-                )
-            _raise_if_needed(name, device.address, exc)
-        except EOFError as exc:
-            transient_errors += 1
-            backoff_time = calculate_backoff_time(exc)
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    device.address,
-                    str(exc),
-                    backoff_time,
-                    attempt,
-                    rssi,
-                )
-            await wait_for_disconnect(device, backoff_time)
-            _raise_if_needed(name, device.address, exc)
-        except BLEAK_EXCEPTIONS as exc:
-            bleak_error = str(exc)
-            # BleakDeviceNotFoundError can mean that the adapter has run out of
-            # connection slots.
-            device_missing = isinstance(
-                exc, (BleakNotFoundError, BleakDeviceNotFoundError)
-            )
-            if device_missing or any(
-                error in bleak_error for error in TRANSIENT_ERRORS
-            ):
+                _raise_if_needed(name, device.address, exc)
+            except KeyError as exc:
+                # Likely: KeyError: 'org.bluez.GattService1' from bleak
+                # ideally we would get a better error from bleak, but this is
+                # better than nothing.
+                # self._properties[service_path][defs.GATT_SERVICE_INTERFACE]
                 transient_errors += 1
-            else:
-                connect_errors += 1
-            backoff_time = calculate_backoff_time(exc)
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, device_missing: %s, backing off: %s (attempt: %s, last rssi: %s)",
-                    name,
-                    device.address,
-                    bleak_error,
-                    device_missing,
-                    backoff_time,
-                    attempt,
-                    rssi,
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect due to services changes:"
+                        " %s (attempt: %s, last rssi: %s)",
+                        name,
+                        device.address,
+                        str(exc),
+                        attempt,
+                        rssi,
+                    )
+                if isinstance(client, BleakClientWithServiceCache):
+                    await client.clear_cache()
+                    await client.disconnect()
+                    backoff_time = calculate_backoff_time(exc)
+                    await wait_for_disconnect(device, backoff_time)
+                _raise_if_needed(name, device.address, exc)
+            except BrokenPipeError as exc:
+                # BrokenPipeError is raised by dbus-next when the device
+                # disconnects
+                transient_errors += 1
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect: %s"
+                        " (attempt: %s, last rssi: %s)",
+                        name,
+                        device.address,
+                        str(exc),
+                        attempt,
+                        rssi,
+                    )
+                _raise_if_needed(name, device.address, exc)
+            except EOFError as exc:
+                transient_errors += 1
+                backoff_time = calculate_backoff_time(exc)
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect: %s, backing off: %s"
+                        " (attempt: %s, last rssi: %s)",
+                        name,
+                        device.address,
+                        str(exc),
+                        backoff_time,
+                        attempt,
+                        rssi,
+                    )
+                await wait_for_disconnect(device, backoff_time)
+                _raise_if_needed(name, device.address, exc)
+            except BLEAK_EXCEPTIONS as exc:
+                bleak_error = str(exc)
+                # BleakDeviceNotFoundError can mean that the adapter has run
+                # out of connection slots.
+                device_missing = isinstance(
+                    exc, (BleakNotFoundError, BleakDeviceNotFoundError)
                 )
-            await wait_for_disconnect(device, backoff_time)
-            _raise_if_needed(name, device.address, exc)
-        else:
-            return client
-        # Ensure the disconnect callback
-        # has a chance to run before we try to reconnect
-        await asyncio.sleep(0)
+                if device_missing or any(
+                    error in bleak_error for error in TRANSIENT_ERRORS
+                ):
+                    transient_errors += 1
+                else:
+                    connect_errors += 1
+                backoff_time = calculate_backoff_time(exc)
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: Failed to connect: %s, device_missing: %s,"
+                        " backing off: %s (attempt: %s, last rssi: %s)",
+                        name,
+                        device.address,
+                        bleak_error,
+                        device_missing,
+                        backoff_time,
+                        attempt,
+                        rssi,
+                    )
+                await wait_for_disconnect(device, backoff_time)
+                _raise_if_needed(name, device.address, exc)
+            else:
+                return client
+            # Ensure the disconnect callback
+            # has a chance to run before we try to reconnect
+            await asyncio.sleep(0)
 
-    raise RuntimeError("This should never happen")
+        raise RuntimeError("This should never happen")
+    finally:
+        if timer is not None:
+            timer.cancel()
 
 
 P = ParamSpec("P")
