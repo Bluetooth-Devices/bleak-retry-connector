@@ -550,6 +550,105 @@ async def get_connected_devices(device: BLEDevice) -> list[BLEDevice]:
     return connected
 
 
+PHANTOM_GRACE_PERIOD = 3.0  # seconds to wait before concluding phantom
+
+
+async def is_likely_phantom(
+    device: BLEDevice,
+    grace_period: float = PHANTOM_GRACE_PERIOD,
+) -> bool:
+    """Check if a "connected" device is likely a phantom.
+
+    A phantom is a device that BlueZ D-Bus reports as ``Connected``
+    but whose transport is non-functional.
+
+    **Heuristic:** ``Connected=True`` but ``ServicesResolved=False``
+    indicates that GATT discovery never completed — often because the
+    HCI transport died after the initial connection event.
+
+    A freshly connected device legitimately has
+    ``ServicesResolved=False`` for a short period while GATT discovery
+    runs (typically < 2 s).  To avoid false positives, this function
+    waits *grace_period* seconds and rechecks.  If services are still
+    unresolved after the grace period, the connection is almost
+    certainly a phantom.
+
+    For definitive phantom detection (cross-referencing with HCI
+    handles), use
+    :func:`~bleak_retry_connector.diagnostics.diagnose_stuck_state`.
+
+    Parameters
+    ----------
+    device:
+        The BLE device to check.
+    grace_period:
+        Seconds to wait before rechecking ``ServicesResolved``.
+        Defaults to :data:`PHANTOM_GRACE_PERIOD` (3 s).
+
+    Returns ``True`` if the device is likely a phantom.
+    """
+    if not IS_LINUX or not isinstance(device.details, dict):
+        return False
+
+    path = device.details.get("path")
+    if not path:
+        return False
+
+    services_unresolved = await _check_services_unresolved(path, device.address)
+    if not services_unresolved:
+        return False
+
+    # Services are unresolved — give the device a grace period in case
+    # it just connected and GATT discovery is still running.
+    if grace_period > 0:
+        _LOGGER.debug(
+            "%s: Connected but ServicesResolved=False, "
+            "waiting %.1fs before concluding phantom",
+            device.address,
+            grace_period,
+        )
+        await asyncio.sleep(grace_period)
+
+        # Recheck after grace period
+        services_unresolved = await _check_services_unresolved(path, device.address)
+        if not services_unresolved:
+            _LOGGER.debug(
+                "%s: ServicesResolved became True during grace period "
+                "— not a phantom",
+                device.address,
+            )
+            return False
+
+    _LOGGER.debug(
+        "%s: Connected but ServicesResolved=False after %.1fs "
+        "grace period — likely phantom",
+        device.address,
+        grace_period,
+    )
+    return True
+
+
+async def _check_services_unresolved(path: str, address: str) -> bool:
+    """Return True if the device at *path* is Connected but ServicesResolved=False."""
+    properties = await _get_properties()
+    if not properties or path not in properties:
+        return False
+
+    device_props = properties[path].get(defs.DEVICE_INTERFACE)
+    if not device_props:
+        return False
+
+    if not device_props.get("Connected"):
+        return False
+
+    # ServicesResolved must be explicitly present and False.
+    # If the key is absent we cannot draw conclusions.
+    if "ServicesResolved" not in device_props:
+        return False
+
+    return not device_props["ServicesResolved"]
+
+
 async def get_device(address: str) -> BLEDevice | None:
     """Get the device."""
     if not IS_LINUX:

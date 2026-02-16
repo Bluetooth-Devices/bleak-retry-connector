@@ -17,6 +17,7 @@ from bleak_retry_connector import (
 from bleak_retry_connector.bluez import (
     adapter_path_from_device_path,
     ble_device_from_properties,
+    is_likely_phantom,
     path_from_ble_device,
     stop_discovery,
     wait_for_device_to_reappear,
@@ -737,3 +738,219 @@ async def test_stop_discovery_no_manager(
 
     await stop_discovery("hci0")
     assert "Failed to stop discovery" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# is_likely_phantom
+# ---------------------------------------------------------------------------
+
+
+async def test_is_likely_phantom_connected_services_not_resolved():
+    """Connected=True, ServicesResolved=False after grace period → phantom."""
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "ServicesResolved": False,
+                        "Address": "AA:BB:CC:DD:EE:FF",
+                        "Alias": "Test Device",
+                    },
+                },
+            }
+
+    manager = FakeBluezManager()
+    mock_get_manager = AsyncMock(return_value=manager)
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "Test Device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+    with (
+        patch("bleak_retry_connector.bluez.IS_LINUX", True),
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            mock_get_manager,
+        ),
+    ):
+        result = await is_likely_phantom(device, grace_period=0)
+    assert result is True
+
+
+async def test_is_likely_phantom_resolves_during_grace_period():
+    """ServicesResolved=False initially but True after grace → not phantom."""
+    call_count = 0
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "ServicesResolved": False,
+                        "Address": "AA:BB:CC:DD:EE:FF",
+                        "Alias": "Test Device",
+                    },
+                },
+            }
+
+    manager = FakeBluezManager()
+
+    async def mock_get_manager():
+        nonlocal call_count
+        call_count += 1
+        if call_count >= 2:
+            manager._properties["/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"][
+                defs.DEVICE_INTERFACE
+            ]["ServicesResolved"] = True
+        return manager
+
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "Test Device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+    with (
+        patch("bleak_retry_connector.bluez.IS_LINUX", True),
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            mock_get_manager,
+        ),
+    ):
+        result = await is_likely_phantom(device, grace_period=0.01)
+    assert result is False
+
+
+async def test_is_likely_phantom_connected_services_resolved():
+    """Connected=True, ServicesResolved=True → not phantom."""
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "ServicesResolved": True,
+                        "Address": "AA:BB:CC:DD:EE:FF",
+                        "Alias": "Test Device",
+                    },
+                },
+            }
+
+    manager = FakeBluezManager()
+    mock_get_manager = AsyncMock(return_value=manager)
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "Test Device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+    with (
+        patch("bleak_retry_connector.bluez.IS_LINUX", True),
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            mock_get_manager,
+        ),
+    ):
+        result = await is_likely_phantom(device, grace_period=0)
+    assert result is False
+
+
+async def test_is_likely_phantom_not_connected():
+    """Connected=False → not phantom."""
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": False,
+                        "Address": "AA:BB:CC:DD:EE:FF",
+                        "Alias": "Test Device",
+                    },
+                },
+            }
+
+    manager = FakeBluezManager()
+    mock_get_manager = AsyncMock(return_value=manager)
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "Test Device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+    with (
+        patch("bleak_retry_connector.bluez.IS_LINUX", True),
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            mock_get_manager,
+        ),
+    ):
+        result = await is_likely_phantom(device, grace_period=0)
+    assert result is False
+
+
+async def test_is_likely_phantom_no_path():
+    """No path in device details → not phantom."""
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "Test Device",
+        {},
+    )
+    result = await is_likely_phantom(device, grace_period=0)
+    assert result is False
+
+
+async def test_is_likely_phantom_not_linux():
+    """Non-Linux platform → not phantom."""
+    with patch("bleak_retry_connector.bluez.IS_LINUX", False):
+        device = BLEDevice(
+            "AA:BB:CC:DD:EE:FF",
+            "Test Device",
+            {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+        )
+        result = await is_likely_phantom(device, grace_period=0)
+        assert result is False
+
+
+async def test_is_likely_phantom_services_resolved_absent():
+    """Connected=True, ServicesResolved absent → not phantom (no conclusion)."""
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._properties = {
+                "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
+                    defs.DEVICE_INTERFACE: {
+                        "Connected": True,
+                        "Address": "AA:BB:CC:DD:EE:FF",
+                        "Alias": "Test Device",
+                    },
+                },
+            }
+
+    manager = FakeBluezManager()
+    mock_get_manager = AsyncMock(return_value=manager)
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        "AA:BB:CC:DD:EE:FF",
+        "Test Device",
+        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
+    )
+    with (
+        patch("bleak_retry_connector.bluez.IS_LINUX", True),
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            mock_get_manager,
+        ),
+    ):
+        result = await is_likely_phantom(device, grace_period=0)
+    assert result is False

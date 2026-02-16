@@ -4,6 +4,7 @@ __version__ = "4.5.0"
 
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, ParamSpec, TypeVar
@@ -25,11 +26,17 @@ from .bluez import (  # noqa: F401
     get_connected_devices,
     get_device,
     get_device_by_adapter,
+    is_likely_phantom,
     path_from_ble_device,
     wait_for_device_to_reappear,
     wait_for_disconnect,
 )
 from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
+from .diagnostics import (  # noqa: F401
+    StuckState,
+    clear_stuck_state,
+    diagnose_stuck_state,
+)
 from .util import asyncio_timeout
 
 DISCONNECT_TIMEOUT = 5
@@ -78,6 +85,10 @@ __all__ = [
     "BLEAK_RETRY_EXCEPTIONS",
     "RSSI_SWITCH_THRESHOLD",
     "NO_RSSI_VALUE",
+    "StuckState",
+    "diagnose_stuck_state",
+    "clear_stuck_state",
+    "is_likely_phantom",
 ]
 
 
@@ -445,8 +456,18 @@ async def establish_connection(
     if IS_LINUX and (devices := await get_connected_devices(device)):
         # Bleak 0.17 will handle already connected devices for us so
         # if we are already connected we swap the device to the connected
-        # device.
-        device = devices[0]
+        # device — but only if it's not a phantom.
+        adopted = devices[0]
+        if await is_likely_phantom(adopted):
+            _LOGGER.warning(
+                "%s - %s: Adopted device is a likely phantom "
+                "(Connected but ServicesResolved=False) — clearing",
+                name,
+                adopted.address,
+            )
+            await clear_cache(adopted.address)
+        else:
+            device = adopted
 
     client = client_class(
         device,
@@ -583,7 +604,33 @@ async def establish_connection(
             await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
         else:
-            return client
+            # Post-connect validation: reject connections with no GATT
+            # services.  This catches a distinct failure mode where the
+            # HCI link is established but GATT discovery silently failed.
+            gatt_services = None
+            with contextlib.suppress(Exception):
+                gatt_services = client.services
+            if IS_LINUX and gatt_services is not None and len(gatt_services) == 0:
+                connect_errors += 1
+                _LOGGER.warning(
+                    "%s - %s: Connected but GATT services empty "
+                    "— disconnecting (attempt: %s)",
+                    name,
+                    device.address,
+                    attempt,
+                )
+                with contextlib.suppress(Exception):
+                    await client.disconnect()
+                await clear_cache(device.address)
+                backoff_time = BLEAK_BACKOFF_TIME
+                await wait_for_disconnect(device, backoff_time)
+                _raise_if_needed(
+                    name,
+                    device.address,
+                    BleakError("GATT services empty after connect"),
+                )
+            else:
+                return client
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)
