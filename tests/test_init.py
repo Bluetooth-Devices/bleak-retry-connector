@@ -2346,3 +2346,187 @@ async def test_has_valid_services_in_cache_esphome_proxy(mock_linux):
     # Should return True for non-BlueZ devices (ESPHome proxy)
     result = await bleak_retry_connector._has_valid_services_in_cache(device)
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_clears_stale_state_on_failure():
+    """Test that clear_cache is called after a connection failure to clean up
+    stale BlueZ state before the next retry attempt."""
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise BleakError("test error")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+        patch(
+            "bleak_retry_connector.clear_cache", new_callable=AsyncMock
+        ) as mock_clear,
+    ):
+        mock_clear.return_value = True
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 2
+    assert mock_clear.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_clears_stale_state_on_timeout():
+    """Test that clear_cache is called after a timeout to clean up
+    phantom connections that cause connect to hang."""
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise asyncio.TimeoutError()
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+        patch(
+            "bleak_retry_connector.clear_cache", new_callable=AsyncMock
+        ) as mock_clear,
+    ):
+        mock_clear.return_value = True
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 2
+    assert mock_clear.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_no_clear_on_success():
+    """Test that clear_cache is NOT called when connection succeeds."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch(
+        "bleak_retry_connector.clear_cache", new_callable=AsyncMock
+    ) as mock_clear:
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert mock_clear.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_clears_on_each_failure():
+    """Test that clear_cache is called after every failed attempt,
+    not just the first one."""
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts < 3:
+                raise BleakError("le-connection-abort-by-local")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+        patch(
+            "bleak_retry_connector.clear_cache", new_callable=AsyncMock
+        ) as mock_clear,
+    ):
+        mock_clear.return_value = True
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 3
+    # clear_cache called once after each of the 2 failures
+    assert mock_clear.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_clears_on_broken_pipe():
+    """Test that clear_cache is called after BrokenPipeError."""
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise BrokenPipeError()
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch(
+        "bleak_retry_connector.clear_cache", new_callable=AsyncMock
+    ) as mock_clear:
+        mock_clear.return_value = True
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 2
+    assert mock_clear.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_clears_on_eof_error():
+    """Test that clear_cache is called after EOFError."""
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise EOFError()
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+        patch(
+            "bleak_retry_connector.clear_cache", new_callable=AsyncMock
+        ) as mock_clear,
+    ):
+        mock_clear.return_value = True
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 2
+    assert mock_clear.call_count == 1

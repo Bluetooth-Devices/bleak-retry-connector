@@ -587,6 +587,19 @@ async def establish_connection(
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)
+        # Clear stale BlueZ state after any connection failure.
+        # Phantom connections, stale cache entries, or corrupted D-Bus
+        # state can cause every retry to fail the same way unless we
+        # actively clean up.  clear_cache() sends RemoveDevice via
+        # D-Bus, forcing fresh discovery on the next attempt.  It is
+        # a no-op on non-Linux and suppresses all exceptions internally.
+        if await clear_cache(device.address):
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Cleared stale BlueZ state after connection failure",
+                    name,
+                    device.address,
+                )
 
     raise RuntimeError("This should never happen")
 
