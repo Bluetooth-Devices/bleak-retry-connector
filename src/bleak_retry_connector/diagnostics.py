@@ -77,9 +77,7 @@ async def _run_cmd(*args: str, timeout: float = 5.0) -> tuple[int, str]:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, _ = await asyncio.wait_for(
-            proc.communicate(), timeout=timeout
-        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
         return proc.returncode or 0, stdout.decode(errors="replace")
     except (asyncio.TimeoutError, OSError) as exc:
         _LOGGER.debug("Command %s failed: %s", args, exc)
@@ -95,9 +93,7 @@ async def _is_bluez_connected(address: str) -> bool:
     return "Connected: yes" in stdout
 
 
-async def _get_hci_handle(
-    address: str, adapter: str
-) -> str | None:
+async def _get_hci_handle(address: str, adapter: str) -> str | None:
     """Return the HCI connection handle for *address* on *adapter*, or None."""
     assert _hcitool is not None  # nosec
     rc, stdout = await _run_cmd(_hcitool, "-i", adapter, "con")
@@ -131,9 +127,7 @@ async def _has_pending_le_connection(adapter: str) -> bool:
     This is a non-destructive probe when there is no pending connection.
     """
     assert _hcitool is not None  # nosec
-    rc, stdout = await _run_cmd(
-        _hcitool, "-i", adapter, "cmd", "0x08", "0x000E"
-    )
+    rc, stdout = await _run_cmd(_hcitool, "-i", adapter, "cmd", "0x08", "0x000E")
     if rc != 0:
         return False
     # If the cancel returned status 0x00 in the response, there WAS
@@ -254,9 +248,7 @@ async def clear_stuck_state(
             address,
             adapter,
         )
-        await _run_cmd(
-            _hcitool, "-i", adapter, "cmd", "0x08", "0x000E"
-        )
+        await _run_cmd(_hcitool, "-i", adapter, "cmd", "0x08", "0x000E")
         return True
 
     if state == StuckState.STALE_CACHE:

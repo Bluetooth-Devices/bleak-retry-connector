@@ -17,7 +17,7 @@ from bleak_retry_connector import (
 from bleak_retry_connector.bluez import (
     adapter_path_from_device_path,
     ble_device_from_properties,
-    is_likely_phantom,
+    is_inactive_connection,
     path_from_ble_device,
     stop_discovery,
     wait_for_device_to_reappear,
@@ -741,12 +741,12 @@ async def test_stop_discovery_no_manager(
 
 
 # ---------------------------------------------------------------------------
-# is_likely_phantom
+# is_inactive_connection
 # ---------------------------------------------------------------------------
 
 
-async def test_is_likely_phantom_connected_services_not_resolved():
-    """Connected=True, ServicesResolved=False after grace period → phantom."""
+async def test_is_inactive_connection_services_not_resolved():
+    """Connected=True, ServicesResolved=False → inactive."""
 
     class FakeBluezManager:
         def __init__(self):
@@ -777,58 +777,12 @@ async def test_is_likely_phantom_connected_services_not_resolved():
             mock_get_manager,
         ),
     ):
-        result = await is_likely_phantom(device, grace_period=0)
+        result = await is_inactive_connection(device)
     assert result is True
 
 
-async def test_is_likely_phantom_resolves_during_grace_period():
-    """ServicesResolved=False initially but True after grace → not phantom."""
-    call_count = 0
-
-    class FakeBluezManager:
-        def __init__(self):
-            self._properties = {
-                "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
-                    defs.DEVICE_INTERFACE: {
-                        "Connected": True,
-                        "ServicesResolved": False,
-                        "Address": "AA:BB:CC:DD:EE:FF",
-                        "Alias": "Test Device",
-                    },
-                },
-            }
-
-    manager = FakeBluezManager()
-
-    async def mock_get_manager():
-        nonlocal call_count
-        call_count += 1
-        if call_count >= 2:
-            manager._properties["/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"][
-                defs.DEVICE_INTERFACE
-            ]["ServicesResolved"] = True
-        return manager
-
-    bleak_retry_connector.bluez.defs = defs
-
-    device = BLEDevice(
-        "AA:BB:CC:DD:EE:FF",
-        "Test Device",
-        {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
-    )
-    with (
-        patch("bleak_retry_connector.bluez.IS_LINUX", True),
-        patch(
-            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
-            mock_get_manager,
-        ),
-    ):
-        result = await is_likely_phantom(device, grace_period=0.01)
-    assert result is False
-
-
-async def test_is_likely_phantom_connected_services_resolved():
-    """Connected=True, ServicesResolved=True → not phantom."""
+async def test_is_inactive_connection_services_resolved():
+    """Connected=True, ServicesResolved=True → active, not inactive."""
 
     class FakeBluezManager:
         def __init__(self):
@@ -859,12 +813,12 @@ async def test_is_likely_phantom_connected_services_resolved():
             mock_get_manager,
         ),
     ):
-        result = await is_likely_phantom(device, grace_period=0)
+        result = await is_inactive_connection(device)
     assert result is False
 
 
-async def test_is_likely_phantom_not_connected():
-    """Connected=False → not phantom."""
+async def test_is_inactive_connection_not_connected():
+    """Connected=False → not inactive."""
 
     class FakeBluezManager:
         def __init__(self):
@@ -894,35 +848,35 @@ async def test_is_likely_phantom_not_connected():
             mock_get_manager,
         ),
     ):
-        result = await is_likely_phantom(device, grace_period=0)
+        result = await is_inactive_connection(device)
     assert result is False
 
 
-async def test_is_likely_phantom_no_path():
-    """No path in device details → not phantom."""
+async def test_is_inactive_connection_no_path():
+    """No path in device details → not inactive."""
     device = BLEDevice(
         "AA:BB:CC:DD:EE:FF",
         "Test Device",
         {},
     )
-    result = await is_likely_phantom(device, grace_period=0)
+    result = await is_inactive_connection(device)
     assert result is False
 
 
-async def test_is_likely_phantom_not_linux():
-    """Non-Linux platform → not phantom."""
+async def test_is_inactive_connection_not_linux():
+    """Non-Linux platform → not inactive."""
     with patch("bleak_retry_connector.bluez.IS_LINUX", False):
         device = BLEDevice(
             "AA:BB:CC:DD:EE:FF",
             "Test Device",
             {"path": "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF"},
         )
-        result = await is_likely_phantom(device, grace_period=0)
+        result = await is_inactive_connection(device)
         assert result is False
 
 
-async def test_is_likely_phantom_services_resolved_absent():
-    """Connected=True, ServicesResolved absent → not phantom (no conclusion)."""
+async def test_is_inactive_connection_services_resolved_absent():
+    """Connected=True, ServicesResolved absent → inactive (not True)."""
 
     class FakeBluezManager:
         def __init__(self):
@@ -952,5 +906,5 @@ async def test_is_likely_phantom_services_resolved_absent():
             mock_get_manager,
         ),
     ):
-        result = await is_likely_phantom(device, grace_period=0)
-    assert result is False
+        result = await is_inactive_connection(device)
+    assert result is True

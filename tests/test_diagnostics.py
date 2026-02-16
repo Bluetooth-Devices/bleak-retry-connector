@@ -8,16 +8,12 @@ import pytest
 
 from bleak_retry_connector.diagnostics import (
     StuckState,
-    _has_bluez_cache_entry,
-    _has_pending_le_connection,
-    _has_shell_tools,
     _is_bluez_connected,
     _is_services_resolved,
     _run_cmd,
     clear_stuck_state,
     diagnose_stuck_state,
 )
-
 
 # ---------------------------------------------------------------------------
 # StuckState enum
@@ -482,8 +478,7 @@ class TestGetHciHandle:
     @pytest.mark.asyncio
     async def test_no_handle(self):
         hcitool_output = (
-            "Connections:\n"
-            "    < LE 11:22:33:44:55:66 handle 17 state 1 lm CENTRAL\n"
+            "Connections:\n" "    < LE 11:22:33:44:55:66 handle 17 state 1 lm CENTRAL\n"
         )
         from bleak_retry_connector.diagnostics import _get_hci_handle
 
@@ -512,5 +507,5 @@ def test_importable_from_top_level():
         StuckState,
         clear_stuck_state,
         diagnose_stuck_state,
-        is_likely_phantom,
+        is_inactive_connection,
     )

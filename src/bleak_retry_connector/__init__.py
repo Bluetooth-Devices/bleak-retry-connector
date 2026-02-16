@@ -26,7 +26,7 @@ from .bluez import (  # noqa: F401
     get_connected_devices,
     get_device,
     get_device_by_adapter,
-    is_likely_phantom,
+    is_inactive_connection,
     path_from_ble_device,
     wait_for_device_to_reappear,
     wait_for_disconnect,
@@ -88,7 +88,7 @@ __all__ = [
     "StuckState",
     "diagnose_stuck_state",
     "clear_stuck_state",
-    "is_likely_phantom",
+    "is_inactive_connection",
 ]
 
 
@@ -416,6 +416,7 @@ async def establish_connection(
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     pair: bool = False,
+    close_inactive_connections: bool = False,
     **kwargs: Any,
 ) -> AnyBleakClient:
     """Establish a connection to the device."""
@@ -458,10 +459,10 @@ async def establish_connection(
         # if we are already connected we swap the device to the connected
         # device — but only if it's not a phantom.
         adopted = devices[0]
-        if await is_likely_phantom(adopted):
+        if close_inactive_connections and await is_inactive_connection(adopted):
             _LOGGER.warning(
-                "%s - %s: Adopted device is a likely phantom "
-                "(Connected but ServicesResolved=False) — clearing",
+                "%s - %s: Inactive connection detected "
+                "(Connected but ServicesResolved is not True) — clearing",
                 name,
                 adopted.address,
             )
@@ -604,31 +605,35 @@ async def establish_connection(
             await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
         else:
-            # Post-connect validation: reject connections with no GATT
-            # services.  This catches a distinct failure mode where the
-            # HCI link is established but GATT discovery silently failed.
-            gatt_services = None
-            with contextlib.suppress(Exception):
-                gatt_services = client.services
-            if IS_LINUX and gatt_services is not None and len(gatt_services) == 0:
-                connect_errors += 1
-                _LOGGER.warning(
-                    "%s - %s: Connected but GATT services empty "
-                    "— disconnecting (attempt: %s)",
-                    name,
-                    device.address,
-                    attempt,
-                )
+            if close_inactive_connections:
+                # Post-connect validation: reject connections with no
+                # GATT services.  This catches a failure mode where
+                # the HCI link is established but GATT discovery
+                # silently failed.
+                gatt_services = None
                 with contextlib.suppress(Exception):
-                    await client.disconnect()
-                await clear_cache(device.address)
-                backoff_time = BLEAK_BACKOFF_TIME
-                await wait_for_disconnect(device, backoff_time)
-                _raise_if_needed(
-                    name,
-                    device.address,
-                    BleakError("GATT services empty after connect"),
-                )
+                    gatt_services = client.services
+                if IS_LINUX and gatt_services is not None and len(gatt_services) == 0:
+                    connect_errors += 1
+                    _LOGGER.warning(
+                        "%s - %s: Connected but GATT services empty "
+                        "— disconnecting (attempt: %s)",
+                        name,
+                        device.address,
+                        attempt,
+                    )
+                    with contextlib.suppress(Exception):
+                        await client.disconnect()
+                    await clear_cache(device.address)
+                    backoff_time = BLEAK_BACKOFF_TIME
+                    await wait_for_disconnect(device, backoff_time)
+                    _raise_if_needed(
+                        name,
+                        device.address,
+                        BleakError("GATT services empty after connect"),
+                    )
+                else:
+                    return client
             else:
                 return client
         # Ensure the disconnect callback
