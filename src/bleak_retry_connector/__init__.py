@@ -405,9 +405,18 @@ async def establish_connection(
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     pair: bool = False,
+    validate_connection: Callable[[AnyBleakClient], Awaitable[bool]] | None = None,
     **kwargs: Any,
 ) -> AnyBleakClient:
-    """Establish a connection to the device."""
+    """Establish a connection to the device.
+
+    If ``validate_connection`` is provided it is called after every
+    successful ``connect()`` with the connected client.  The callback
+    should return ``True`` when the connection is usable.  Returning
+    ``False`` or raising any exception is treated as a validation
+    failure — the client is disconnected and the attempt is retried
+    until ``max_attempts`` is exhausted.
+    """
     timeouts = 0
     connect_errors = 0
     transient_errors = 0
@@ -583,7 +592,40 @@ async def establish_connection(
             await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
         else:
-            return client
+            if validate_connection is not None:
+                try:
+                    valid = await validate_connection(client)
+                except Exception:
+                    _LOGGER.debug(
+                        "%s - %s: Connection validation raised an "
+                        "exception, treating as failure (attempt: %s)",
+                        name,
+                        device.address,
+                        attempt,
+                    )
+                    valid = False
+                if not valid:
+                    connect_errors += 1
+                    _LOGGER.debug(
+                        "%s - %s: Connection validation failed " "(attempt: %s)",
+                        name,
+                        device.address,
+                        attempt,
+                    )
+                    await client.disconnect()
+                    await wait_for_disconnect(device, BLEAK_BACKOFF_TIME)
+                    _raise_if_needed(
+                        name,
+                        device.address,
+                        BleakError(
+                            f"{name} - {device.address}: "
+                            "Connection validation failed"
+                        ),
+                    )
+                else:
+                    return client
+            else:
+                return client
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)

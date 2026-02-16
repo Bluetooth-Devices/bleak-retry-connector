@@ -2346,3 +2346,136 @@ async def test_has_valid_services_in_cache_esphome_proxy(mock_linux):
     # Should return True for non-BlueZ devices (ESPHome proxy)
     result = await bleak_retry_connector._has_valid_services_in_cache(device)
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validate_connection_passes():
+    """Connection returned when validate_connection returns True."""
+
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    async def _validator(client):
+        return True
+
+    client = await establish_connection(
+        FakeBleakClient,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+        validate_connection=_validator,
+    )
+    assert isinstance(client, FakeBleakClient)
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validate_connection_fails_then_passes():
+    """Validation failure triggers disconnect and retry, then succeeds."""
+    call_count = 0
+    disconnect_count = 0
+
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            nonlocal disconnect_count
+            disconnect_count += 1
+
+    async def _validator(client):
+        nonlocal call_count
+        call_count += 1
+        return call_count > 1
+
+    client = await establish_connection(
+        FakeBleakClient,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+        validate_connection=_validator,
+    )
+    assert isinstance(client, FakeBleakClient)
+    assert call_count == 2
+    assert disconnect_count == 1
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validate_connection_exception_treated_as_false():
+    """Exception from validate_connection is treated as failure."""
+    call_count = 0
+    disconnect_count = 0
+
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            nonlocal disconnect_count
+            disconnect_count += 1
+
+    async def _validator(client):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 1:
+            raise RuntimeError("GATT read failed")
+        return True
+
+    client = await establish_connection(
+        FakeBleakClient,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+        validate_connection=_validator,
+    )
+    assert isinstance(client, FakeBleakClient)
+    assert call_count == 2
+    assert disconnect_count == 1
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validate_connection_exhausts_retries():
+    """Validation always failing exhausts max_attempts and raises."""
+
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    async def _validator(client):
+        return False
+
+    with pytest.raises(BleakConnectionError, match="validation failed"):
+        await establish_connection(
+            FakeBleakClient,
+            MagicMock(),
+            "test",
+            disconnected_callback=MagicMock(),
+            max_attempts=3,
+            validate_connection=_validator,
+        )
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_no_validate_connection():
+    """Without validate_connection, behaviour is unchanged."""
+
+    class FakeBleakClient(BleakClient):
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    client = await establish_connection(
+        FakeBleakClient,
+        MagicMock(),
+        "test",
+        disconnected_callback=MagicMock(),
+    )
+    assert isinstance(client, FakeBleakClient)
