@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import time
 from unittest.mock import AsyncMock
 
 import pytest
@@ -51,10 +50,12 @@ async def test_watchdog_stop_cancels():
     callback = AsyncMock()
     wd = ConnectionWatchdog(timeout=0.2, on_timeout=callback)
     wd.start()
-    assert wd.is_running
+    running_before_stop = wd.is_running
+    assert running_before_stop
 
     wd.stop()
-    assert not wd.is_running
+    running_after_stop = wd.is_running
+    assert not running_after_stop
 
     await asyncio.sleep(0.5)
     callback.assert_not_awaited()
@@ -134,13 +135,16 @@ async def test_watchdog_restart():
     wd = ConnectionWatchdog(timeout=0.2, on_timeout=callback)
 
     wd.start()
-    assert wd.is_running
+    running_1 = wd.is_running
+    assert running_1
     wd.stop()
-    assert not wd.is_running
+    running_2 = wd.is_running
+    assert not running_2
 
     # Restart
     wd.start()
-    assert wd.is_running
+    running_3 = wd.is_running
+    assert running_3
 
     await asyncio.sleep(0.5)
     callback.assert_awaited_once()

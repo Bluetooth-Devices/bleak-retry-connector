@@ -4,10 +4,17 @@ Detects "zombie" connections where BlueZ still reports Connected=True
 but no notifications are being received — the radio link is effectively
 dead without a disconnect callback ever firing.
 
+The caller must specify the expected timeout because only the caller
+knows the device's notification cadence.  There is no sensible default
+— a battery BMS sends every 1-5 s while a temperature sensor may send
+every 60 s.  Making the timeout explicit forces the caller to think
+about what "dead" means for their specific device.
+
 Usage::
 
+    # Battery BMS: expects data every ~5 s, dead after 30 s
     watchdog = ConnectionWatchdog(
-        timeout=180.0,
+        timeout=30.0,
         on_timeout=my_reconnect_callback,
     )
     watchdog.start()
@@ -33,8 +40,6 @@ from collections.abc import Awaitable, Callable
 
 _LOGGER = logging.getLogger(__name__)
 
-DEFAULT_WATCHDOG_TIMEOUT = 180.0  # 3 minutes
-
 
 class ConnectionWatchdog:
     """Monitor a BLE connection for notification activity.
@@ -49,7 +54,9 @@ class ConnectionWatchdog:
     Parameters
     ----------
     timeout:
-        Seconds of inactivity before the watchdog fires.
+        Seconds of inactivity before the watchdog fires.  Required —
+        there is no default because only the caller knows the device's
+        expected notification cadence.
     on_timeout:
         Async callback invoked when the timeout expires.  If ``None``,
         the watchdog only logs a warning.
@@ -57,7 +64,7 @@ class ConnectionWatchdog:
 
     def __init__(
         self,
-        timeout: float = DEFAULT_WATCHDOG_TIMEOUT,
+        timeout: float,
         on_timeout: Callable[[], Awaitable[None]] | None = None,
     ) -> None:
         self._timeout = timeout
