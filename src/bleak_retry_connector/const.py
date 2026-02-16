@@ -28,8 +28,10 @@ class LockConfig:
     enabled:
         Whether cross-process locking is active.
     lock_dir:
-        Directory for lock files.  Must be writable by all participating
-        services.
+        Directory for lock files.  Defaults to ``/run`` which is the
+        standard location for runtime state files — cleared on reboot
+        so stale locks cannot survive reboots.  Must be writable by all
+        participating services.
     lock_template:
         Template string with an ``{adapter}`` placeholder, e.g.
         ``"bleak-retry-connector-{adapter}.lock"``.
@@ -40,7 +42,7 @@ class LockConfig:
     """
 
     enabled: bool = False
-    lock_dir: str = "/tmp"  # nosec
+    lock_dir: str = "/run"
     lock_template: str = "bleak-retry-connector-{adapter}.lock"
     lock_timeout: float = 15.0
 
