@@ -119,6 +119,15 @@ TRANSIENT_ERRORS_LONG_BACKOFF = {
 TRANSIENT_ERRORS_MEDIUM_BACKOFF = {
     "ESP_GATT_CONN_TIMEOUT",
     "ESP_GATT_CONN_FAIL_ESTABLISH",
+    # org.bluez.Error.InProgress during Connect means BlueZ's dev->connect
+    # pointer is non-NULL — a previous D-Bus Connect call is still pending
+    # (crashed client, stuck HCI LE Create Connection, etc.).
+    # See bluez/src/device.c dev_connect() lines 2837-2838.
+    # establish_connection() always passes a BLEDevice with a D-Bus path,
+    # so bleak never calls StartDiscovery; InProgress here is always stale
+    # BlueZ state, not scan contention.
+    # Medium backoff gives time for clear_cache()/RemoveDevice to propagate.
+    "InProgress",
 }
 
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
@@ -324,9 +333,7 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
 
-    if isinstance(
-        exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
-    ):
+    if isinstance(exc, (EOFError, asyncio.TimeoutError, BrokenPipeError)):
         return BLEAK_DBUS_BACKOFF_TIME
     # If the adapter runs out of slots can get a BleakDeviceNotFoundError
     # since the device is no longer visible on the adapter. Almost none of
@@ -345,6 +352,8 @@ def calculate_backoff_time(exc: Exception) -> float:
             return BLEAK_TRANSIENT_LONG_BACKOFF_TIME
         if any(error in bleak_error for error in TRANSIENT_ERRORS):
             return BLEAK_TRANSIENT_BACKOFF_TIME
+        if isinstance(exc, BleakDBusError):
+            return BLEAK_DBUS_BACKOFF_TIME
         if NORMAL_DISCONNECT in bleak_error:
             return BLEAK_DISCONNECTED_BACKOFF_TIME
     return BLEAK_BACKOFF_TIME
@@ -442,6 +451,7 @@ async def establish_connection(
 
     debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
     rssi: int | None = None
+    inprogress_cleared = False
     if IS_LINUX and (devices := await get_connected_devices(device)):
         # Bleak 0.17 will handle already connected devices for us so
         # if we are already connected we swap the device to the connected
@@ -557,21 +567,50 @@ async def establish_connection(
             _raise_if_needed(name, device.address, exc)
         except BLEAK_EXCEPTIONS as exc:
             bleak_error = str(exc)
+            is_inprogress = "InProgress" in bleak_error
             # BleakDeviceNotFoundError can mean that the adapter has run out of
             # connection slots.
             device_missing = isinstance(
                 exc, (BleakNotFoundError, BleakDeviceNotFoundError)
             )
-            if device_missing or any(
-                error in bleak_error for error in TRANSIENT_ERRORS
+            did_inprogress_cleanup = False
+            if is_inprogress and not inprogress_cleared:
+                # First InProgress: BlueZ's dev->connect is non-NULL from
+                # a stale/crashed D-Bus client.  RemoveDevice (via
+                # clear_cache) destroys the device object, clearing the
+                # pending state and any stuck HCI LE Create Connection.
+                connect_errors += 1
+                inprogress_cleared = True
+                did_inprogress_cleanup = True
+                if debug_enabled:
+                    _LOGGER.debug(
+                        "%s - %s: InProgress — closing stale connections"
+                        " and clearing cache (attempt: %s, last rssi: %s)",
+                        name,
+                        device.address,
+                        attempt,
+                        rssi,
+                    )
+                await close_stale_connections(device)
+                await clear_cache(device.address)
+            elif (
+                is_inprogress
+                or device_missing
+                or any(error in bleak_error for error in TRANSIENT_ERRORS)
             ):
+                # Second+ InProgress after RemoveDevice is unlikely
+                # (the recreated device object should have fresh state),
+                # but treat as transient safety-net in case another D-Bus
+                # client races or the device object hasn't settled yet.
+                # Other transient errors also go here.
                 transient_errors += 1
             else:
                 connect_errors += 1
             backoff_time = calculate_backoff_time(exc)
-            if debug_enabled:
+            if debug_enabled and not did_inprogress_cleanup:
                 _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, device_missing: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    "%s - %s: Failed to connect: %s, device_missing: %s,"
+                    " backing off: %s (attempt: %s, last rssi: %s)",
                     name,
                     device.address,
                     bleak_error,

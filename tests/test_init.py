@@ -584,6 +584,136 @@ async def test_establish_connection_has_transient_error_had_advice():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_inprogress_first_cleans_up():
+    """First InProgress closes stale connections, clears cache, retries.
+
+    The first InProgress during connect is treated as stale/phantom state.
+    Close existing connections, clear the cache, and retry.  If cleanup
+    resolves it, the second attempt succeeds.
+    """
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise BleakDBusError("org.bluez.Error.InProgress", ["In Progress"])
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch(
+            "bleak_retry_connector.close_stale_connections", new_callable=AsyncMock
+        ) as mock_close,
+        patch(
+            "bleak_retry_connector.clear_cache",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as mock_clear,
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 2
+    mock_close.assert_called_once()
+    mock_clear.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_inprogress_second_is_transient():
+    """Second+ InProgress after cleanup is treated as transient.
+
+    After the first InProgress triggers RemoveDevice, subsequent InProgress
+    errors are unlikely but handled as a transient safety-net (another D-Bus
+    client racing, device object not yet settled, etc.).
+    Retried up to MAX_TRANSIENT_ERRORS times after the initial cleanup.
+    """
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            # First InProgress: cleanup (connect_error=1)
+            # Attempts 2..N: transient InProgress
+            # Succeed on attempt N+1
+            if attempts < MAX_TRANSIENT_ERRORS + 1:
+                raise BleakDBusError("org.bluez.Error.InProgress", ["In Progress"])
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch(
+            "bleak_retry_connector.close_stale_connections", new_callable=AsyncMock
+        ) as mock_close,
+        patch(
+            "bleak_retry_connector.clear_cache",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    # 1 cleanup attempt + 9 transient attempts = 10, succeeds on 11th
+    assert attempts == MAX_TRANSIENT_ERRORS + 1
+    # close_stale_connections only called on first InProgress
+    mock_close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_inprogress_exhaustion_aborts():
+    """InProgress that never clears produces BleakAbortedError with advice."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakDBusError("org.bluez.Error.InProgress", ["In Progress"])
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.close_stale_connections", new_callable=AsyncMock),
+        patch(
+            "bleak_retry_connector.clear_cache",
+            new_callable=AsyncMock,
+            return_value=True,
+        ),
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice(
+                    "aa:bb:cc:dd:ee:ff",
+                    "name",
+                    {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
+                ),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
+
+    assert isinstance(exc, BleakAbortedError)
+    assert "InProgress" in str(exc)
+    assert "Interference/range" in str(exc)
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_out_of_slots_advice():
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):
@@ -1760,6 +1890,12 @@ def test_calculate_backoff_time():
     assert (
         calculate_backoff_time(BleakError("ESP_GATT_CONN_CONN_CANCEL"))
         == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+    )
+    assert (
+        calculate_backoff_time(
+            BleakDBusError("org.bluez.Error.InProgress", ["In Progress"])
+        )
+        == BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME
     )
 
 
