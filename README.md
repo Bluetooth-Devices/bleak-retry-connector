@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="https://github.com/bluetooth-devices/bleak-retry-connector/actions?query=workflow%3ACI">
-    <img src="https://img.shields.io/github/workflow/status/bluetooth-devices/bleak-retry-connector/CI/main?label=CI&logo=github&style=flat-square" alt="CI Status" >
+    <img src="https://img.shields.io/github/actions/workflow/status/bluetooth-devices/bleak-retry-connector/ci.yml?branch=main&label=CI&logo=github&style=flat-square" alt="CI Status" >
   </a>
   <a href="https://bleak-retry-connector.readthedocs.io">
     <img src="https://img.shields.io/readthedocs/bleak-retry-connector.svg?logo=read-the-docs&logoColor=fff&style=flat-square" alt="Documentation Status">
