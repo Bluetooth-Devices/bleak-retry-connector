@@ -46,7 +46,71 @@ async def connect_with_cache(device: BLEDevice):
 
 - **Automatic service caching**: Services are cached between connections for faster reconnections
 - **Cache clearing**: Call `clear_cache()` to force a fresh service discovery
+- **Connection parameter tuning**: Call `set_connection_params()` to adjust BLE connection intervals
 - **Drop-in replacement**: Can be used anywhere `BleakClient` is used
+
+### Extension Methods
+
+`BleakClientWithServiceCache` provides extension methods that are forwarded to the underlying backend (e.g., habluetooth). These methods allow integrations to control BLE behavior beyond what standard bleak provides.
+
+#### clear_cache
+
+```python
+async def clear_cache(self) -> bool
+```
+
+Clears the cached GATT services, forcing a fresh service discovery on the next access. Useful when a device's firmware has been updated or services have changed.
+
+Returns `True` if the cache was successfully cleared, `False` otherwise.
+
+```python
+client = await establish_connection(
+    BleakClientWithServiceCache, device, name="MyDevice"
+)
+
+# If characteristics are missing, clear cache and reconnect
+await client.clear_cache()
+await client.disconnect()
+```
+
+#### set_connection_params
+
+```python
+async def set_connection_params(
+    self,
+    min_interval: int,
+    max_interval: int,
+    latency: int,
+    timeout: int,
+) -> None
+```
+
+Sets BLE connection parameters on a connected device. This is useful for "Always Connected" devices where battery conservation is important — switching from fast intervals (~7.5ms) to slow intervals (e.g., 1000ms) after the initial data sync can significantly reduce power consumption.
+
+Parameters are in BLE units:
+
+- **min_interval** / **max_interval**: Connection interval in units of 1.25ms (e.g., 800 = 1000ms)
+- **latency**: Number of connection events the peripheral can skip (typically 0)
+- **timeout**: Supervision timeout in units of 10ms (e.g., 600 = 6000ms)
+
+```python
+client = await establish_connection(
+    BleakClientWithServiceCache, device, name="MyDevice"
+)
+
+# After initial sync, switch to slow intervals to save battery
+await client.set_connection_params(
+    min_interval=800,   # 1000ms
+    max_interval=800,   # 1000ms
+    latency=0,
+    timeout=600,        # 6000ms
+)
+```
+
+The method delegates to the backend (habluetooth), which routes to either:
+
+- **ESPHome proxy**: Sends a protobuf message to the ESP32 to call `esp_ble_gap_update_conn_params()`
+- **Local BlueZ adapter**: Uses the MGMT API (`MGMT_OP_LOAD_CONN_PARAM`)
 
 ## establish_connection
 
