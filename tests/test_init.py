@@ -2346,3 +2346,61 @@ async def test_has_valid_services_in_cache_esphome_proxy(mock_linux):
     # Should return True for non-BlueZ devices (ESPHome proxy)
     result = await bleak_retry_connector._has_valid_services_in_cache(device)
     assert result is True
+
+
+@pytest.mark.asyncio
+async def test_set_connection_params_delegates_to_super():
+    """Test that set_connection_params delegates to super when available."""
+    set_connection_params_mock = AsyncMock()
+
+    class FakeBleakClientWithSetConnectionParams(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def set_connection_params(
+            self, min_interval, max_interval, latency, timeout
+        ):
+            await set_connection_params_mock(
+                min_interval, max_interval, latency, timeout
+            )
+
+    class FakeClientWithCache(
+        BleakClientWithServiceCache, FakeBleakClientWithSetConnectionParams
+    ):
+        """Fake BleakClientWithServiceCache with set_connection_params on parent."""
+
+    client = FakeClientWithCache(MagicMock())
+    await client.set_connection_params(10, 20, 3, 400)
+    set_connection_params_mock.assert_called_once_with(10, 20, 3, 400)
+
+
+@pytest.mark.asyncio
+async def test_set_connection_params_warns_when_not_available(caplog):
+    """Test that set_connection_params logs a warning when not available on parent."""
+    import logging
+
+    class FakeBleakClientNoSetConnectionParams(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    class FakeClientWithCache(
+        BleakClientWithServiceCache, FakeBleakClientNoSetConnectionParams
+    ):
+        """Fake BleakClientWithServiceCache without set_connection_params on parent."""
+
+    client = FakeClientWithCache(MagicMock())
+    with caplog.at_level(logging.WARNING):
+        await client.set_connection_params(10, 20, 3, 400)
+    assert "set_connection_params not implemented in bleak version" in caplog.text
