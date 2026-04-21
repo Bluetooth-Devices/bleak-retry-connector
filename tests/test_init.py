@@ -436,7 +436,6 @@ async def test_establish_connection_fails():
 
         async def connect(self, *args, **kwargs):
             raise BleakError("test")
-            pass
 
         async def disconnect(self, *args, **kwargs):
             pass
