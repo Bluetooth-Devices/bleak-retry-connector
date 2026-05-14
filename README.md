@@ -67,8 +67,8 @@ async def connect_to_device():
 
     try:
         # Use the connected client normally
-        services = await client.get_services()
-        print(f"Connected! Found {len(services)} services")
+        services = client.services
+        print(f"Connected! Found {len(list(services))} services")
 
         # Read a characteristic
         value = await client.read_gatt_char("00002a00-0000-1000-8000-00805f9b34fb")

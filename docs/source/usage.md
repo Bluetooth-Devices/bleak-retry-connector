@@ -128,6 +128,7 @@ async def establish_connection(
     cached_services: BleakGATTServiceCollection | None = None,
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
+    pair: bool = False,
     **kwargs: Any
 ) -> BleakClient
 ```
@@ -142,6 +143,7 @@ async def establish_connection(
 - **cached_services**: Pre-cached services to use (deprecated, use `use_services_cache`)
 - **ble_device_callback**: Callback to get updated device info if it changes
 - **use_services_cache**: Whether to use service caching (default: True)
+- **pair**: Whether to pair with the device on connect (default: False)
 - **kwargs**: Additional arguments passed to the client class constructor
 
 ### Return Value
@@ -440,3 +442,142 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+## retry_bluetooth_connection_error
+
+A decorator that wraps an async function and retries it on transient Bleak
+errors. Useful for short GATT operations (reads, writes, notifications) that
+can be disconnected mid-flight by the device.
+
+### Function Signature
+
+```python
+def retry_bluetooth_connection_error(
+    attempts: int = 2,
+) -> Callable[[Callable[P, Awaitable[T]]], Callable[P, Awaitable[T]]]
+```
+
+### Parameters
+
+- **attempts**: Number of times to attempt the wrapped call before re-raising
+  the underlying error (default: 2).
+
+The decorator catches the same `BLEAK_EXCEPTIONS` group used internally by
+`establish_connection` and backs off with `calculate_backoff_time()` between
+attempts. After the final attempt fails, the original exception propagates.
+
+### Example
+
+```python
+from bleak_retry_connector import (
+    establish_connection,
+    BleakClientWithServiceCache,
+    retry_bluetooth_connection_error,
+)
+
+@retry_bluetooth_connection_error(attempts=3)
+async def read_battery(client: BleakClientWithServiceCache) -> int:
+    data = await client.read_gatt_char("00002a19-0000-1000-8000-00805f9b34fb")
+    return data[0]
+
+async def main(device):
+    client = await establish_connection(
+        BleakClientWithServiceCache, device, name=device.name
+    )
+    try:
+        level = await read_battery(client)
+        print(f"Battery: {level}%")
+    finally:
+        await client.disconnect()
+```
+
+## close_stale_connections
+
+On Linux/BlueZ, BlueZ may report a device as connected even when another
+adapter or a crashed process owns the connection. `close_stale_connections`
+disconnects those existing connections so a fresh `establish_connection`
+attempt can proceed.
+
+Two variants are exported:
+
+```python
+async def close_stale_connections(
+    device: BLEDevice, only_other_adapters: bool = False
+) -> None
+
+async def close_stale_connections_by_address(
+    address: str, only_other_adapters: bool = False
+) -> None
+```
+
+- **device** / **address**: The target device or its MAC address.
+- **only_other_adapters**: If `True`, only disconnect instances on adapters
+  different from the one the supplied `device` is on. Useful when you want
+  to keep your own active connection alive while clearing duplicates that
+  appeared on another adapter.
+
+Both functions are no-ops on non-Linux platforms.
+
+### Example
+
+```python
+from bleak_retry_connector import (
+    close_stale_connections_by_address,
+    establish_connection,
+    BleakClientWithServiceCache,
+)
+
+# Before reconnecting after a service restart, clear stale BlueZ state:
+await close_stale_connections_by_address("AA:BB:CC:DD:EE:FF")
+
+client = await establish_connection(
+    BleakClientWithServiceCache, device, name=device.name
+)
+```
+
+## clear_cache
+
+Removes a device from BlueZ via the `RemoveDevice` D-Bus method. This clears
+cached GATT services and any stale `Connected=True` state BlueZ may be
+holding for the address.
+
+```python
+async def clear_cache(address: str) -> bool
+```
+
+- **address**: The MAC address of the device to remove.
+- **Returns**: `True` if the device was removed, `False` otherwise (including
+  on non-Linux platforms).
+
+`clear_cache()` is safe to call unconditionally — it suppresses all errors
+internally and returns `False` rather than raising. There is also an instance
+method `BleakClientWithServiceCache.clear_cache()` (documented above) which
+clears only the bleak-level service cache for an already-connected client;
+the module-level `clear_cache(address)` operates on BlueZ directly and does
+not require a client.
+
+### Example
+
+```python
+from bleak_retry_connector import clear_cache
+
+# After a firmware update, force BlueZ to forget cached services:
+await clear_cache("AA:BB:CC:DD:EE:FF")
+```
+
+## restore_discoveries
+
+On Linux/BlueZ, advertisement data tracked by BlueZ can be lost when a
+scanner is recreated. `restore_discoveries` re-seeds a freshly created
+`BleakScanner` with the devices BlueZ already knows about, so callers don't
+have to wait for the next advertisement to see existing devices.
+
+```python
+async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None
+```
+
+- **scanner**: The newly created `BleakScanner` instance.
+- **adapter**: The HCI adapter name (e.g. `"hci0"`).
+
+No-op on non-Linux platforms.
+
