@@ -580,4 +580,3 @@ async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None
 - **adapter**: The HCI adapter name (e.g. `"hci0"`).
 
 No-op on non-Linux platforms.
-
