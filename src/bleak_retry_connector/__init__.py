@@ -157,7 +157,7 @@ ABORT_ADVICE = (
 )
 
 DEVICE_MISSING_ADVICE = (
-    "The device disappeared; " "Try restarting the scanner or moving the device closer"
+    "The device disappeared; Try restarting the scanner or moving the device closer"
 )
 
 OUT_OF_SLOTS_ADVICE = (
