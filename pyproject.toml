@@ -66,9 +66,15 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-[tool.isort]
-profile = "black"
-known_first_party = ["bleak_retry_connector", "tests"]
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["bleak_retry_connector", "tests"]
 
 [tool.mypy]
 check_untyped_defs = true

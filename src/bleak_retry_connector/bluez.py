@@ -48,7 +48,6 @@ class AllocationChange(Enum):
 
 @dataclass(slots=True)
 class AllocationChangeEvent:
-
     change: AllocationChange
     path: str | None  # D-Bus object path of the device
     adapter: str  # Adapter/Controller (hciX)
@@ -57,7 +56,6 @@ class AllocationChangeEvent:
 
 @dataclass(slots=True)
 class Allocations:
-
     adapter: str  # Adapter/Controller (hciX)
     slots: int  # Number of slots
     free: int  # Number of free slots
