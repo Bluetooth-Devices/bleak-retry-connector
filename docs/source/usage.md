@@ -580,3 +580,138 @@ async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None
 - **adapter**: The HCI adapter name (e.g. `"hci0"`).
 
 No-op on non-Linux platforms.
+
+## get_device / get_device_by_adapter
+
+Look up a `BLEDevice` by MAC address against BlueZ's current view of the bus.
+Useful when a caller has lost its `BLEDevice` handle (e.g. after a scanner
+restart) but still knows the address.
+
+```python
+async def get_device(address: str) -> BLEDevice | None
+async def get_device_by_adapter(address: str, adapter: str) -> BLEDevice | None
+```
+
+- **address**: The MAC address of the device.
+- **adapter** (`get_device_by_adapter` only): The HCI adapter name (e.g.
+  `"hci0"`) to restrict the lookup to a single controller.
+
+`get_device` searches every adapter and returns the device with the strongest
+RSSI; `get_device_by_adapter` only inspects the BlueZ object at
+`/org/bluez/<adapter>/dev_<ADDR>` and returns `None` if no device exists on
+that adapter.
+
+Both return `None` on non-Linux platforms and when BlueZ has no matching
+object.
+
+```python
+from bleak_retry_connector import get_device, establish_connection, BleakClientWithServiceCache
+
+device = await get_device("AA:BB:CC:DD:EE:FF")
+if device is None:
+    raise RuntimeError("device not currently known to BlueZ")
+
+client = await establish_connection(
+    BleakClientWithServiceCache, device, name=device.name
+)
+```
+
+## device_source
+
+Return the `source` tag from a `BLEDevice`'s `details` mapping, or `None` if
+the tag is absent. The source is set by the scanner that produced the
+advertisement — for example, ESPHome Bluetooth proxies tag their devices with
+the proxy name. Native BlueZ devices typically have no source.
+
+```python
+def device_source(device: BLEDevice) -> str | None
+```
+
+```python
+from bleak_retry_connector import device_source
+
+if device_source(device) is None:
+    # Local adapter device — slot management applies.
+    ...
+else:
+    # Came from an ESPHome proxy — handle ESP-specific errors.
+    ...
+```
+
+## ble_device_description
+
+Format a `BLEDevice` into a short, log-friendly string of the form
+`<address> - <name> -> <path-or-source>`. Used by `establish_connection`
+internally for log lines; exported so callers can produce the same format in
+their own diagnostics.
+
+```python
+def ble_device_description(device: BLEDevice) -> str
+```
+
+The trailing `-> ...` is only appended when the device's `details` carry a
+BlueZ `path` (truncated to 15 characters) or a `source` tag. Devices with
+neither are described as `<address> - <name>` (or just `<address>` when the
+name equals the address).
+
+## BleakSlotManager
+
+`BleakSlotManager` tracks how many BLE connection slots each local BlueZ
+adapter has free and which addresses currently hold a slot. It is intended
+for callers that orchestrate multiple connections across multiple adapters
+(e.g. Home Assistant) and need to make scheduling decisions before calling
+`establish_connection`.
+
+```python
+from bleak_retry_connector import BleakSlotManager
+
+manager = BleakSlotManager()
+await manager.async_setup()
+
+# Tell the manager about each adapter and its slot capacity:
+manager.register_adapter("hci0", slots=5)
+manager.register_adapter("hci1", slots=5)
+
+allocations = manager.get_allocations("hci0")
+print(allocations.free, allocations.allocated)
+```
+
+Key methods:
+
+- **`async_setup()`** — Attach to the global BlueZ manager. Must be awaited
+  before any other call.
+- **`register_adapter(adapter, slots)`** / **`remove_adapter(adapter)`** —
+  Declare or forget an adapter and its slot capacity. On registration,
+  devices that BlueZ already reports as connected on the adapter are
+  pre-allocated.
+- **`get_allocations(adapter)`** — Return an `Allocations` dataclass
+  describing the adapter (`slots`, `free`, list of allocated addresses).
+- **`release_slot(device)`** — Manually release a slot held by `device`.
+  Normally unnecessary: the manager watches BlueZ's `Connected` property and
+  releases automatically on disconnect.
+- **`register_allocation_callback(callback)`** — Subscribe to
+  `AllocationChangeEvent`s (allocated / released). Returns an unsubscribe
+  callable.
+- **`diagnostics()`** — Return a JSON-friendly snapshot for logging.
+
+`BleakSlotManager` only sees BlueZ adapters; ESPHome proxy slots are tracked
+by the proxy itself and reported through habluetooth. On non-Linux platforms
+the manager can be constructed but `async_setup()` will not find a BlueZ
+manager to attach to.
+
+## Constants
+
+- **`BLEAK_RETRY_EXCEPTIONS`**: A tuple of exception classes that
+  `establish_connection` and `retry_bluetooth_connection_error` treat as
+  transient and retryable: `AttributeError`, `BleakError`, `EOFError`,
+  `BrokenPipeError`, and `asyncio.TimeoutError`. Re-exported so callers
+  layering their own retry logic on top can match the same set.
+
+- **`NO_RSSI_VALUE`** (`-127`): Sentinel value used internally when an
+  advertisement carries no RSSI. Exported so callers ranking devices by
+  signal strength can use the same floor.
+
+- **`RSSI_SWITCH_THRESHOLD`** (`5`): Minimum RSSI delta in dBm that
+  `establish_connection` requires before switching to a stronger advertised
+  path mid-retry. Exposed for callers that want to apply the same hysteresis
+  to their own adapter-selection logic.
