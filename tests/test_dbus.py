@@ -72,7 +72,9 @@ async def test_disconnect_devices_calls_bus_for_each_valid_device() -> None:
     assert bus.call.await_count == 2
     paths = [
         kwargs["path"] if "path" in kwargs else args[0]
-        for args, kwargs in [(call.args, call.kwargs) for call in fake_message_cls.call_args_list]
+        for args, kwargs in [
+            (call.args, call.kwargs) for call in fake_message_cls.call_args_list
+        ]
     ]
     assert paths == ["/org/bluez/hci0/dev_AA", "/org/bluez/hci0/dev_BB"]
     for call in fake_message_cls.call_args_list:
