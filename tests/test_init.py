@@ -972,7 +972,6 @@ async def test_establish_connection_other_adapter_already_connected(mock_linux):
             "aa:bb:cc:dd:ee:ff",
             "name",
             {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-            delegate=False,
         ),
         "test",
         disconnected_callback=MagicMock(),
@@ -1045,7 +1044,6 @@ async def test_establish_connection_device_disappeared(mock_linux):
                 "aa:bb:cc:dd:ee:ff",
                 "name",
                 {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                delegate=False,
             ),
             "test",
             disconnected_callback=MagicMock(),
@@ -1491,7 +1489,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
         "aa:bb:cc:dd:ee:ff",
         "name",
         {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-        delegate=False,
     )
 
     connected = await get_connected_devices(mock_device)
@@ -1507,7 +1504,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
                 "FA:23:9D:AA:45:46",
                 "name",
                 {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-                delegate=False,
             ),
             "test",
             disconnected_callback=MagicMock(),
@@ -1619,7 +1615,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
         "aa:bb:cc:dd:ee:ff",
         "name",
         {"path": "/org/bluez/hci2/dev_FA_23_9D_AA_45_46"},
-        delegate=False,
     )
 
     connected = await get_connected_devices(mock_device)
@@ -1639,7 +1634,6 @@ async def test_establish_connection_better_rssi_available_already_connected_supp
                 "FA:23:9D:AA:45:46",
                 "name",
                 {"path": "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"},
-                delegate=False,
             ),
             "test",
             disconnected_callback=MagicMock(),
@@ -2149,7 +2143,6 @@ async def test_has_valid_services_in_cache_success(mock_linux):
         address="FA:23:9D:AA:45:46",
         name="Test Device",
         details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
-        rssi=-50,
     )
 
     # Capture the log to verify the success message
@@ -2235,7 +2228,6 @@ async def test_has_valid_services_in_cache_service_missing(mock_linux):
         address="FA:23:9D:AA:45:46",
         name="Test Device",
         details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
-        rssi=-50,
     )
 
     # Call the function directly to verify it returns False
@@ -2297,7 +2289,6 @@ async def test_has_valid_services_in_cache_no_services(mock_linux):
         address="FA:23:9D:AA:45:46",
         name="Test Device",
         details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
-        rssi=-50,
     )
 
     # Call the function directly to verify it returns False
@@ -2322,7 +2313,6 @@ async def test_has_valid_services_in_cache_non_linux(mock_macos):
         address="FA:23:9D:AA:45:46",
         name="Test Device",
         details={"path": "/some/macos/path"},
-        rssi=-50,
     )
 
     # Should return True on non-Linux platforms
@@ -2339,7 +2329,6 @@ async def test_has_valid_services_in_cache_esphome_proxy(mock_linux):
         address="FA:23:9D:AA:45:46",
         name="Test Device",
         details={"source": "192.168.1.100"},  # ESPHome proxy source
-        rssi=-50,
     )
 
     # Should return True for non-BlueZ devices (ESPHome proxy)
