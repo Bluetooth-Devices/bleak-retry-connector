@@ -18,6 +18,7 @@ import bleak_retry_connector
 from bleak_retry_connector import (
     BLEAK_BACKOFF_TIME,
     BLEAK_DBUS_BACKOFF_TIME,
+    BLEAK_DISCONNECTED_BACKOFF_TIME,
     BLEAK_OUT_OF_SLOTS_BACKOFF_TIME,
     BLEAK_TRANSIENT_BACKOFF_TIME,
     BLEAK_TRANSIENT_LONG_BACKOFF_TIME,
@@ -1759,6 +1760,17 @@ def test_calculate_backoff_time():
     assert (
         calculate_backoff_time(BleakError("ESP_GATT_CONN_CONN_CANCEL"))
         == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+    )
+    assert calculate_backoff_time(EOFError()) == BLEAK_DBUS_BACKOFF_TIME
+    assert calculate_backoff_time(BrokenPipeError()) == BLEAK_DBUS_BACKOFF_TIME
+    assert calculate_backoff_time(asyncio.TimeoutError()) == BLEAK_DBUS_BACKOFF_TIME
+    assert (
+        calculate_backoff_time(BleakNotFoundError("not found"))
+        == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+    )
+    assert (
+        calculate_backoff_time(BleakError("Disconnected"))
+        == BLEAK_DISCONNECTED_BACKOFF_TIME
     )
 
 
