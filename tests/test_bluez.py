@@ -598,7 +598,7 @@ async def test_slot_manager_mac_os():
     slot_manager.remove_adapter("hci0")
 
 
-def test_device_source():
+async def test_device_source():
     ble_device_hci0_2 = BLEDevice(
         "FA:23:9D:AA:45:46",
         "FA:23:9D:AA:45:46",
@@ -612,7 +612,7 @@ def test_device_source():
     assert device_source(ble_device_hci0_2) == "aa:bb:cc:dd:ee:ff"
 
 
-def test_path_from_ble_device():
+async def test_path_from_ble_device():
     ble_device_hci0_2 = BLEDevice(
         "FA:23:9D:AA:45:46",
         "FA:23:9D:AA:45:46",
