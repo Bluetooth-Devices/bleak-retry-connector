@@ -52,9 +52,7 @@ async def test_returns_cached_manager_when_loop_already_registered(
 
 async def test_short_circuits_after_filenotfound_is_cached(mock_linux, monkeypatch):
     """A FileNotFoundError marks the socket missing and skips subsequent calls."""
-    monkeypatch.setattr(
-        bleak_retry_connector.bleak_manager, "_global_instances", {}
-    )
+    monkeypatch.setattr(bleak_retry_connector.bleak_manager, "_global_instances", {})
     mock_get = AsyncMock(side_effect=FileNotFoundError(2, "no such file", "/run/dbus"))
     monkeypatch.setattr(
         bleak_retry_connector.bleak_manager, "get_global_bluez_manager", mock_get
@@ -70,9 +68,7 @@ async def test_short_circuits_after_filenotfound_is_cached(mock_linux, monkeypat
 
 async def test_short_circuits_after_timeout_is_cached(mock_linux, monkeypatch):
     """An asyncio.TimeoutError also flips the cache to False and skips retries."""
-    monkeypatch.setattr(
-        bleak_retry_connector.bleak_manager, "_global_instances", {}
-    )
+    monkeypatch.setattr(bleak_retry_connector.bleak_manager, "_global_instances", {})
     mock_get = AsyncMock(side_effect=asyncio.TimeoutError())
     monkeypatch.setattr(
         bleak_retry_connector.bleak_manager, "get_global_bluez_manager", mock_get
@@ -90,9 +86,7 @@ async def test_generic_exception_returns_none_but_does_not_cache(
     mock_linux, monkeypatch
 ):
     """A generic exception logs and returns None, but does NOT poison the cache."""
-    monkeypatch.setattr(
-        bleak_retry_connector.bleak_manager, "_global_instances", {}
-    )
+    monkeypatch.setattr(bleak_retry_connector.bleak_manager, "_global_instances", {})
     mock_get = AsyncMock(side_effect=RuntimeError("boom"))
     monkeypatch.setattr(
         bleak_retry_connector.bleak_manager, "get_global_bluez_manager", mock_get
@@ -110,9 +104,7 @@ async def test_generic_exception_returns_none_but_does_not_cache(
 async def test_returns_manager_on_success(mock_linux, monkeypatch):
     """When get_global_bluez_manager succeeds, its return value is propagated."""
     sentinel_manager = object()
-    monkeypatch.setattr(
-        bleak_retry_connector.bleak_manager, "_global_instances", {}
-    )
+    monkeypatch.setattr(bleak_retry_connector.bleak_manager, "_global_instances", {})
     mock_get = AsyncMock(return_value=sentinel_manager)
     monkeypatch.setattr(
         bleak_retry_connector.bleak_manager, "get_global_bluez_manager", mock_get
@@ -124,12 +116,13 @@ async def test_returns_manager_on_success(mock_linux, monkeypatch):
 
 async def test_reset_dbus_socket_cache_re_enables_retries(mock_linux, monkeypatch):
     """_reset_dbus_socket_cache() lets the helper retry after a cached failure."""
-    monkeypatch.setattr(
-        bleak_retry_connector.bleak_manager, "_global_instances", {}
-    )
+    monkeypatch.setattr(bleak_retry_connector.bleak_manager, "_global_instances", {})
     sentinel_manager = object()
     mock_get = AsyncMock(
-        side_effect=[FileNotFoundError(2, "no such file", "/run/dbus"), sentinel_manager]
+        side_effect=[
+            FileNotFoundError(2, "no such file", "/run/dbus"),
+            sentinel_manager,
+        ]
     )
     monkeypatch.setattr(
         bleak_retry_connector.bleak_manager, "get_global_bluez_manager", mock_get
