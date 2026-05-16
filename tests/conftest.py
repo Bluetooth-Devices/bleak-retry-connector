@@ -1,7 +1,9 @@
 import logging
+from collections.abc import Iterator
 from unittest.mock import patch
 
 import pytest
+from blockbuster import BlockBuster, blockbuster_ctx
 
 import bleak_retry_connector
 
@@ -9,6 +11,12 @@ import bleak_retry_connector
 @pytest.fixture(autouse=True)
 def configure_test_logging(caplog):
     caplog.set_level(logging.DEBUG)
+
+
+@pytest.fixture(autouse=True)
+def blockbuster() -> Iterator[BlockBuster]:
+    with blockbuster_ctx("bleak_retry_connector") as bb:
+        yield bb
 
 
 @pytest.fixture()
