@@ -828,7 +828,9 @@ async def test_wait_for_disconnect_waits_remaining_min_wait_time(mock_linux):
     assert sleeps == [pytest.approx(0.8)]
 
 
-async def test_wait_for_disconnect_skips_extra_sleep_when_already_waited(mock_linux):
+async def test_wait_for_disconnect_skips_extra_sleep_when_already_waited(
+    mock_linux: None,
+) -> None:
     """If we already waited long enough, no extra sleep is issued."""
     device = BLEDevice(
         "FA:23:9D:AA:45:46",
