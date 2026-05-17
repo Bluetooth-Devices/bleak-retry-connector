@@ -5,7 +5,6 @@ import pytest
 from bleak.backends.bluezdbus import defs
 from bleak.backends.device import BLEDevice
 
-import bleak_retry_connector
 from bleak_retry_connector.dbus import disconnect_devices
 
 pytestmark = pytest.mark.asyncio
