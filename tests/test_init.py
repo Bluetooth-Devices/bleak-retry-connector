@@ -536,10 +536,13 @@ async def test_establish_connection_has_transient_eof_error():
     async def fake_wait_for_disconnect(device, backoff_time):
         wait_calls.append(backoff_time)
 
-    with patch(
-        "bleak_retry_connector.wait_for_disconnect",
-        side_effect=fake_wait_for_disconnect,
-    ), patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+    with (
+        patch(
+            "bleak_retry_connector.wait_for_disconnect",
+            side_effect=fake_wait_for_disconnect,
+        ),
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
         client = await establish_connection(FakeBleakClient, MagicMock(), "test")
 
     assert isinstance(client, FakeBleakClient)
@@ -566,9 +569,10 @@ async def test_establish_connection_eof_error_exhausts_retries(
         async def disconnect(self, *args, **kwargs):
             pass
 
-    with patch(
-        "bleak_retry_connector.wait_for_disconnect", AsyncMock()
-    ), patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+    with (
+        patch("bleak_retry_connector.wait_for_disconnect", AsyncMock()),
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
         with pytest.raises(BleakConnectionError):
             await establish_connection(FakeBleakClient, MagicMock(), "test")
 
