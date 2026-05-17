@@ -1262,8 +1262,8 @@ async def test_get_bluez_device_no_properties(mock_linux):
 
 
 async def test_get_bluez_device_disappeared_logs(
-    mock_linux, caplog: pytest.LogCaptureFixture
-):
+    mock_linux: None, caplog: pytest.LogCaptureFixture
+) -> None:
     """Device path missing from props logs the disappearance and still scans alternates."""
 
     class FakeBluezManager:
