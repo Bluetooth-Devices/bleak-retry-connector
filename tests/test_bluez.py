@@ -18,6 +18,7 @@ from bleak_retry_connector import (
 from bleak_retry_connector.bluez import (
     adapter_path_from_device_path,
     ble_device_from_properties,
+    clear_cache,
     path_from_ble_device,
     stop_discovery,
     wait_for_device_to_reappear,
@@ -1017,3 +1018,157 @@ async def test_wait_for_device_to_reappear_debug_logging(mock_linux, caplog):
     assert result is False
     assert "Waiting" in caplog.text
     assert "did not re-appear" in caplog.text
+
+
+async def test_clear_cache_not_linux(mock_macos: None) -> None:
+    """Non-Linux short-circuits and returns False."""
+    assert await clear_cache("FA:23:9D:AA:45:46") is False
+
+
+async def test_clear_cache_no_device(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If get_device returns None, clear_cache returns False without touching cache."""
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager_with_timeout",
+        AsyncMock(return_value=None),
+    )
+    assert await clear_cache("FA:23:9D:AA:45:46") is False
+
+
+async def test_clear_cache_no_services_cache(
+    mock_linux: None,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """get_device succeeds but services cache is unavailable → warn + False."""
+
+    class FakeBluezManager:
+        def __init__(self) -> None:
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                    },
+                },
+            }
+
+    manager = FakeBluezManager()
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=manager),
+    )
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager_with_timeout",
+        AsyncMock(return_value=manager),
+    )
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
+    monkeypatch.setattr(
+        bleak_retry_connector.bluez,
+        "_get_services_cache",
+        AsyncMock(return_value=None),
+    )
+
+    assert await clear_cache("FA:23:9D:AA:45:46") is False
+    assert "no services cache" in caplog.text
+
+
+async def test_clear_cache_no_manager(
+    mock_linux: None,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """services cache returns dict but the manager fetch fails → warn + False."""
+    fake_device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    monkeypatch.setattr(
+        bleak_retry_connector.bluez,
+        "get_device",
+        AsyncMock(return_value=fake_device),
+    )
+    monkeypatch.setattr(
+        bleak_retry_connector.bluez,
+        "_get_services_cache",
+        AsyncMock(return_value={}),
+    )
+    monkeypatch.setattr(
+        bleak_retry_connector.bluez,
+        "get_global_bluez_manager_with_timeout",
+        AsyncMock(return_value=None),
+    )
+
+    assert await clear_cache("FA:23:9D:AA:45:46") is False
+    assert "no manager" in caplog.text
+
+
+async def test_clear_cache_sends_remove_device(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Happy path: matching paths are popped from cache and RemoveDevice is sent."""
+    sent_kwargs: list[dict[str, Any]] = []
+
+    class FakeBus:
+        async def send(self, message: Any) -> None:
+            return None
+
+    class FakeBluezManager:
+        def __init__(self) -> None:
+            self._bus = FakeBus()
+            self._services_cache = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": "svc0",
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": "svc1",
+            }
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -30,
+                    },
+                },
+                "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
+                    defs.DEVICE_INTERFACE: {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Alias": "FA:23:9D:AA:45:46",
+                        "RSSI": -60,
+                    },
+                },
+            }
+
+    manager = FakeBluezManager()
+
+    def _record_message(**kw: Any) -> dict[str, Any]:
+        sent_kwargs.append(kw)
+        return kw
+
+    fake_message = MagicMock(side_effect=_record_message)
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=manager),
+    )
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager_with_timeout",
+        AsyncMock(return_value=manager),
+    )
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
+    monkeypatch.setattr(bleak_retry_connector.bluez, "Message", fake_message)
+
+    assert await clear_cache("FA:23:9D:AA:45:46") is True
+    assert manager._services_cache == {}
+    assert len(sent_kwargs) == 2
+    assert {kw["path"] for kw in sent_kwargs} == {"/org/bluez/hci0", "/org/bluez/hci1"}
+    assert all(kw["member"] == "RemoveDevice" for kw in sent_kwargs)
