@@ -553,7 +553,7 @@ async def test_establish_connection_has_transient_eof_error():
 @pytest.mark.asyncio
 async def test_establish_connection_eof_error_exhausts_retries(
     caplog: pytest.LogCaptureFixture,
-):
+) -> None:
     """EOFError exceeding MAX_TRANSIENT_ERRORS raises BleakConnectionError and logs."""
     attempts = 0
 
