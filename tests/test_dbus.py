@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,6 +9,16 @@ import bleak_retry_connector
 from bleak_retry_connector.dbus import disconnect_devices
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _prime_dbus_coverage() -> None:
+    # On Python 3.14, coverage's sysmon backend lazily calls os.stat to read
+    # source the first time a branch fires in a tracked file; the autouse
+    # blockbuster fixture in conftest then flags that stat as a blocking
+    # call. Module-scoped fixtures run before the function-scoped blockbuster,
+    # so executing the trivial path here warms the per-file source cache.
+    asyncio.run(disconnect_devices([]))
 
 
 def _device(path: str | None = "/org/bluez/hci0/dev_FA_23_9D_AA_45_46") -> BLEDevice:
