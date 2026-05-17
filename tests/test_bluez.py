@@ -5,6 +5,7 @@ import pytest
 from bleak.backends.bluezdbus import defs
 from bleak.backends.bluezdbus.manager import DeviceWatcher
 from bleak.backends.device import BLEDevice
+from bleak.exc import BleakError
 
 import bleak_retry_connector
 from bleak_retry_connector import (
@@ -20,6 +21,7 @@ from bleak_retry_connector.bluez import (
     path_from_ble_device,
     stop_discovery,
     wait_for_device_to_reappear,
+    wait_for_disconnect,
 )
 
 pytestmark = pytest.mark.asyncio
@@ -737,3 +739,281 @@ async def test_stop_discovery_no_manager(
 
     await stop_discovery("hci0")
     assert "Failed to stop discovery" in caplog.text
+
+
+async def test_wait_for_disconnect_not_linux(mock_macos):
+    """Non-Linux platforms fall back to a plain sleep."""
+    device = BLEDevice("AA:BB:CC:DD:EE:FF", "name", {"path": "/org/bluez/hci0/dev_x"})
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    with patch("bleak_retry_connector.bluez.asyncio.sleep", side_effect=fake_sleep):
+        await wait_for_disconnect(device, 0.25)
+
+    assert sleeps == [0.25]
+
+
+async def test_wait_for_disconnect_no_path(mock_linux):
+    """Devices without a 'path' entry in details fall back to a plain sleep."""
+    device = BLEDevice("AA:BB:CC:DD:EE:FF", "name", {"source": "aa:bb:cc:dd:ee:ff"})
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    with patch("bleak_retry_connector.bluez.asyncio.sleep", side_effect=fake_sleep):
+        await wait_for_disconnect(device, 0.1)
+
+    assert sleeps == [0.1]
+
+
+async def test_wait_for_disconnect_no_manager(
+    mock_linux: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """If no BlueZ manager is available, log and return without sleeping."""
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    with patch(
+        "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+        AsyncMock(return_value=None),
+    ):
+        await wait_for_disconnect(device, 1.0)
+
+    assert "Failed to wait for disconnect because no manager" in caplog.text
+
+
+async def test_wait_for_disconnect_waits_remaining_min_wait_time(mock_linux):
+    """When the device disconnects sooner than min_wait_time, sleep the remainder."""
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    manager = MagicMock()
+    manager._wait_condition = AsyncMock()
+    # Only wait_for_disconnect-issued sleeps land here (we don't patch global sleep).
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    # Patch the time module bound on bluez to return start=100.0, end=100.2
+    # without affecting asyncio internals that read the real clock.
+    fake_time = MagicMock()
+    fake_time.monotonic = MagicMock(side_effect=[100.0, 100.2])
+
+    with (
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            AsyncMock(return_value=manager),
+        ),
+        patch.object(bleak_retry_connector.bluez, "time", fake_time),
+        patch("bleak_retry_connector.bluez.asyncio.sleep", side_effect=fake_sleep),
+    ):
+        await wait_for_disconnect(device, 1.0)
+
+    manager._wait_condition.assert_awaited_once_with(
+        "/org/bluez/hci0/dev_FA_23_9D_AA_45_46", "Connected", False
+    )
+    # waited = 0.2, min_wait_time = 1.0, so remaining sleep should be 0.8.
+    assert sleeps == [pytest.approx(0.8)]
+
+
+async def test_wait_for_disconnect_skips_extra_sleep_when_already_waited(mock_linux):
+    """If we already waited long enough, no extra sleep is issued."""
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    manager = MagicMock()
+    manager._wait_condition = AsyncMock()
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    fake_time = MagicMock()
+    fake_time.monotonic = MagicMock(side_effect=[100.0, 105.0])
+
+    with (
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            AsyncMock(return_value=manager),
+        ),
+        patch.object(bleak_retry_connector.bluez, "time", fake_time),
+        patch("bleak_retry_connector.bluez.asyncio.sleep", side_effect=fake_sleep),
+    ):
+        await wait_for_disconnect(device, 1.0)
+
+    assert sleeps == []
+
+
+async def test_wait_for_disconnect_zero_min_wait_time(mock_linux):
+    """min_wait_time=0 bypasses the timing branch entirely."""
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    manager = MagicMock()
+    manager._wait_condition = AsyncMock()
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    with (
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            AsyncMock(return_value=manager),
+        ),
+        patch("bleak_retry_connector.bluez.asyncio.sleep", side_effect=fake_sleep),
+    ):
+        await wait_for_disconnect(device, 0)
+
+    manager._wait_condition.assert_awaited_once()
+    assert sleeps == []
+
+
+async def test_wait_for_disconnect_bleak_error_triggers_reappear(
+    mock_linux: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A BleakError from _wait_condition routes through wait_for_device_to_reappear."""
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    manager = MagicMock()
+    manager._wait_condition = AsyncMock(side_effect=BleakError("gone"))
+    reappear_calls: list[tuple[BLEDevice, float]] = []
+
+    async def fake_reappear(d, t):
+        reappear_calls.append((d, t))
+        return True
+
+    with (
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            AsyncMock(return_value=manager),
+        ),
+        patch(
+            "bleak_retry_connector.bluez.wait_for_device_to_reappear",
+            side_effect=fake_reappear,
+        ),
+    ):
+        await wait_for_disconnect(device, 0.5)
+
+    assert reappear_calls == [(device, 0.5)]
+    assert "Device was removed from bus" in caplog.text
+
+
+async def test_wait_for_disconnect_key_error_triggers_reappear(mock_linux):
+    """KeyError is treated the same as BleakError."""
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    manager = MagicMock()
+    manager._wait_condition = AsyncMock(side_effect=KeyError("missing"))
+    called = False
+
+    async def fake_reappear(d, t):
+        nonlocal called
+        called = True
+        return False
+
+    with (
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            AsyncMock(return_value=manager),
+        ),
+        patch(
+            "bleak_retry_connector.bluez.wait_for_device_to_reappear",
+            side_effect=fake_reappear,
+        ),
+    ):
+        await wait_for_disconnect(device, 0.1)
+
+    assert called
+
+
+async def test_wait_for_disconnect_unexpected_exception_swallowed(
+    mock_linux: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Any other exception is logged and swallowed — no reappear fallback."""
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    manager = MagicMock()
+    manager._wait_condition = AsyncMock(side_effect=RuntimeError("boom"))
+    reappear_called = False
+
+    async def fake_reappear(d, t):
+        nonlocal reappear_called
+        reappear_called = True
+
+    with (
+        patch(
+            "bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout",
+            AsyncMock(return_value=manager),
+        ),
+        patch(
+            "bleak_retry_connector.bluez.wait_for_device_to_reappear",
+            side_effect=fake_reappear,
+        ),
+    ):
+        await wait_for_disconnect(device, 0.1)
+
+    assert reappear_called is False
+    assert "Failed waiting for disconnect" in caplog.text
+
+
+async def test_wait_for_device_to_reappear_debug_logging(mock_linux, caplog):
+    """Debug-level branches in wait_for_device_to_reappear log per iteration."""
+    import logging
+
+    caplog.set_level(logging.DEBUG, logger="bleak_retry_connector.bluez")
+
+    class BluezManager:
+        # Non-empty so _get_properties() returns truthy, but the device path
+        # is intentionally absent so the loop exhausts without finding it.
+        _properties: dict[str, dict[str, dict[str, str]]] = {
+            "/org/bluez/hci0/dev_OTHER": {defs.DEVICE_INTERFACE: {"Address": "x"}}
+        }
+
+        def is_connected(self, path):
+            return False
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=BluezManager()
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    # Force the function-local `debug` flag True even if the logger level
+    # isn't picked up via caplog (matches how real callers see it).
+    with (
+        patch.object(bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.01),
+        patch.object(
+            bleak_retry_connector.bluez._LOGGER, "isEnabledFor", return_value=True
+        ),
+    ):
+        result = await wait_for_device_to_reappear(device, 0.03)
+
+    assert result is False
+    assert "Waiting" in caplog.text
+    assert "did not re-appear" in caplog.text
