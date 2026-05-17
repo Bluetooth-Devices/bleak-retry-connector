@@ -1257,10 +1257,7 @@ async def test_get_bluez_device_no_properties(mock_linux):
         AsyncMock(return_value=None)
     )
     assert (
-        await get_bluez_device(
-            "Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
-        )
-        is None
+        await get_bluez_device("Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46") is None
     )
 
 
@@ -1290,9 +1287,7 @@ async def test_get_bluez_device_disappeared_logs(
     )
     bleak_retry_connector.bluez.defs = defs
 
-    device = await get_bluez_device(
-        "Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
-    )
+    device = await get_bluez_device("Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46")
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
     assert "Device has disappeared" in caplog.text
@@ -1357,10 +1352,7 @@ async def test_get_bluez_device_connected_at_original_path(mock_linux):
     bleak_retry_connector.bluez.defs = defs
 
     assert (
-        await get_bluez_device(
-            "Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
-        )
-        is None
+        await get_bluez_device("Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46") is None
     )
 
 
