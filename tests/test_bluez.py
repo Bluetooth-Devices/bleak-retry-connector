@@ -987,7 +987,7 @@ async def test_wait_for_device_to_reappear_debug_logging(mock_linux, caplog):
     class BluezManager:
         # Non-empty so _get_properties() returns truthy, but the device path
         # is intentionally absent so the loop exhausts without finding it.
-        _properties: dict = {
+        _properties: dict[str, dict[str, dict[str, str]]] = {
             "/org/bluez/hci0/dev_OTHER": {defs.DEVICE_INTERFACE: {"Address": "x"}}
         }
 
