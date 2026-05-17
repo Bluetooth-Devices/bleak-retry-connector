@@ -515,6 +515,69 @@ async def test_establish_connection_has_transient_broken_pipe_error():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_has_transient_eof_error():
+    """EOFError raised during connect is treated as transient and retried."""
+    attempts = 0
+    wait_calls: list[float] = []
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts < MAX_TRANSIENT_ERRORS:
+                raise EOFError
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    async def fake_wait_for_disconnect(device, backoff_time):
+        wait_calls.append(backoff_time)
+
+    with patch(
+        "bleak_retry_connector.wait_for_disconnect",
+        side_effect=fake_wait_for_disconnect,
+    ), patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 9
+    assert wait_calls == [0] * 8
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_eof_error_exhausts_retries(
+    caplog: pytest.LogCaptureFixture,
+):
+    """EOFError exceeding MAX_TRANSIENT_ERRORS raises BleakConnectionError and logs."""
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            raise EOFError("broken bus")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch(
+        "bleak_retry_connector.wait_for_disconnect", AsyncMock()
+    ), patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        with pytest.raises(BleakConnectionError):
+            await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert attempts == MAX_TRANSIENT_ERRORS
+    assert "broken bus" in caplog.text
+    assert "backing off" in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_services_changed():
     attempts = 0
     disconnect_calls = 0
