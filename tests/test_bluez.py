@@ -1177,12 +1177,14 @@ async def test_clear_cache_sends_remove_device(
     assert all(kw["member"] == "RemoveDevice" for kw in sent_kwargs)
 
 
-async def test_get_device_by_adapter_not_linux(mock_macos):
+async def test_get_device_by_adapter_not_linux(mock_macos: None) -> None:
     """Non-Linux returns None immediately."""
     assert await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0") is None
 
 
-async def test_get_device_by_adapter_no_properties(mock_linux, monkeypatch):
+async def test_get_device_by_adapter_no_properties(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """No bluez manager yields no properties → returns None."""
     monkeypatch.setattr(
         bleak_retry_connector.bleak_manager,
@@ -1192,7 +1194,9 @@ async def test_get_device_by_adapter_no_properties(mock_linux, monkeypatch):
     assert await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0") is None
 
 
-async def test_get_device_by_adapter_path_missing(mock_linux, monkeypatch):
+async def test_get_device_by_adapter_path_missing(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Path absent from properties → returns None."""
 
     class FakeBluezManager:
@@ -1217,7 +1221,9 @@ async def test_get_device_by_adapter_path_missing(mock_linux, monkeypatch):
     assert await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0") is None
 
 
-async def test_get_device_by_adapter_returns_device(mock_linux, monkeypatch):
+async def test_get_device_by_adapter_returns_device(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Matching adapter+address returns the BLEDevice."""
 
     class FakeBluezManager:
@@ -1245,7 +1251,9 @@ async def test_get_device_by_adapter_returns_device(mock_linux, monkeypatch):
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
 
 
-async def test_get_bluez_device_no_properties(mock_linux, monkeypatch):
+async def test_get_bluez_device_no_properties(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """No properties → returns None early."""
     monkeypatch.setattr(
         bleak_retry_connector.bleak_manager,
@@ -1291,8 +1299,10 @@ async def test_get_bluez_device_disappeared_logs(
 
 
 async def test_get_bluez_device_disappeared_silent_when_flag_false(
-    mock_linux, caplog, monkeypatch
-):
+    mock_linux: None,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """`_log_disappearance=False` suppresses the disappearance log."""
 
     class FakeBluezManager:
@@ -1324,7 +1334,9 @@ async def test_get_bluez_device_disappeared_silent_when_flag_false(
     assert "Device has disappeared" not in caplog.text
 
 
-async def test_get_bluez_device_connected_at_original_path(mock_linux, monkeypatch):
+async def test_get_bluez_device_connected_at_original_path(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Device already connected at the requested path → returns None (use original)."""
 
     class FakeBluezManager:
@@ -1354,8 +1366,8 @@ async def test_get_bluez_device_connected_at_original_path(mock_linux, monkeypat
 
 
 async def test_get_bluez_device_skips_unconnected_original_path(
-    mock_linux, monkeypatch
-):
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The original path is skipped during alternate scoring when not connected."""
 
     class FakeBluezManager:
@@ -1392,7 +1404,9 @@ async def test_get_bluez_device_skips_unconnected_original_path(
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
 
 
-async def test_get_connected_devices_no_properties(mock_linux, monkeypatch):
+async def test_get_connected_devices_no_properties(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """No properties → returns empty list."""
     monkeypatch.setattr(
         bleak_retry_connector.bleak_manager,
