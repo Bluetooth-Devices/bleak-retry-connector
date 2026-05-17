@@ -1182,18 +1182,17 @@ async def test_get_device_by_adapter_not_linux(mock_macos):
     assert await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0") is None
 
 
-async def test_get_device_by_adapter_no_properties(mock_linux):
+async def test_get_device_by_adapter_no_properties(mock_linux, monkeypatch):
     """No bluez manager yields no properties → returns None."""
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=None
-    )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=None),
     )
     assert await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0") is None
 
 
-async def test_get_device_by_adapter_path_missing(mock_linux):
+async def test_get_device_by_adapter_path_missing(mock_linux, monkeypatch):
     """Path absent from properties → returns None."""
 
     class FakeBluezManager:
@@ -1208,18 +1207,17 @@ async def test_get_device_by_adapter_path_missing(mock_linux):
             }
 
     manager = FakeBluezManager()
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=manager
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=manager),
     )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=manager)
-    )
-    bleak_retry_connector.bluez.defs = defs
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
 
     assert await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0") is None
 
 
-async def test_get_device_by_adapter_returns_device(mock_linux):
+async def test_get_device_by_adapter_returns_device(mock_linux, monkeypatch):
     """Matching adapter+address returns the BLEDevice."""
 
     class FakeBluezManager:
@@ -1235,26 +1233,24 @@ async def test_get_device_by_adapter_returns_device(mock_linux):
             }
 
     manager = FakeBluezManager()
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=manager
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=manager),
     )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=manager)
-    )
-    bleak_retry_connector.bluez.defs = defs
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
 
     device = await get_device_by_adapter("FA:23:9D:AA:45:46", "hci1")
     assert device is not None
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
 
 
-async def test_get_bluez_device_no_properties(mock_linux):
+async def test_get_bluez_device_no_properties(mock_linux, monkeypatch):
     """No properties → returns None early."""
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=None
-    )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=None),
     )
     assert (
         await get_bluez_device("Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46") is None
@@ -1262,7 +1258,9 @@ async def test_get_bluez_device_no_properties(mock_linux):
 
 
 async def test_get_bluez_device_disappeared_logs(
-    mock_linux: None, caplog: pytest.LogCaptureFixture
+    mock_linux: None,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Device path missing from props logs the disappearance and still scans alternates."""
 
@@ -1279,13 +1277,12 @@ async def test_get_bluez_device_disappeared_logs(
             }
 
     manager = FakeBluezManager()
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=manager
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=manager),
     )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=manager)
-    )
-    bleak_retry_connector.bluez.defs = defs
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
 
     device = await get_bluez_device("Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46")
     assert device is not None
@@ -1293,7 +1290,9 @@ async def test_get_bluez_device_disappeared_logs(
     assert "Device has disappeared" in caplog.text
 
 
-async def test_get_bluez_device_disappeared_silent_when_flag_false(mock_linux, caplog):
+async def test_get_bluez_device_disappeared_silent_when_flag_false(
+    mock_linux, caplog, monkeypatch
+):
     """`_log_disappearance=False` suppresses the disappearance log."""
 
     class FakeBluezManager:
@@ -1309,13 +1308,12 @@ async def test_get_bluez_device_disappeared_silent_when_flag_false(mock_linux, c
             }
 
     manager = FakeBluezManager()
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=manager
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=manager),
     )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=manager)
-    )
-    bleak_retry_connector.bluez.defs = defs
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
 
     caplog.clear()
     await get_bluez_device(
@@ -1326,7 +1324,7 @@ async def test_get_bluez_device_disappeared_silent_when_flag_false(mock_linux, c
     assert "Device has disappeared" not in caplog.text
 
 
-async def test_get_bluez_device_connected_at_original_path(mock_linux):
+async def test_get_bluez_device_connected_at_original_path(mock_linux, monkeypatch):
     """Device already connected at the requested path → returns None (use original)."""
 
     class FakeBluezManager:
@@ -1343,20 +1341,21 @@ async def test_get_bluez_device_connected_at_original_path(mock_linux):
             }
 
     manager = FakeBluezManager()
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=manager
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=manager),
     )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=manager)
-    )
-    bleak_retry_connector.bluez.defs = defs
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
 
     assert (
         await get_bluez_device("Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46") is None
     )
 
 
-async def test_get_bluez_device_skips_unconnected_original_path(mock_linux):
+async def test_get_bluez_device_skips_unconnected_original_path(
+    mock_linux, monkeypatch
+):
     """The original path is skipped during alternate scoring when not connected."""
 
     class FakeBluezManager:
@@ -1379,13 +1378,12 @@ async def test_get_bluez_device_skips_unconnected_original_path(mock_linux):
             }
 
     manager = FakeBluezManager()
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=manager
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=manager),
     )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=manager)
-    )
-    bleak_retry_connector.bluez.defs = defs
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
 
     device = await get_bluez_device(
         "Test", "/org/bluez/hci0/dev_FA_23_9D_AA_45_46", rssi=-90
@@ -1394,13 +1392,12 @@ async def test_get_bluez_device_skips_unconnected_original_path(mock_linux):
     assert device.details["path"] == "/org/bluez/hci1/dev_FA_23_9D_AA_45_46"
 
 
-async def test_get_connected_devices_no_properties(mock_linux):
+async def test_get_connected_devices_no_properties(mock_linux, monkeypatch):
     """No properties → returns empty list."""
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
-        return_value=None
-    )
-    bleak_retry_connector.bleak_manager.get_global_bluez_manager_with_timeout = (
-        AsyncMock(return_value=None)
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=None),
     )
     device = BLEDevice(
         "FA:23:9D:AA:45:46",
