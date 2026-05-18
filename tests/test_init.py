@@ -2517,9 +2517,7 @@ async def test_clear_cache_warns_when_not_available(caplog):
         async def disconnect(self, *args, **kwargs):
             pass
 
-    class FakeClientWithCache(
-        BleakClientWithServiceCache, FakeBleakClientNoClearCache
-    ):
+    class FakeClientWithCache(BleakClientWithServiceCache, FakeBleakClientNoClearCache):
         """Fake BleakClientWithServiceCache without clear_cache on parent."""
 
     # Sanity: this bleak version has no parent clear_cache so the else branch runs.
@@ -2553,9 +2551,7 @@ async def test_has_valid_services_in_cache_no_cached_services_for_path(mock_linu
 
     class FakeBluezManager:
         def __init__(self):
-            self._services_cache = {
-                "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": "other"
-            }
+            self._services_cache = {"/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": "other"}
             self._properties = {}
 
     bluez_manager = FakeBluezManager()
@@ -2595,9 +2591,7 @@ async def test_has_valid_services_in_cache_no_properties(mock_linux):
 
     class FakeBluezManager:
         def __init__(self):
-            self._services_cache = {
-                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": collection
-            }
+            self._services_cache = {"/org/bluez/hci0/dev_FA_23_9D_AA_45_46": collection}
             # Empty properties → _get_properties returns falsy
             self._properties = {}
 
@@ -2631,9 +2625,7 @@ async def test_close_stale_connections_by_address_non_linux(mock_macos):
 async def test_close_stale_connections_by_address_device_not_found(mock_linux):
     """If get_device returns None, no disconnect should happen."""
     with (
-        patch.object(
-            bleak_retry_connector, "get_device", AsyncMock(return_value=None)
-        ),
+        patch.object(bleak_retry_connector, "get_device", AsyncMock(return_value=None)),
         patch.object(
             bleak_retry_connector, "disconnect_devices", AsyncMock()
         ) as mock_disconnect_devices,
