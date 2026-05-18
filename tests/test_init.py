@@ -2471,3 +2471,85 @@ async def test_set_connection_params_warns_when_not_available(caplog):
     with caplog.at_level(logging.WARNING):
         await client.set_connection_params(10, 20, 3, 400)
     assert "set_connection_params not implemented in bleak version" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_no_cached_services_for_path(
+    mock_linux: None,
+) -> None:
+    """Return False when the services cache has no entry for the device path."""
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+
+    with (
+        patch.object(
+            bleak_retry_connector,
+            "_get_services_cache",
+            AsyncMock(return_value={"/org/bluez/hci0/dev_OTHER": MagicMock()}),
+        ),
+        patch.object(
+            bleak_retry_connector,
+            "_get_properties",
+            AsyncMock(return_value={}),
+        ),
+    ):
+        assert await bleak_retry_connector._has_valid_services_in_cache(device) is False
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_no_properties(mock_linux: None) -> None:
+    """Return False when properties cannot be fetched to validate cache."""
+    collection = BleakGATTServiceCollection()
+    device_path = "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": device_path},
+    )
+
+    with (
+        patch.object(
+            bleak_retry_connector,
+            "_get_services_cache",
+            AsyncMock(return_value={device_path: collection}),
+        ),
+        patch.object(
+            bleak_retry_connector,
+            "_get_properties",
+            AsyncMock(return_value=None),
+        ),
+    ):
+        assert await bleak_retry_connector._has_valid_services_in_cache(device) is False
+
+
+@pytest.mark.asyncio
+async def test_restore_discoveries_non_linux(mock_macos: None) -> None:
+    """restore_discoveries is a no-op on non-Linux platforms."""
+    mock_backend = Mock(seen_devices={})
+    mock_scanner = Mock(_backend=mock_backend)
+
+    get_props = AsyncMock()
+    with patch.object(bleak_retry_connector, "_get_properties", get_props):
+        await restore_discoveries(mock_scanner, "hci0")
+
+    get_props.assert_not_called()
+    assert mock_backend.seen_devices == {}
+
+
+@pytest.mark.asyncio
+async def test_restore_discoveries_no_properties(mock_linux: None) -> None:
+    """restore_discoveries returns early when properties are unavailable."""
+    mock_backend = Mock(seen_devices={})
+    mock_scanner = Mock(_backend=mock_backend)
+
+    with patch.object(
+        bleak_retry_connector,
+        "_get_properties",
+        AsyncMock(return_value=None),
+    ):
+        await restore_discoveries(mock_scanner, "hci0")
+
+    assert mock_backend.seen_devices == {}
