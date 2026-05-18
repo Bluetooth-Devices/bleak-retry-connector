@@ -2471,3 +2471,81 @@ async def test_set_connection_params_warns_when_not_available(caplog):
     with caplog.at_level(logging.WARNING):
         await client.set_connection_params(10, 20, 3, 400)
     assert "set_connection_params not implemented in bleak version" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_debug_disabled_cycles_all_exception_paths() -> None:
+    """Cycle through every retryable exception class with debug logging off.
+
+    Exercises the falsy ``if debug_enabled:`` branches inside each ``except``
+    handler in ``establish_connection`` (476->484, 495->601, 504->512, 521->530,
+    548->557, 561->571, 587->598), the ``should_use_cache=False`` skip
+    (488->491), and the non-cache-client branch of the ``KeyError`` handler
+    (530->535).
+    """
+    attempts = 0
+    wait_calls: list[float] = []
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def connect(self, *args: Any, **kwargs: Any) -> None:
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise asyncio.TimeoutError
+            if attempts == 2:
+                raise KeyError("org.bluez.GattService1")
+            if attempts == 3:
+                raise BrokenPipeError(32, "Broken pipe")
+            if attempts == 4:
+                raise EOFError
+            if attempts == 5:
+                raise BleakError("le-connection-abort-by-local")
+            # 6th attempt succeeds
+
+        async def disconnect(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+    async def fake_wait_for_disconnect(device: Any, backoff_time: float) -> None:
+        wait_calls.append(backoff_time)
+
+    with (
+        patch.object(bleak_retry_connector._LOGGER, "isEnabledFor", return_value=False),
+        patch(
+            "bleak_retry_connector.wait_for_disconnect",
+            side_effect=fake_wait_for_disconnect,
+        ),
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
+        client = await establish_connection(
+            FakeBleakClient,
+            MagicMock(),
+            "test",
+            use_services_cache=False,
+        )
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 6
+    # TimeoutError, EOFError, BLEAK_EXCEPTIONS all call wait_for_disconnect.
+    # KeyError on a non-cache client skips the wait. BrokenPipeError skips too.
+    assert wait_calls == [0, 0, 0]
+
+
+@pytest.mark.asyncio
+async def test_retry_bluetooth_connection_error_zero_attempts_returns_none() -> None:
+    """A decorator with ``attempts=0`` never enters the retry loop.
+
+    Exercises the ``for attempt in range(attempts):`` loop-exit branch
+    (630->exit) inside ``retry_bluetooth_connection_error``.
+    """
+    call_count = 0
+
+    @retry_bluetooth_connection_error(attempts=0)
+    async def never_called() -> None:
+        nonlocal call_count
+        call_count += 1
+
+    await never_called()
+    assert call_count == 0
