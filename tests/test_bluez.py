@@ -1202,7 +1202,7 @@ async def test_get_device_by_adapter_path_missing(
     """Path absent from properties → returns None."""
 
     class FakeBluezManager:
-        def __init__(self):
+        def __init__(self) -> None:
             self._properties = {
                 "/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": {
                     defs.DEVICE_INTERFACE: {
@@ -1229,7 +1229,7 @@ async def test_get_device_by_adapter_returns_device(
     """Matching adapter+address returns the BLEDevice."""
 
     class FakeBluezManager:
-        def __init__(self):
+        def __init__(self) -> None:
             self._properties = {
                 "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
                     defs.DEVICE_INTERFACE: {
@@ -1275,7 +1275,7 @@ async def test_get_bluez_device_disappeared_logs(
     """Device path missing from props logs the disappearance and still scans alternates."""
 
     class FakeBluezManager:
-        def __init__(self):
+        def __init__(self) -> None:
             self._properties = {
                 "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
                     defs.DEVICE_INTERFACE: {
@@ -1308,7 +1308,7 @@ async def test_get_bluez_device_disappeared_silent_when_flag_false(
     """`_log_disappearance=False` suppresses the disappearance log."""
 
     class FakeBluezManager:
-        def __init__(self):
+        def __init__(self) -> None:
             self._properties = {
                 "/org/bluez/hci1/dev_FA_23_9D_AA_45_46": {
                     defs.DEVICE_INTERFACE: {
@@ -1342,7 +1342,7 @@ async def test_get_bluez_device_connected_at_original_path(
     """Device already connected at the requested path → returns None (use original)."""
 
     class FakeBluezManager:
-        def __init__(self):
+        def __init__(self) -> None:
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     defs.DEVICE_INTERFACE: {
@@ -1373,7 +1373,7 @@ async def test_get_bluez_device_skips_unconnected_original_path(
     """The original path is skipped during alternate scoring when not connected."""
 
     class FakeBluezManager:
-        def __init__(self):
+        def __init__(self) -> None:
             self._properties = {
                 "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
                     defs.DEVICE_INTERFACE: {
