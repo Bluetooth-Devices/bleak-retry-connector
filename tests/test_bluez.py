@@ -1025,6 +1025,83 @@ async def test_wait_for_device_to_reappear_debug_logging(mock_linux, caplog):
     assert "did not re-appear" in caplog.text
 
 
+async def test_wait_for_device_to_reappear_no_debug_found(
+    mock_linux: None,
+) -> None:
+    """With debug disabled, the success path returns True without logging."""
+
+    class BluezManager:
+        _properties: dict[str, dict[str, dict[str, str]]] = {
+            "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                defs.DEVICE_INTERFACE: {"Address": "FA:23:9D:AA:45:46"}
+            }
+        }
+
+        def is_connected(self, path: str) -> bool:
+            return False
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=BluezManager()
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    with patch.object(
+        bleak_retry_connector.bluez._LOGGER, "isEnabledFor", return_value=False
+    ):
+        assert await wait_for_device_to_reappear(device, 1) is True
+
+
+async def test_wait_for_device_to_reappear_no_debug_not_found(
+    mock_linux: None,
+) -> None:
+    """With debug disabled, the loop exhausts and returns False silently."""
+
+    class BluezManager:
+        _properties: dict[str, dict[str, dict[str, str]]] = {
+            "/org/bluez/hci0/dev_OTHER": {defs.DEVICE_INTERFACE: {"Address": "x"}}
+        }
+
+        def is_connected(self, path: str) -> bool:
+            return False
+
+    bleak_retry_connector.bleak_manager.get_global_bluez_manager = AsyncMock(
+        return_value=BluezManager()
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        "FA:23:9D:AA:45:46",
+        "FA:23:9D:AA:45:46",
+        {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    with (
+        patch.object(bleak_retry_connector.bluez, "REAPPEAR_WAIT_INTERVAL", 0.01),
+        patch.object(
+            bleak_retry_connector.bluez._LOGGER, "isEnabledFor", return_value=False
+        ),
+    ):
+        assert await wait_for_device_to_reappear(device, 0.03) is False
+
+
+async def test_get_services_cache_returns_none_when_no_manager(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When the bluez manager fetch returns None, _get_services_cache returns None."""
+    from bleak_retry_connector.bluez import _get_services_cache
+
+    monkeypatch.setattr(
+        bleak_retry_connector.bluez,
+        "get_global_bluez_manager_with_timeout",
+        AsyncMock(return_value=None),
+    )
+    assert await _get_services_cache() is None
+
+
 async def test_clear_cache_not_linux(mock_macos: None) -> None:
     """Non-Linux short-circuits and returns False."""
     assert await clear_cache("FA:23:9D:AA:45:46") is False
