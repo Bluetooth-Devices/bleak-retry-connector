@@ -33,6 +33,7 @@ from bleak_retry_connector import (
     ble_device_has_changed,
     calculate_backoff_time,
     clear_cache,
+    close_stale_connections,
     close_stale_connections_by_address,
     establish_connection,
     get_connected_devices,
@@ -2471,3 +2472,228 @@ async def test_set_connection_params_warns_when_not_available(caplog):
     with caplog.at_level(logging.WARNING):
         await client.set_connection_params(10, 20, 3, 400)
     assert "set_connection_params not implemented in bleak version" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_clear_cache_delegates_to_super():
+    """clear_cache should call super().clear_cache when present and return its result."""
+    clear_cache_mock = AsyncMock(return_value=True)
+
+    class FakeBleakClientWithClearCache(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+        async def clear_cache(self) -> bool:
+            return await clear_cache_mock()
+
+    class FakeClientWithCache(
+        BleakClientWithServiceCache, FakeBleakClientWithClearCache
+    ):
+        """Fake BleakClientWithServiceCache with clear_cache on parent."""
+
+    client = FakeClientWithCache(MagicMock())
+    assert await client.clear_cache() is True
+    clear_cache_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_clear_cache_warns_when_not_available(caplog):
+    """clear_cache should warn and return False when parent has no clear_cache."""
+    import logging
+
+    class FakeBleakClientNoClearCache(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            pass
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    class FakeClientWithCache(BleakClientWithServiceCache, FakeBleakClientNoClearCache):
+        """Fake BleakClientWithServiceCache without clear_cache on parent."""
+
+    # Sanity: this bleak version has no parent clear_cache so the else branch runs.
+    parent_for_super = FakeBleakClientNoClearCache
+    assert not hasattr(parent_for_super, "clear_cache")
+
+    client = FakeClientWithCache(MagicMock())
+    with caplog.at_level(logging.WARNING):
+        result = await client.clear_cache()
+    assert result is False
+    assert "clear_cache not implemented in bleak version" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_ble_device_description_address_only():
+    """Name equal to address and no path/source should return address only."""
+    device = BLEDevice("AA:BB:CC:DD:EE:FF", "AA:BB:CC:DD:EE:FF", {})
+    assert ble_device_description(device) == "AA:BB:CC:DD:EE:FF"
+
+
+@pytest.mark.asyncio
+async def test_ble_device_description_non_dict_details():
+    """Non-dict details should skip the path/source branches."""
+    device = BLEDevice("AA:BB:CC:DD:EE:FF", "name", "not-a-dict")
+    assert ble_device_description(device) == "AA:BB:CC:DD:EE:FF - name"
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_no_cached_services_for_path(mock_linux):
+    """Services cache exists but has no entry for the device path."""
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._services_cache = {"/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF": "other"}
+            self._properties = {}
+
+    bluez_manager = FakeBluezManager()
+    bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+
+    result = await bleak_retry_connector._has_valid_services_in_cache(device)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_no_properties(mock_linux):
+    """Services cache has the device but properties are unavailable."""
+
+    collection = BleakGATTServiceCollection()
+    service_path = "/org/bluez/hci0/dev_FA_23_9D_AA_45_46/service0001"
+    service_props = {
+        "UUID": "0000180a-0000-1000-8000-00805f9b34fb",
+        "Primary": True,
+        "Characteristics": [],
+    }
+    collection.add_service(
+        BleakGATTService(
+            obj=(service_path, service_props),
+            handle=1,
+            uuid="0000180a-0000-1000-8000-00805f9b34fb",
+        )
+    )
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._services_cache = {"/org/bluez/hci0/dev_FA_23_9D_AA_45_46": collection}
+            # Empty properties → _get_properties returns falsy
+            self._properties = {}
+
+    bluez_manager = FakeBluezManager()
+    bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout = AsyncMock(
+        return_value=bluez_manager
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+
+    result = await bleak_retry_connector._has_valid_services_in_cache(device)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_close_stale_connections_by_address_non_linux(mock_macos):
+    """On non-Linux, close_stale_connections_by_address returns without doing anything."""
+    with patch.object(
+        bleak_retry_connector, "disconnect_devices", AsyncMock()
+    ) as mock_disconnect_devices:
+        await close_stale_connections_by_address("FA:23:9D:AA:45:46")
+    assert mock_disconnect_devices.mock_calls == []
+
+
+@pytest.mark.asyncio
+async def test_close_stale_connections_by_address_device_not_found(mock_linux):
+    """If get_device returns None, no disconnect should happen."""
+    with (
+        patch.object(bleak_retry_connector, "get_device", AsyncMock(return_value=None)),
+        patch.object(
+            bleak_retry_connector, "disconnect_devices", AsyncMock()
+        ) as mock_disconnect_devices,
+    ):
+        await close_stale_connections_by_address("FA:23:9D:AA:45:46")
+    assert mock_disconnect_devices.mock_calls == []
+
+
+@pytest.mark.asyncio
+async def test_close_stale_connections_non_linux(mock_macos):
+    """On non-Linux, close_stale_connections returns immediately."""
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    with patch.object(
+        bleak_retry_connector, "disconnect_devices", AsyncMock()
+    ) as mock_disconnect_devices:
+        await close_stale_connections(device)
+    assert mock_disconnect_devices.mock_calls == []
+
+
+@pytest.mark.asyncio
+async def test_close_stale_connections_no_connected_devices(mock_linux):
+    """If get_connected_devices returns nothing, no disconnect should happen."""
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    with (
+        patch.object(
+            bleak_retry_connector,
+            "get_connected_devices",
+            AsyncMock(return_value=[]),
+        ),
+        patch.object(
+            bleak_retry_connector, "disconnect_devices", AsyncMock()
+        ) as mock_disconnect_devices,
+    ):
+        await close_stale_connections(device)
+    assert mock_disconnect_devices.mock_calls == []
+
+
+@pytest.mark.asyncio
+async def test_close_stale_connections_only_other_adapters_skips_same(mock_linux):
+    """With only_other_adapters=True, devices on the same adapter are skipped."""
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    # Connected device has the same path → ble_device_has_changed returns False
+    same_adapter_device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+    with (
+        patch.object(
+            bleak_retry_connector,
+            "get_connected_devices",
+            AsyncMock(return_value=[same_adapter_device]),
+        ),
+        patch.object(
+            bleak_retry_connector, "disconnect_devices", AsyncMock()
+        ) as mock_disconnect_devices,
+    ):
+        await close_stale_connections(device, only_other_adapters=True)
+    assert mock_disconnect_devices.mock_calls == []
