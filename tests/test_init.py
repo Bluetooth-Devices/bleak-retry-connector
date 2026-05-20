@@ -2697,3 +2697,33 @@ async def test_close_stale_connections_only_other_adapters_skips_same(mock_linux
     ):
         await close_stale_connections(device, only_other_adapters=True)
     assert mock_disconnect_devices.mock_calls == []
+
+
+@pytest.mark.asyncio
+async def test_restore_discoveries_non_linux(mock_macos: None) -> None:
+    """restore_discoveries is a no-op on non-Linux platforms."""
+    mock_backend = Mock(seen_devices={})
+    mock_scanner = Mock(_backend=mock_backend)
+
+    get_props = AsyncMock()
+    with patch.object(bleak_retry_connector, "_get_properties", get_props):
+        await restore_discoveries(mock_scanner, "hci0")
+
+    get_props.assert_not_called()
+    assert mock_backend.seen_devices == {}
+
+
+@pytest.mark.asyncio
+async def test_restore_discoveries_no_properties(mock_linux: None) -> None:
+    """restore_discoveries returns early when properties are unavailable."""
+    mock_backend = Mock(seen_devices={})
+    mock_scanner = Mock(_backend=mock_backend)
+
+    with patch.object(
+        bleak_retry_connector,
+        "_get_properties",
+        AsyncMock(return_value=None),
+    ):
+        await restore_discoveries(mock_scanner, "hci0")
+
+    assert mock_backend.seen_devices == {}
