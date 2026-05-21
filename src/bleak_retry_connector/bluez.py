@@ -269,10 +269,12 @@ async def _get_services_cache() -> dict[str, BleakGATTServiceCollection] | None:
 
 async def clear_cache(address: str) -> bool:
     """Clear the cache for a device."""
-    if not IS_LINUX or not await get_device(address):
+    if not IS_LINUX:
         return False
     caches_cleared: list[str] = []
     with contextlib.suppress(Exception):
+        if not await get_device(address):
+            return False
         if (services_cache := await _get_services_cache()) is None:
             _LOGGER.warning(
                 "Failed to clear cache for %s because no services cache", address

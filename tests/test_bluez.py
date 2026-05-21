@@ -1256,6 +1256,22 @@ async def test_clear_cache_sends_remove_device(
     assert all(kw["member"] == "RemoveDevice" for kw in sent_kwargs)
 
 
+async def test_clear_cache_swallows_get_device_exception(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A raising get_device must not propagate out of clear_cache.
+
+    Callers (e.g. establish_connection's retry loop) rely on clear_cache being
+    safe to call from failure-handling paths where D-Bus may itself be flaky.
+    """
+    monkeypatch.setattr(
+        bleak_retry_connector.bluez,
+        "get_device",
+        AsyncMock(side_effect=RuntimeError("dbus exploded")),
+    )
+    assert await clear_cache("FA:23:9D:AA:45:46") is False
+
+
 async def test_get_device_by_adapter_not_linux(mock_macos: None) -> None:
     """Non-Linux returns None immediately."""
     assert await get_device_by_adapter("FA:23:9D:AA:45:46", "hci0") is None
