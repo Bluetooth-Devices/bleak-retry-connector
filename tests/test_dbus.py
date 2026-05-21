@@ -17,7 +17,11 @@ def _prime_dbus_coverage() -> None:
     # blockbuster fixture in conftest then flags that stat as a blocking
     # call. Module-scoped fixtures run before the function-scoped blockbuster,
     # so executing the trivial path here warms the per-file source cache.
-    asyncio.run(disconnect_devices([]))
+    loop = asyncio.new_event_loop()
+    try:
+        loop.run_until_complete(disconnect_devices([]))
+    finally:
+        loop.close()
 
 
 def _device(path: str | None = "/org/bluez/hci0/dev_FA_23_9D_AA_45_46") -> BLEDevice:
