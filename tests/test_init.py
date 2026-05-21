@@ -47,12 +47,12 @@ from bleak_retry_connector.bleak_manager import _reset_dbus_socket_cache
 
 def make_scripted_client(
     script: list[BaseException | None],
-) -> type[BleakClient]:
+) -> tuple[type[BleakClient], dict[str, int]]:
     """Build a ``BleakClient`` subclass whose ``connect()`` replays ``script``.
 
     Each call pops the next entry from ``script`` (by index): ``None`` means
-    a successful connect, an exception instance is raised. The returned class
-    exposes its attempt counter on ``cls.attempts["n"]`` so tests can assert
+    a successful connect, an exception instance is raised. Returns the class
+    paired with an ``attempts`` counter dict that callers can read to assert
     on how many times ``connect()`` was invoked.
     """
     attempts = {"n": 0}
@@ -70,8 +70,7 @@ def make_scripted_client(
         async def disconnect(self, *args: Any, **kwargs: Any) -> None:
             pass
 
-    setattr(_ScriptedClient, "attempts", attempts)
-    return _ScriptedClient
+    return _ScriptedClient, attempts
 
 
 @pytest.mark.asyncio
@@ -2769,7 +2768,7 @@ async def test_establish_connection_debug_disabled_cycles_all_exception_paths() 
     """
     wait_calls: list[float] = []
 
-    scripted = make_scripted_client(
+    scripted, attempts = make_scripted_client(
         [
             asyncio.TimeoutError(),
             KeyError("org.bluez.GattService1"),
@@ -2799,7 +2798,7 @@ async def test_establish_connection_debug_disabled_cycles_all_exception_paths() 
         )
 
     assert isinstance(client, scripted)
-    assert scripted.attempts["n"] == 6
+    assert attempts["n"] == 6
     # TimeoutError, EOFError, BLEAK_EXCEPTIONS all call wait_for_disconnect.
     # KeyError on a non-cache client skips the wait. BrokenPipeError skips too.
     assert wait_calls == [0, 0, 0]
