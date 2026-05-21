@@ -29,10 +29,8 @@ from .bluez import (  # noqa: F401
     wait_for_device_to_reappear,
     wait_for_disconnect,
 )
-from .const import IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
+from .const import DISCONNECT_TIMEOUT, IS_LINUX, NO_RSSI_VALUE, RSSI_SWITCH_THRESHOLD
 from .util import asyncio_timeout
-
-DISCONNECT_TIMEOUT = 5
 
 DEFAULT_ATTEMPTS = 2
 
@@ -78,6 +76,7 @@ __all__ = [
     "BleakNotFoundError",
     "BleakOutOfConnectionSlotsError",
     "BLEAK_RETRY_EXCEPTIONS",
+    "DISCONNECT_TIMEOUT",
     "RSSI_SWITCH_THRESHOLD",
     "NO_RSSI_VALUE",
 ]
