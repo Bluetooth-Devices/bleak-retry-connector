@@ -45,6 +45,35 @@ from bleak_retry_connector import (
 from bleak_retry_connector.bleak_manager import _reset_dbus_socket_cache
 
 
+def make_scripted_client(
+    script: list[BaseException | None],
+) -> type[BleakClient]:
+    """Build a ``BleakClient`` subclass whose ``connect()`` replays ``script``.
+
+    Each call pops the next entry from ``script`` (by index): ``None`` means
+    a successful connect, an exception instance is raised. The returned class
+    exposes its attempt counter on ``cls.attempts["n"]`` so tests can assert
+    on how many times ``connect()`` was invoked.
+    """
+    attempts = {"n": 0}
+
+    class _ScriptedClient(BleakClient):
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        async def connect(self, *args: Any, **kwargs: Any) -> None:
+            exc = script[attempts["n"]]
+            attempts["n"] += 1
+            if exc is not None:
+                raise exc
+
+        async def disconnect(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+    setattr(_ScriptedClient, "attempts", attempts)
+    return _ScriptedClient
+
+
 @pytest.mark.asyncio
 async def test_establish_connection_works_first_time():
     class FakeBleakClient(BleakClient):
@@ -2727,3 +2756,69 @@ async def test_restore_discoveries_no_properties(mock_linux: None) -> None:
         await restore_discoveries(mock_scanner, "hci0")
 
     assert mock_backend.seen_devices == {}
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_debug_disabled_cycles_all_exception_paths() -> None:
+    """Cycle through every retryable exception class with debug logging off.
+
+    Exercises the falsy ``if debug_enabled:`` branches inside each ``except``
+    handler in ``establish_connection``, the ``should_use_cache=False`` skip
+    around the services-cache restore, and the non-cache-client fork of the
+    ``KeyError`` handler that skips ``wait_for_disconnect``.
+    """
+    wait_calls: list[float] = []
+
+    scripted = make_scripted_client(
+        [
+            asyncio.TimeoutError(),
+            KeyError("org.bluez.GattService1"),
+            BrokenPipeError(32, "Broken pipe"),
+            EOFError(),
+            BleakError("le-connection-abort-by-local"),
+            None,
+        ]
+    )
+
+    async def fake_wait_for_disconnect(device: Any, backoff_time: float) -> None:
+        wait_calls.append(backoff_time)
+
+    with (
+        patch.object(bleak_retry_connector._LOGGER, "isEnabledFor", return_value=False),
+        patch(
+            "bleak_retry_connector.wait_for_disconnect",
+            side_effect=fake_wait_for_disconnect,
+        ),
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
+        client = await establish_connection(
+            scripted,
+            MagicMock(),
+            "test",
+            use_services_cache=False,
+        )
+
+    assert isinstance(client, scripted)
+    assert scripted.attempts["n"] == 6
+    # TimeoutError, EOFError, BLEAK_EXCEPTIONS all call wait_for_disconnect.
+    # KeyError on a non-cache client skips the wait. BrokenPipeError skips too.
+    assert wait_calls == [0, 0, 0]
+
+
+@pytest.mark.asyncio
+async def test_retry_bluetooth_connection_error_zero_attempts_returns_none() -> None:
+    """A decorator with ``attempts=0`` never enters the retry loop.
+
+    Exercises the loop-exit branch of ``for attempt in range(attempts):``
+    inside ``retry_bluetooth_connection_error`` when the caller asks for zero
+    attempts — the wrapped coroutine must not run.
+    """
+    call_count = 0
+
+    @retry_bluetooth_connection_error(attempts=0)
+    async def never_called() -> None:
+        nonlocal call_count
+        call_count += 1
+
+    await never_called()
+    assert call_count == 0
