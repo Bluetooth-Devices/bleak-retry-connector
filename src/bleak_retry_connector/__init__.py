@@ -457,7 +457,6 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
-    rssi: int | None = None
     if IS_LINUX and (devices := await get_connected_devices(device)):
         # Bleak 0.17 will handle already connected devices for us so
         # if we are already connected we swap the device to the connected
@@ -504,11 +503,10 @@ async def establish_connection(
             timeouts += 1
             if debug_enabled:
                 _LOGGER.debug(
-                    "%s - %s: Timed out trying to connect (attempt: %s, last rssi: %s)",
+                    "%s - %s: Timed out trying to connect (attempt: %s)",
                     name,
                     device.address,
                     attempt,
-                    rssi,
                 )
             backoff_time = calculate_backoff_time(exc)
             await wait_for_disconnect(device, backoff_time)
@@ -521,12 +519,11 @@ async def establish_connection(
             transient_errors += 1
             if debug_enabled:
                 _LOGGER.debug(
-                    "%s - %s: Failed to connect due to services changes: %s (attempt: %s, last rssi: %s)",
+                    "%s - %s: Failed to connect due to services changes: %s (attempt: %s)",
                     name,
                     device.address,
                     str(exc),
                     attempt,
-                    rssi,
                 )
             if isinstance(client, BleakClientWithServiceCache):
                 await client.clear_cache()
@@ -548,12 +545,11 @@ async def establish_connection(
             transient_errors += 1
             if debug_enabled:
                 _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s (attempt: %s, last rssi: %s)",
+                    "%s - %s: Failed to connect: %s (attempt: %s)",
                     name,
                     device.address,
                     str(exc),
                     attempt,
-                    rssi,
                 )
             _raise_if_needed(name, device.address, exc)
         except EOFError as exc:
@@ -561,13 +557,12 @@ async def establish_connection(
             backoff_time = calculate_backoff_time(exc)
             if debug_enabled:
                 _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    "%s - %s: Failed to connect: %s, backing off: %s (attempt: %s)",
                     name,
                     device.address,
                     str(exc),
                     backoff_time,
                     attempt,
-                    rssi,
                 )
             await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
@@ -587,14 +582,13 @@ async def establish_connection(
             backoff_time = calculate_backoff_time(exc)
             if debug_enabled:
                 _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s, device_missing: %s, backing off: %s (attempt: %s, last rssi: %s)",
+                    "%s - %s: Failed to connect: %s, device_missing: %s, backing off: %s (attempt: %s)",
                     name,
                     device.address,
                     bleak_error,
                     device_missing,
                     backoff_time,
                     attempt,
-                    rssi,
                 )
             await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
