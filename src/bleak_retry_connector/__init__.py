@@ -366,12 +366,6 @@ def calculate_backoff_time(exc: Exception) -> float:
     return BLEAK_BACKOFF_TIME
 
 
-async def _disconnect_devices(devices: list[BLEDevice]) -> None:
-    """Disconnect the devices."""
-    if IS_LINUX:
-        await disconnect_devices(devices)
-
-
 async def close_stale_connections_by_address(
     address: str, only_other_adapters: bool = False
 ) -> None:
@@ -405,7 +399,7 @@ async def close_stale_connections(
 
     if not to_disconnect:
         return
-    await _disconnect_devices(to_disconnect)
+    await disconnect_devices(to_disconnect)
 
 
 AnyBleakClient = TypeVar("AnyBleakClient", bound=BleakClient)
