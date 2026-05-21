@@ -76,6 +76,7 @@ __all__ = [
     "BleakNotFoundError",
     "BleakOutOfConnectionSlotsError",
     "BLEAK_RETRY_EXCEPTIONS",
+    "DISCONNECT_TIMEOUT",
     "RSSI_SWITCH_THRESHOLD",
     "NO_RSSI_VALUE",
 ]
