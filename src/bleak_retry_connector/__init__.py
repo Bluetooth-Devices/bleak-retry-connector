@@ -173,7 +173,7 @@ class BleakNotFoundError(BleakError):
 
 
 class BleakConnectionError(BleakError):
-    """The device was not found."""
+    """General connection failure after all retries."""
 
 
 class BleakAbortedError(BleakError):
