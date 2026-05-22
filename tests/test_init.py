@@ -2821,3 +2821,188 @@ async def test_retry_bluetooth_connection_error_zero_attempts_returns_none() -> 
 
     await never_called()
     assert call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validator_returns_true_returns_client() -> None:
+    """A validator that returns True lets the client through unchanged.
+
+    Validation is opt-in — when provided, ``establish_connection`` runs it
+    after a successful ``connect()`` and returns the client only when the
+    validator agrees the connection is usable.
+    """
+    scripted, attempts = make_scripted_client([None])
+    calls: list[BleakClient] = []
+
+    async def validator(client: BleakClient) -> bool:
+        calls.append(client)
+        return True
+
+    client = await establish_connection(
+        scripted,
+        MagicMock(),
+        "test",
+        validate_connection=validator,
+    )
+
+    assert isinstance(client, scripted)
+    assert attempts["n"] == 1
+    assert calls == [client]
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validator_false_then_true_retries() -> None:
+    """A validator returning False forces a retry; True on the next pass wins.
+
+    Failed validation increments the connect-error budget, disconnects the
+    client, and loops — sharing the same ``max_attempts`` budget as connect
+    failures (per the issue spec).
+    """
+    scripted, attempts = make_scripted_client([None, None])
+    disconnects = 0
+    results = iter([False, True])
+
+    class _Client(scripted):  # type: ignore[misc, valid-type]
+        async def disconnect(self, *args: Any, **kwargs: Any) -> None:
+            nonlocal disconnects
+            disconnects += 1
+
+    async def validator(client: BleakClient) -> bool:
+        return next(results)
+
+    with patch("bleak_retry_connector.wait_for_disconnect", new=AsyncMock()):
+        client = await establish_connection(
+            _Client,
+            MagicMock(),
+            "test",
+            validate_connection=validator,
+        )
+
+    assert isinstance(client, _Client)
+    assert attempts["n"] == 2
+    assert disconnects == 1
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validator_exception_treated_as_false() -> None:
+    """An exception inside the validator is captured and counts as failure.
+
+    The original validator exception is preserved as ``__cause__`` on the
+    synthesized ``BleakConnectionError`` so callers retain diagnostic context.
+    """
+    scripted, attempts = make_scripted_client([None])
+    boom = RuntimeError("validator blew up")
+
+    async def validator(client: BleakClient) -> bool:
+        raise boom
+
+    with patch("bleak_retry_connector.wait_for_disconnect", new=AsyncMock()):
+        with pytest.raises(BleakConnectionError) as excinfo:
+            await establish_connection(
+                scripted,
+                MagicMock(),
+                "test",
+                max_attempts=1,
+                validate_connection=validator,
+            )
+
+    assert attempts["n"] == 1
+    # The final raise chains through _raise_if_needed → BleakConnectionError →
+    # validator's synthesized BleakConnectionError → original RuntimeError.
+    chain: list[BaseException] = []
+    current: BaseException | None = excinfo.value.__cause__
+    while current is not None:
+        chain.append(current)
+        current = current.__cause__
+    assert boom in chain
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validator_exhausts_retries() -> None:
+    """When every validation fails, retries are exhausted and we raise.
+
+    ``max_attempts=2`` plus a permanently-False validator produces two
+    connect() calls, two validator calls, and a terminating
+    ``BleakConnectionError``.
+    """
+    scripted, attempts = make_scripted_client([None, None])
+    validator_calls = 0
+
+    async def validator(client: BleakClient) -> bool:
+        nonlocal validator_calls
+        validator_calls += 1
+        return False
+
+    with patch("bleak_retry_connector.wait_for_disconnect", new=AsyncMock()):
+        with pytest.raises(BleakConnectionError):
+            await establish_connection(
+                scripted,
+                MagicMock(),
+                "test",
+                max_attempts=2,
+                validate_connection=validator,
+            )
+
+    assert attempts["n"] == 2
+    assert validator_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validator_hang_is_bounded_by_safety_timeout() -> None:
+    """A validator that hangs forever is bounded by ``BLEAK_SAFETY_TIMEOUT``.
+
+    Without an internal timeout a misbehaving validator would hang
+    ``establish_connection`` indefinitely. The implementation wraps the
+    validator in ``asyncio_timeout(BLEAK_SAFETY_TIMEOUT)`` to keep that
+    contract — patch the timeout to a tiny value so the test runs quickly.
+    """
+    scripted, attempts = make_scripted_client([None])
+
+    async def validator(client: BleakClient) -> bool:
+        await asyncio.sleep(60)
+        return True
+
+    with (
+        patch("bleak_retry_connector.BLEAK_SAFETY_TIMEOUT", 0.01),
+        patch("bleak_retry_connector.wait_for_disconnect", new=AsyncMock()),
+    ):
+        with pytest.raises(BleakConnectionError) as excinfo:
+            await establish_connection(
+                scripted,
+                MagicMock(),
+                "test",
+                max_attempts=1,
+                validate_connection=validator,
+            )
+
+    assert attempts["n"] == 1
+    # The captured exception chain must include the safety-timeout error so
+    # diagnostics show *why* validation failed, not just "validation failed".
+    chain: list[BaseException] = []
+    current: BaseException | None = excinfo.value.__cause__
+    while current is not None:
+        chain.append(current)
+        current = current.__cause__
+    assert any(isinstance(exc, asyncio.TimeoutError) for exc in chain)
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_no_validator_skips_validation_path() -> None:
+    """Omitting ``validate_connection`` leaves the original behavior intact.
+
+    The default ``None`` skips the entire validation branch — connect succeeds
+    and the client is returned immediately, with no extra disconnect/backoff.
+    """
+    scripted, attempts = make_scripted_client([None])
+    disconnect_calls = 0
+
+    class _Client(scripted):  # type: ignore[misc, valid-type]
+        async def disconnect(self, *args: Any, **kwargs: Any) -> None:
+            nonlocal disconnect_calls
+            disconnect_calls += 1
+
+    client = await establish_connection(_Client, MagicMock(), "test")
+
+    assert isinstance(client, _Client)
+    assert attempts["n"] == 1
+    assert disconnect_calls == 0

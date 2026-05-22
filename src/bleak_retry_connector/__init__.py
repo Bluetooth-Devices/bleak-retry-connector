@@ -4,6 +4,7 @@ __version__ = "4.6.1"
 
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, ParamSpec, TypeVar
@@ -405,6 +406,37 @@ async def close_stale_connections(
 AnyBleakClient = TypeVar("AnyBleakClient", bound=BleakClient)
 
 
+async def _run_validator(
+    client: AnyBleakClient,
+    validator: Callable[[AnyBleakClient], Awaitable[bool]],
+    name: str,
+    address: str,
+) -> BleakConnectionError | None:
+    """Run a connection validator and return None on success or an error.
+
+    The validator is wrapped in ``asyncio_timeout(BLEAK_SAFETY_TIMEOUT)`` so a
+    misbehaving validator cannot hang ``establish_connection`` indefinitely.
+    Any exception raised by the validator (including ``asyncio.TimeoutError``
+    from the safety bound) is captured as the underlying cause so callers can
+    diagnose the failure.
+    """
+    try:
+        async with asyncio_timeout(BLEAK_SAFETY_TIMEOUT):
+            valid = await validator(client)
+    except Exception as exc:
+        err = BleakConnectionError(
+            f"{name} - {address}: Connection validation raised "
+            f"{type(exc).__name__}: {exc}"
+        )
+        err.__cause__ = exc
+        return err
+    if valid:
+        return None
+    return BleakConnectionError(
+        f"{name} - {address}: Connection validation returned False"
+    )
+
+
 async def establish_connection(
     client_class: type[AnyBleakClient],
     device: BLEDevice,
@@ -415,6 +447,7 @@ async def establish_connection(
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     pair: bool = False,
+    validate_connection: Callable[[AnyBleakClient], Awaitable[bool]] | None = None,
     **kwargs: Any,
 ) -> AnyBleakClient:
     """Establish a connection to the device."""
@@ -587,7 +620,31 @@ async def establish_connection(
             await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
         else:
-            return client
+            if validate_connection is None:
+                return client
+            validation_exc = await _run_validator(
+                client, validate_connection, name, device.address
+            )
+            if validation_exc is None:
+                return client
+            connect_errors += 1
+            if debug_enabled:
+                _LOGGER.debug(
+                    "%s - %s: Connection validation failed: %s (attempt: %s)",
+                    name,
+                    device.address,
+                    validation_exc,
+                    attempt,
+                )
+            # Disconnect under the same safety timeout as the connect path —
+            # validation failure is the most likely path to a phantom client
+            # that hangs in disconnect().
+            with contextlib.suppress(Exception):
+                async with asyncio_timeout(BLEAK_SAFETY_TIMEOUT):
+                    await client.disconnect()
+            backoff_time = calculate_backoff_time(validation_exc)
+            await wait_for_disconnect(device, backoff_time)
+            _raise_if_needed(name, device.address, validation_exc)
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)

@@ -129,6 +129,7 @@ async def establish_connection(
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     pair: bool = False,
+    validate_connection: Callable[[BleakClient], Awaitable[bool]] | None = None,
     **kwargs: Any
 ) -> BleakClient
 ```
@@ -144,6 +145,18 @@ async def establish_connection(
 - **ble_device_callback**: Callback to get updated device info if it changes
 - **use_services_cache**: Whether to use service caching (default: True)
 - **pair**: Whether to pair with the device on connect (default: False)
+- **validate_connection**: Optional async callback that decides whether a freshly
+  connected client is actually usable. Useful when `connect()` succeeds but the
+  link is non-functional — phantom BlueZ `Connected=True`, empty
+  `client.services` after GATT discovery, dead firmware that never answers a
+  read. When provided, it is awaited after each successful `connect()`; a
+  return of `False` (or any raised exception) is treated as a connection
+  failure, the client is disconnected, and the retry budget is shared with
+  ordinary connect failures. The validator runs under the same
+  `BLEAK_SAFETY_TIMEOUT` bound as `connect()` itself, so a hung validator
+  cannot stall `establish_connection` indefinitely — but callers should still
+  wrap their own GATT reads/writes in `asyncio.wait_for` to surface
+  diagnostics earlier.
 - **kwargs**: Additional arguments passed to the client class constructor
 
 ### Return Value
@@ -385,6 +398,36 @@ async def connect_with_full_options(device: BLEDevice):
     )
 
     return client
+```
+
+### Example with Connection Validation
+
+Some failure modes leave `connect()` returning a client that looks healthy but
+is actually unusable (phantom `Connected=True`, empty service discovery, dead
+firmware). The `validate_connection` callback lets you verify the link before
+the client is handed back — failed validation disconnects and retries on the
+existing `max_attempts` budget.
+
+```python
+async def validate(client: BleakClient) -> bool:
+    # Probe the device with the read your app needs to succeed. The validator
+    # runs under BLEAK_SAFETY_TIMEOUT, but wrapping individual GATT calls in
+    # asyncio.wait_for surfaces the diagnostic earlier than the safety bound.
+    try:
+        data = await asyncio.wait_for(
+            client.read_gatt_char("0000fff1-0000-1000-8000-00805f9b34fb"),
+            timeout=5.0,
+        )
+    except (BleakError, asyncio.TimeoutError):
+        return False
+    return len(data) > 0
+
+client = await establish_connection(
+    BleakClientWithServiceCache,
+    device,
+    name="MyDevice",
+    validate_connection=validate,
+)
 ```
 
 ## Complete Working Example
