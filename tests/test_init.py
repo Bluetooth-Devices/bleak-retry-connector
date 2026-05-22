@@ -2948,7 +2948,9 @@ async def test_establish_connection_validator_exhausts_retries() -> None:
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_validator_hang_is_bounded_by_safety_timeout() -> None:
+async def test_establish_connection_validator_hang_is_bounded_by_safety_timeout() -> (
+    None
+):
     """A validator that hangs forever is bounded by ``BLEAK_SAFETY_TIMEOUT``.
 
     Without an internal timeout a misbehaving validator would hang
