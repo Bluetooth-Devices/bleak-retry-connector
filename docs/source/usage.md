@@ -715,3 +715,10 @@ manager to attach to.
   `establish_connection` requires before switching to a stronger advertised
   path mid-retry. Exposed for callers that want to apply the same hysteresis
   to their own adapter-selection logic.
+
+- **`DISCONNECT_TIMEOUT`** (`5`): Maximum time in seconds that
+  bleak-retry-connector will wait for a D-Bus disconnect operation —
+  including `clear_cache`'s `RemoveDevice` calls and the post-failure
+  disconnect wait in `establish_connection` — to complete before giving up.
+  Exposed so callers wrapping the same D-Bus operations can apply a matching
+  ceiling.
