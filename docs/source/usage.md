@@ -141,7 +141,9 @@ async def establish_connection(
 - **disconnected_callback**: Optional callback when device disconnects unexpectedly
 - **max_attempts**: Maximum connection attempts before giving up (default: 4)
 - **cached_services**: Pre-cached services to use (deprecated, use `use_services_cache`)
-- **ble_device_callback**: Callback to get updated device info if it changes
+- **ble_device_callback**: Deprecated and unused; retained for API compatibility. The
+  callback is never invoked. Pass the freshest `BLEDevice` to `device` instead — Home
+  Assistant and other discovery layers already supply an up-to-date path on each retry.
 - **use_services_cache**: Whether to use service caching (default: True)
 - **pair**: Whether to pair with the device on connect (default: False)
 - **kwargs**: Additional arguments passed to the client class constructor
@@ -214,32 +216,6 @@ async def connect_with_callback(device: BLEDevice):
         name=device.name or device.address,
         disconnected_callback=on_disconnect,
         max_attempts=5  # Try up to 5 times
-    )
-
-    return client
-```
-
-### Example with Device Callback
-
-Use a device callback when the device information might change (e.g., path changes on Linux):
-
-```python
-class DeviceTracker:
-    def __init__(self, initial_device: BLEDevice):
-        self.device = initial_device
-
-    def get_device(self) -> BLEDevice:
-        return self.device
-
-    def update_device(self, new_device: BLEDevice):
-        self.device = new_device
-
-async def connect_with_device_tracking(tracker: DeviceTracker):
-    client = await establish_connection(
-        BleakClientWithServiceCache,
-        tracker.device,
-        name="TrackedDevice",
-        ble_device_callback=tracker.get_device
     )
 
     return client
