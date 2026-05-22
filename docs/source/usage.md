@@ -180,6 +180,16 @@ Returns the connected client instance of the specified `client_class`.
   - Raised for any other connection errors that don't fit the above categories
   - The fallback exception when connection cannot be established
 
+### Retry Behavior on Linux/BlueZ
+
+After every failed connection attempt, `establish_connection` calls `clear_cache(device.address)` before the next retry. This issues a BlueZ `RemoveDevice` request, wiping stale state that would otherwise cause every retry to fail identically:
+
+- Phantom `Connected=True` entries left by crashed clients
+- Stale `dev->connect` pointers and corrupted D-Bus device objects
+- Outdated cache entries in `/var/lib/bluetooth/`
+
+`clear_cache` is a no-op on non-Linux platforms and suppresses all internal exceptions, so it never escalates the original failure. The cleanup runs after the backoff sleep so the next attempt sees a fresh device.
+
 ### Basic Example
 
 ```python
