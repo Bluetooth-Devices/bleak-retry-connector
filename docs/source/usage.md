@@ -491,6 +491,44 @@ async def main(device):
         await client.disconnect()
 ```
 
+## calculate_backoff_time
+
+Return the recommended sleep duration before retrying after a given exception.
+`establish_connection` and `retry_bluetooth_connection_error` both call this
+internally; it is exported so callers that build their own retry layers can
+back off with the same timings the library uses.
+
+```python
+def calculate_backoff_time(exc: Exception) -> float
+```
+
+- **exc**: The exception that caused the failed attempt.
+- **Returns**: Seconds to wait before the next attempt. The classification is:
+  - `BLEAK_DBUS_BACKOFF_TIME` (0.25s) for `BleakDBusError`, `EOFError`,
+    `asyncio.TimeoutError`, or `BrokenPipeError`.
+  - `BLEAK_OUT_OF_SLOTS_BACKOFF_TIME` (4.0s) for `BleakDeviceNotFoundError`,
+    `BleakNotFoundError`, or any `BleakError` whose message matches one of the
+    known out-of-slots markers (`ESP_GATT_CONN_CONN_CANCEL`,
+    `connection slot`, `available connection`).
+  - `BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME` (0.5s) or
+    `BLEAK_TRANSIENT_LONG_BACKOFF_TIME` (1.0s) for known transient errors
+    that historically benefit from a longer pause.
+  - `BLEAK_TRANSIENT_BACKOFF_TIME` (0.25s) for other recognised transient
+    `BleakError` strings.
+  - `BLEAK_DISCONNECTED_BACKOFF_TIME` (0.0s) when the device reports a normal
+    disconnect — retry immediately.
+  - `BLEAK_BACKOFF_TIME` (0.1s) as the fallback for unclassified exceptions.
+
+```python
+from bleak_retry_connector import calculate_backoff_time
+
+try:
+    await my_gatt_operation()
+except Exception as exc:
+    await asyncio.sleep(calculate_backoff_time(exc))
+    await my_gatt_operation()
+```
+
 ## close_stale_connections
 
 On Linux/BlueZ, BlueZ may report a device as connected even when another

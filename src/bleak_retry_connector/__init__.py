@@ -79,6 +79,7 @@ __all__ = [
     "DISCONNECT_TIMEOUT",
     "RSSI_SWITCH_THRESHOLD",
     "NO_RSSI_VALUE",
+    "calculate_backoff_time",
 ]
 
 
