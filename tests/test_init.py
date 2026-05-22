@@ -3008,3 +3008,33 @@ async def test_establish_connection_no_validator_skips_validation_path() -> None
     assert isinstance(client, _Client)
     assert attempts["n"] == 1
     assert disconnect_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_validator_failure_with_debug_disabled() -> None:
+    """Validation failure path skips the debug log when DEBUG is off.
+
+    ``debug_enabled`` is captured once at function entry. With logging set
+    below DEBUG, the validation-failed branch must skip the ``_LOGGER.debug``
+    call and fall through to the disconnect + backoff cleanup. Covers the
+    ``if debug_enabled:`` false arrow on the validation path.
+    """
+    scripted, attempts = make_scripted_client([None, None])
+    results = iter([False, True])
+
+    async def validator(client: BleakClient) -> bool:
+        return next(results)
+
+    with (
+        patch.object(bleak_retry_connector._LOGGER, "isEnabledFor", return_value=False),
+        patch("bleak_retry_connector.wait_for_disconnect", new=AsyncMock()),
+    ):
+        client = await establish_connection(
+            scripted,
+            MagicMock(),
+            "test",
+            validate_connection=validator,
+        )
+
+    assert isinstance(client, scripted)
+    assert attempts["n"] == 2
