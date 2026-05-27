@@ -591,17 +591,6 @@ async def establish_connection(
         # Ensure the disconnect callback
         # has a chance to run before we try to reconnect
         await asyncio.sleep(0)
-        # Clear stale BlueZ state after any connection failure so the next
-        # retry starts from a clean slate. Phantom Connected=True entries,
-        # stale dev->connect pointers from crashed clients, and corrupted
-        # cache entries can otherwise cause every retry to fail identically.
-        # clear_cache is a no-op on non-Linux and suppresses all exceptions.
-        if await clear_cache(device.address) and debug_enabled:
-            _LOGGER.debug(
-                "%s - %s: Cleared stale BlueZ state after connection failure",
-                name,
-                device.address,
-            )
 
     raise RuntimeError("This should never happen")
 
