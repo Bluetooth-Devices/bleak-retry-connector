@@ -116,27 +116,27 @@ forbiddenfruit = {version = ">=0.1.4", markers = "implementation_name == \"cpyth
 
 [[package]]
 name = "bluetooth-adapters"
-version = "2.1.1"
+version = "2.3.0"
 description = "Tools to enumerate and find Bluetooth Adapters"
 optional = false
-python-versions = ">=3.9"
+python-versions = ">=3.10"
 groups = ["main"]
 markers = "platform_system == \"Linux\""
 files = [
-    {file = "bluetooth_adapters-2.1.1-py3-none-any.whl", hash = "sha256:1f93026e530dcb2f4515a92955fa6f85934f928b009a181ee57edc8b4affd25c"},
-    {file = "bluetooth_adapters-2.1.1.tar.gz", hash = "sha256:f289e0f08814f74252a28862f488283680584744430d7eac45820f9c20ba041a"},
+    {file = "bluetooth_adapters-2.3.0-py3-none-any.whl", hash = "sha256:b14f0ad7c1103926f7567489993b7d7ae6e1f2e6b5c627083285300e16655774"},
+    {file = "bluetooth_adapters-2.3.0.tar.gz", hash = "sha256:dc0a96d1acff6d8e33f762043f8668c541f5661afefc33340dca449ad56ff502"},
 ]
 
 [package.dependencies]
 aiooui = ">=0.1.1"
 async-timeout = {version = ">=3.0.0", markers = "python_version < \"3.11\""}
-bleak = ">=1"
-dbus-fast = {version = ">=1.21.0", markers = "platform_system == \"Linux\""}
+bleak = ">=3.0.2"
+dbus-fast = {version = ">=5.0.9", markers = "platform_system == \"Linux\""}
 uart-devices = ">=0.1.0"
 usb-devices = ">=0.4.5"
 
 [package.extras]
-docs = ["Sphinx (>=5,<8)", "myst-parser (>=0.18,<3.1)", "sphinx-rtd-theme (>=1,<4)"]
+docs = ["Sphinx (>=5,<8)", "myst-parser (>=4.0.1,<4.1)", "sphinx-rtd-theme (>=1,<4)"]
 
 [[package]]
 name = "certifi"
@@ -1567,4 +1567,4 @@ all = ["winrt-Windows.Foundation.Collections[all] (>=3.2.1.0,<3.3.0.0)", "winrt-
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10,<4.0"
-content-hash = "fc2e27453bd0a7742c9b0672f5005f62683a68c17718fafca0125d19789a934a"
+content-hash = "adbc4558591fb4619dc23316d2b08d91b96fc5ef578cfa0e832e180cb83bb33b"
