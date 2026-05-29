@@ -574,7 +574,8 @@ async def test_establish_connection_has_transient_error_had_advice():
     assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: "
-        "Failed to connect after 9 attempt(s): "
+        "Failed to connect after 9 attempt(s) "
+        "(timeouts=0, connect_errors=0, transient_errors=9): "
         "le-connection-abort-by-local: "
         "Interference/range; "
         "External Bluetooth adapter w/extension may help; "
@@ -606,7 +607,8 @@ async def test_establish_connection_out_of_slots_advice():
 
     assert isinstance(exc, BleakOutOfConnectionSlotsError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s): "
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s) "
+        "(timeouts=0, connect_errors=0, transient_errors=9): "
         "out of connection slots: The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
@@ -640,7 +642,8 @@ async def test_establish_connection_esp_gatt_conn_conn_cancel_out_of_slots():
 
     assert isinstance(exc, BleakOutOfConnectionSlotsError)
     assert str(exc) == (
-        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s): "
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s) "
+        "(timeouts=0, connect_errors=0, transient_errors=9): "
         "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
@@ -682,12 +685,48 @@ async def test_device_disappeared_error():
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: "
-        "Failed to connect after 4 attempt(s): "
+        "Failed to connect after 4 attempt(s) "
+        "(timeouts=0, connect_errors=4, transient_errors=0): "
         "[org.freedesktop.DBus.Error.UnknownObject] "
         'Method "Connect" with signature "" on interface "org.bluez.Device1" '
         "doesn't exist: The device disappeared; "
         "Try restarting the scanner or moving the device closer"
     )
+
+
+@pytest.mark.asyncio
+async def test_connect_log_includes_rssi_from_bluez_details(caplog):
+    """The connect debug logs report the device's last known BlueZ RSSI."""
+    import logging
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakError("le-connection-abort-by-local")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+        caplog.at_level(logging.DEBUG),
+    ):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice(
+                    "aa:bb:cc:dd:ee:ff",
+                    "name",
+                    {"path": "/org/bluez/hci0/dev_AA", "props": {"RSSI": -65}},
+                ),
+                "test",
+            )
+        except BleakError:
+            pass
+
+    assert "last rssi: -65" in caplog.text
 
 
 @pytest.mark.asyncio
@@ -785,7 +824,8 @@ async def test_device_disappeared_and_reappears():
     assert isinstance(exc, BleakNotFoundError)
     assert str(exc) == (
         "test - FA:23:9D:AA:45:46: "
-        "Failed to connect after 9 attempt(s): "
+        "Failed to connect after 9 attempt(s) "
+        "(timeouts=0, connect_errors=0, transient_errors=9): "
         "BleakDeviceNotFoundError: "
         "The device disappeared; "
         "Try restarting the scanner or moving the device closer"

@@ -437,7 +437,9 @@ async def establish_connection(
             return
         msg = (
             f"{name} - {description}: Failed to connect after "
-            f"{attempt} attempt(s): {str(exc) or type(exc).__name__}"
+            f"{attempt} attempt(s) (timeouts={timeouts}, "
+            f"connect_errors={connect_errors}, transient_errors={transient_errors}): "
+            f"{str(exc) or type(exc).__name__}"
         )
         # Sure would be nice if bleak gave us typed exceptions
         if isinstance(exc, asyncio.TimeoutError):
@@ -456,12 +458,20 @@ async def establish_connection(
         raise BleakConnectionError(msg) from exc
 
     debug_enabled = _LOGGER.isEnabledFor(logging.DEBUG)
-    rssi: int | None = None
     if IS_LINUX and (devices := await get_connected_devices(device)):
         # Bleak 0.17 will handle already connected devices for us so
         # if we are already connected we swap the device to the connected
         # device.
         device = devices[0]
+
+    # Best-effort last known RSSI for the connect logs. BlueZ stores it on the
+    # device details; other backends (e.g. ESPHome proxies) do not, so leave it
+    # as None when unavailable.
+    rssi: int | None = None
+    if isinstance(details := device.details, dict) and isinstance(
+        props := details.get("props"), dict
+    ):
+        rssi = props.get("RSSI")
 
     client = client_class(
         device,
