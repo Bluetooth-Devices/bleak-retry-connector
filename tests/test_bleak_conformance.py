@@ -16,6 +16,7 @@ from __future__ import annotations
 import inspect
 
 import pytest
+from bleak.exc import BleakError
 
 # The bluezdbus backend is Linux-only; degrade gracefully elsewhere.
 manager = pytest.importorskip("bleak.backends.bluezdbus.manager")
@@ -59,3 +60,22 @@ def test_bluez_manager_wait_condition_signature() -> None:
 def test_defs_constant_present(const: str) -> None:
     """dbus.py / bluez.py reference these interface/service string constants."""
     assert isinstance(getattr(defs, const), str)
+
+
+def test_all_bleak_exceptions_derive_from_bleak_error() -> None:
+    """The retry loop catches ``BLEAK_EXCEPTIONS = (AttributeError, BleakError)``.
+
+    Every concrete exception ``bleak`` raises must subclass ``BleakError`` or it would
+    escape ``establish_connection``'s ``except BLEAK_EXCEPTIONS`` and abort the retry
+    loop instead of being backed off. A major bump can add a new exception that breaks
+    this — mocks never would. Assert the whole ``bleak.exc`` surface stays covered.
+    """
+    exc = pytest.importorskip("bleak.exc")
+    concrete = [
+        obj
+        for obj in vars(exc).values()
+        if inspect.isclass(obj) and issubclass(obj, Exception)
+    ]
+    assert concrete  # guard against introspecting an empty module
+    escapes = [c.__name__ for c in concrete if not issubclass(c, BleakError)]
+    assert not escapes, f"bleak exceptions escaping BLEAK_EXCEPTIONS: {escapes}"
