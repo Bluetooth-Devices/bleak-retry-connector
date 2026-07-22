@@ -1901,6 +1901,65 @@ async def test_retry_bluetooth_connection_error_non_default_max_attempts():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("exception", [EOFError, BrokenPipeError])
+async def test_retry_bluetooth_connection_error_retries_dead_socket_errors(
+    exception: type[Exception],
+) -> None:
+    """Test that errors from a dead D-Bus socket are retried."""
+
+    @retry_bluetooth_connection_error()
+    async def test_function() -> None:
+        raise exception("socket died")
+
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time"
+    ) as mock_calculate_backoff_time:
+        mock_calculate_backoff_time.return_value = 0
+        with pytest.raises(exception):
+            await test_function()
+
+        assert mock_calculate_backoff_time.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_retry_bluetooth_connection_error_recovers_after_eof_error() -> None:
+    """Test that a transient EOFError is retried and the call succeeds."""
+    attempts: list[int] = []
+
+    @retry_bluetooth_connection_error()
+    async def test_function() -> str:
+        attempts.append(1)
+        if len(attempts) == 1:
+            raise EOFError("socket died")
+        return "success"
+
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time"
+    ) as mock_calculate_backoff_time:
+        mock_calculate_backoff_time.return_value = 0
+        assert await test_function() == "success"
+
+    assert len(attempts) == 2
+
+
+@pytest.mark.asyncio
+async def test_retry_bluetooth_connection_error_does_not_retry_timeout() -> None:
+    """Test that asyncio.TimeoutError is not retried."""
+
+    @retry_bluetooth_connection_error()
+    async def test_function() -> None:
+        raise asyncio.TimeoutError
+
+    with patch(
+        "bleak_retry_connector.calculate_backoff_time"
+    ) as mock_calculate_backoff_time:
+        with pytest.raises(asyncio.TimeoutError):
+            await test_function()
+
+        assert mock_calculate_backoff_time.call_count == 0
+
+
+@pytest.mark.asyncio
 async def test_dbus_is_missing(mock_linux):
     """Test getting a device when dbus is missing."""
 
