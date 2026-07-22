@@ -140,7 +140,12 @@ async def establish_connection(
 - **name**: A descriptive name for the device (used in logging)
 - **disconnected_callback**: Optional callback when device disconnects unexpectedly
 - **max_attempts**: Maximum connection attempts before giving up (default: 4)
-- **cached_services**: Pre-cached services to use (deprecated, use `use_services_cache`)
+- **cached_services**: Deprecated; the collection itself is no longer threaded into the
+  client. Only the parameter's truthiness still has any effect — passing any non-`None`
+  value forces `dangerous_use_bleak_cache=True` for that connect call, identical to
+  setting `use_services_cache=True`. Bleak 0.17+ ships built-in service caching, which
+  this library calls into directly. Prefer `use_services_cache=True` and stop constructing
+  a stand-in `BleakGATTServiceCollection` for this parameter.
 - **ble_device_callback**: Deprecated and unused; retained for API compatibility. The
   callback is never invoked. Pass the freshest `BLEDevice` to `device` instead — Home
   Assistant and other discovery layers already supply an up-to-date path on each retry.
