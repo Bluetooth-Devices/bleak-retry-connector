@@ -25,8 +25,8 @@ async def disconnect_devices(devices: list[BLEDevice]) -> None:
     bus = bluez_manager._bus
     for device in valid_devices:
         # https://bleak.readthedocs.io/en/latest/troubleshooting.html#id4
-        # Try to remove the device as well in the hope that it will
-        # clear the disk cache of the device.
+        # Force-disconnect the device via BlueZ. Removing the device to
+        # clear its disk cache is handled separately by clear_cache().
         with contextlib.suppress(Exception):
             async with asyncio_timeout(DISCONNECT_TIMEOUT):
                 await bus.call(
