@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v4.6.3 (2026-07-22)
+
+### Bug Fixes
+
+- Retry EOFError and BrokenPipeError in retry_bluetooth_connection_error
+  ([#309](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/309),
+  [`9beb5f8`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/9beb5f8c2ae8599f062917c4bbff349ec07e6edb))
+
+### Chores
+
+- **deps-dev**: Bump pytest from 9.0.3 to 9.1.1
+  ([#301](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/301),
+  [`9df7d9e`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/9df7d9e9d2911a7f5a2c60eb91ac03a2fdfdbf91))
+
+
 ## v4.6.2 (2026-07-22)
 
 ### Bug Fixes
