@@ -678,10 +678,13 @@ manager to attach to.
 ## Constants
 
 - **`BLEAK_RETRY_EXCEPTIONS`**: A tuple of exception classes that
-  `establish_connection` and `retry_bluetooth_connection_error` treat as
-  transient and retryable: `AttributeError`, `BleakError`, `EOFError`,
-  `BrokenPipeError`, and `asyncio.TimeoutError`. Re-exported so callers
-  layering their own retry logic on top can match the same set.
+  `establish_connection` treats as transient and retryable:
+  `AttributeError`, `BleakError`, `EOFError`, `BrokenPipeError`, and
+  `asyncio.TimeoutError`. Re-exported so callers layering their own retry
+  logic on top can match the same set. `retry_bluetooth_connection_error`
+  retries the same set except `asyncio.TimeoutError`, which is deliberately
+  excluded so timeouts set by the caller are not multiplied by the retry
+  attempts.
 
 - **`NO_RSSI_VALUE`** (`-127`): Sentinel value used internally when an
   advertisement carries no RSSI. Exported so callers ranking devices by
