@@ -37,7 +37,7 @@ bluetooth-adapters = {version = ">=2.3.0", markers = "platform_system == \"Linux
 dbus-fast = ">=5.0.22"
 pytest = "^9.1"
 pytest-cov = "^7.1"
-pytest-asyncio = "^1.3.0"
+pytest-asyncio = "^1.4.0"
 blockbuster = ">=1.5.23,<1.6"
 
 
