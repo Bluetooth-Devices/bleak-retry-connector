@@ -2,6 +2,75 @@
 
 <!-- version list -->
 
+## v4.6.2 (2026-07-22)
+
+### Bug Fixes
+
+- **release**: Resume CHANGELOG updates after semantic-release v9 bump
+  ([#306](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/306),
+  [`30d7851`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/30d7851b2b5f06756021f981bbb422986eae792d))
+
+### Chores
+
+- Fix PyPI classifier from Pre-Alpha to Production/Stable
+  ([#305](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/305),
+  [`6e089ea`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6e089ea2139d51fd59df44ffa7b5035d0d07b911))
+
+- **ci**: Bump the github-actions group across 1 directory with 6 updates
+  ([#308](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/308),
+  [`d6ed953`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/d6ed953d5a1fc1e616d0b5cb5fe173013699d8f1))
+
+- **deps**: Bump bleak from 2.1.1 to 3.0.2
+  ([#273](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/273),
+  [`c391abc`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/c391abcc451ffa56e551a651844e2bf61615b00c))
+
+- **deps**: Bump bluetooth-adapters from 2.1.1 to 2.3.0
+  ([#290](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/290),
+  [`f926c9a`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/f926c9a9a0266bbfc26ddb0c5933050f102da0e5))
+
+- **deps**: Bump dbus-fast from 4.3.0 to 5.0.13
+  ([#291](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/291),
+  [`21be400`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/21be400ceaabf751658af4553f14bdebe315ac0d))
+
+- **deps**: Bump dbus-fast from 5.0.13 to 5.0.22
+  ([#298](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/298),
+  [`1aa1243`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/1aa1243457f2e6c663d75b25774da9d766786681))
+
+- **pre-commit.ci**: Pre-commit autoupdate
+  ([#294](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/294),
+  [`859f414`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/859f414bd37ac2ec0c545ab97a1e962d327f8e1a))
+
+- **pre-commit.ci**: Pre-commit autoupdate
+  ([#289](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/289),
+  [`416c8a9`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/416c8a9002073782bec9e59e65ca3b1b2a567b4b))
+
+### Documentation
+
+- Clarify cached_services parameter is effectively unused
+  ([#292](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/292),
+  [`fa41a1b`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/fa41a1b58e11f6bf3399e28d1d6597e4ef673adb))
+
+- Document DISCONNECT_TIMEOUT in Constants section
+  ([#284](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/284),
+  [`6462cb6`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/6462cb6ab4503c7b2f7dfb66835c2b8f073eab5c))
+
+- Mark ble_device_callback as deprecated and unused
+  ([#287](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/287),
+  [`edb1520`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/edb1520b2b6d0f3b8ff24a3a7309df5573d69107))
+
+### Refactoring
+
+- Inline _disconnect_devices wrapper
+  ([#283](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/283),
+  [`fd3d826`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/fd3d8261f9551b6a098b895846a2fa2ac549a9bd))
+
+### Testing
+
+- Conformance canary for private bleak internals
+  ([#307](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/307),
+  [`57d1e2e`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/57d1e2ebdb920c8ff6e7e32ed41b40c0f668d306))
+
+
 ## v3.10.0 (2025-04-01)
 
 ### Chores
