@@ -521,8 +521,8 @@ async def establish_connection(
             if isinstance(client, BleakClientWithServiceCache):
                 await client.clear_cache()
                 await client.disconnect()
-                backoff_time = calculate_backoff_time(exc)
-                await wait_for_disconnect(device, backoff_time)
+            backoff_time = calculate_backoff_time(exc)
+            await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
         except (BrokenPipeError, EOFError) as exc:
             # Both are raised when the D-Bus socket dies out from under us.

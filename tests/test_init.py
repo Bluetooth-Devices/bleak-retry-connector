@@ -656,6 +656,39 @@ async def test_establish_connection_services_changed():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_services_changed_without_service_cache():
+    """A client without a service cache still backs off between KeyErrors."""
+    attempts = 0
+    wait_calls: list[float] = []
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts < MAX_TRANSIENT_ERRORS:
+                raise KeyError
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    async def fake_wait_for_disconnect(device: Any, backoff_time: float) -> None:
+        wait_calls.append(backoff_time)
+
+    with patch(
+        "bleak_retry_connector.wait_for_disconnect",
+        side_effect=fake_wait_for_disconnect,
+    ):
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 9
+    assert wait_calls == [BLEAK_BACKOFF_TIME] * 8
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_has_transient_error_had_advice():
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):
@@ -2836,7 +2869,7 @@ async def test_establish_connection_debug_disabled_cycles_all_exception_paths() 
     Exercises the falsy ``if debug_enabled:`` branches inside each ``except``
     handler in ``establish_connection``, the ``should_use_cache=False`` skip
     around the services-cache restore, and the non-cache-client fork of the
-    ``KeyError`` handler that skips ``wait_for_disconnect``.
+    ``KeyError`` handler that skips the cache clear but still backs off.
     """
     wait_calls: list[float] = []
 
@@ -2871,9 +2904,8 @@ async def test_establish_connection_debug_disabled_cycles_all_exception_paths() 
 
     assert isinstance(client, scripted)
     assert attempts["n"] == 6
-    # TimeoutError, BrokenPipeError, EOFError and BLEAK_EXCEPTIONS all call
-    # wait_for_disconnect. KeyError on a non-cache client skips the wait.
-    assert wait_calls == [0, 0, 0, 0]
+    # Every handler backs off, including KeyError on a non-cache client.
+    assert wait_calls == [0, 0, 0, 0, 0]
 
 
 @pytest.mark.asyncio
