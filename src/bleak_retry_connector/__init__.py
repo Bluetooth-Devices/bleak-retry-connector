@@ -524,7 +524,9 @@ async def establish_connection(
                 backoff_time = calculate_backoff_time(exc)
                 await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
-        except BrokenPipeError as exc:
+        except (BrokenPipeError, EOFError) as exc:
+            # Both are raised when the D-Bus socket dies out from under us.
+            #
             # BrokenPipeError is raised by dbus-next when the device disconnects
             #
             # bleak.exc.BleakDBusError: [org.bluez.Error] le-connection-abort-by-local
@@ -535,17 +537,6 @@ async def establish_connection(
             # File "dbus_next/aio/message_bus.py", line 63, in write_callback
             #   self.offset += self.sock.send(self.buf[self.offset:])
             # BrokenPipeError: [Errno 32] Broken pipe
-            transient_errors += 1
-            if debug_enabled:
-                _LOGGER.debug(
-                    "%s - %s: Failed to connect: %s (attempt: %s)",
-                    name,
-                    device.address,
-                    str(exc),
-                    attempt,
-                )
-            _raise_if_needed(name, device.address, exc)
-        except EOFError as exc:
             transient_errors += 1
             backoff_time = calculate_backoff_time(exc)
             if debug_enabled:

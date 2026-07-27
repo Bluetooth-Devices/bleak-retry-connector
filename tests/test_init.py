@@ -523,6 +523,7 @@ async def test_establish_connection_has_transient_error():
 @pytest.mark.asyncio
 async def test_establish_connection_has_transient_broken_pipe_error():
     attempts = 0
+    wait_calls: list[float] = []
 
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):
@@ -538,9 +539,21 @@ async def test_establish_connection_has_transient_broken_pipe_error():
         async def disconnect(self, *args, **kwargs):
             pass
 
-    client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+    async def fake_wait_for_disconnect(device, backoff_time):
+        wait_calls.append(backoff_time)
+
+    with (
+        patch(
+            "bleak_retry_connector.wait_for_disconnect",
+            side_effect=fake_wait_for_disconnect,
+        ),
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+    ):
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+
     assert isinstance(client, FakeBleakClient)
     assert attempts == 9
+    assert wait_calls == [0] * 8
 
 
 @pytest.mark.asyncio
@@ -2858,9 +2871,9 @@ async def test_establish_connection_debug_disabled_cycles_all_exception_paths() 
 
     assert isinstance(client, scripted)
     assert attempts["n"] == 6
-    # TimeoutError, EOFError, BLEAK_EXCEPTIONS all call wait_for_disconnect.
-    # KeyError on a non-cache client skips the wait. BrokenPipeError skips too.
-    assert wait_calls == [0, 0, 0]
+    # TimeoutError, BrokenPipeError, EOFError and BLEAK_EXCEPTIONS all call
+    # wait_for_disconnect. KeyError on a non-cache client skips the wait.
+    assert wait_calls == [0, 0, 0, 0]
 
 
 @pytest.mark.asyncio
