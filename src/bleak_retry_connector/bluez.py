@@ -263,9 +263,9 @@ async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
 
 def _get_properties_sync() -> dict[str, dict[str, dict[str, Any]]] | None:
     """Get the properties from an already running BlueZ manager, or None."""
-    if not IS_LINUX or not bleak_manager._global_instances:
+    if not (instances := bleak_manager._global_instances):
         return None
-    if bluez_manager := bleak_manager._global_instances.get(asyncio.get_running_loop()):
+    if bluez_manager := instances.get(asyncio.get_running_loop()):
         return bluez_manager._properties  # pylint: disable=protected-access
     return None
 

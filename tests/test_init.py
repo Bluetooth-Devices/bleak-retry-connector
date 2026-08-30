@@ -2858,6 +2858,19 @@ async def test_restore_discoveries_sync_no_manager(mock_linux: None) -> None:
 
 
 @pytest.mark.asyncio
+async def test_restore_discoveries_sync_other_loop(mock_linux: None) -> None:
+    """A manager registered for another loop is not used."""
+    mock_backend = Mock(seen_devices={})
+    with patch.object(
+        bleak_retry_connector.bleak_manager,
+        "_global_instances",
+        {asyncio.new_event_loop(): Mock(_properties={"/x": {}})},
+    ):
+        restore_discoveries_sync(Mock(_backend=mock_backend), "hci0")
+    assert mock_backend.seen_devices == {}
+
+
+@pytest.mark.asyncio
 async def test_restore_discoveries_sync_non_linux(mock_macos: None) -> None:
     """restore_discoveries_sync is a no-op off Linux."""
     mock_backend = Mock(seen_devices={})
