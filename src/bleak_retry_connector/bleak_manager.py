@@ -23,13 +23,23 @@ if IS_LINUX:
         )
 
 
+def get_global_bluez_manager_sync() -> BlueZManager | None:
+    """Return the BlueZ manager bleak built for the running loop, if any."""
+    if not _global_instances:
+        return None
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return None
+    return _global_instances.get(loop)
+
+
 async def get_global_bluez_manager_with_timeout() -> BlueZManager | None:
     """Get the properties."""
     if not IS_LINUX:
         return None
 
-    loop = asyncio.get_running_loop()
-    if _global_instances and (manager := _global_instances.get(loop)):
+    if manager := get_global_bluez_manager_sync():
         return manager
 
     if (

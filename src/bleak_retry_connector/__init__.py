@@ -652,19 +652,21 @@ def restore_discoveries_sync(scanner: BleakScanner, adapter: str) -> None:
     """Restore discoveries from a BlueZ manager that is already running.
 
     Same as restore_discoveries but never awaits: it reads the manager
-    bleak created for the running loop, so call it after the scanner
-    has started. A no-op when there is no such manager.
+    bleak created for the running loop, so call it from the loop after
+    the scanner has started. A no-op when there is no such manager.
     """
     if not IS_LINUX:
         return
     if not (properties := _get_properties_sync()):
-        _LOGGER.debug("Failed to restore discoveries for %s", adapter)
+        _LOGGER.debug("No running BlueZ manager to restore discoveries for %s", adapter)
         return
     _restore_discoveries(scanner, adapter, properties)
 
 
 def _restore_discoveries(
-    scanner: BleakScanner, adapter: str, properties: dict[str, Any]
+    scanner: BleakScanner,
+    adapter: str,
+    properties: dict[str, dict[str, dict[str, Any]]],
 ) -> None:
     """Seed the scanner's seen devices from the managed objects."""
     backend = scanner._backend

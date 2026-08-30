@@ -2864,7 +2864,19 @@ async def test_restore_discoveries_sync_other_loop(mock_linux: None) -> None:
     with patch.object(
         bleak_retry_connector.bleak_manager,
         "_global_instances",
-        {asyncio.new_event_loop(): Mock(_properties={"/x": {}})},
+        {Mock(): Mock(_properties={"/x": {}})},
+    ):
+        restore_discoveries_sync(Mock(_backend=mock_backend), "hci0")
+    assert mock_backend.seen_devices == {}
+
+
+def test_restore_discoveries_sync_no_running_loop(mock_linux: None) -> None:
+    """Off the loop restore_discoveries_sync is a no-op, not an error."""
+    mock_backend = Mock(seen_devices={})
+    with patch.object(
+        bleak_retry_connector.bleak_manager,
+        "_global_instances",
+        {Mock(): Mock(_properties={"/x": {}})},
     ):
         restore_discoveries_sync(Mock(_backend=mock_backend), "hci0")
     assert mock_backend.seen_devices == {}
