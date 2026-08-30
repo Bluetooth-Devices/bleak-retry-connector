@@ -249,7 +249,15 @@ class BleakSlotManager:
                 self._get_allocations(adapter),
             )
             return False
-        self._allocate_and_watch_slot(path)
+        try:
+            self._allocate_and_watch_slot(path)
+        except BleakError:
+            # add_device_watcher raises if the device is no longer on the bus,
+            # which happens when BlueZ removes it between the advertisement and
+            # the connection attempt (clear_cache sends RemoveDevice itself).
+            # Fail open like the guards above and let the connection attempt
+            # report the device as missing.
+            _LOGGER.debug("Cannot watch slot for %s: device not found on the bus", path)
         return True
 
 
