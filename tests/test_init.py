@@ -2870,6 +2870,8 @@ async def test_restore_discoveries_sync_other_loop(mock_linux: None) -> None:
     assert mock_backend.seen_devices == {}
 
 
+# Intentionally sync: no running loop, so this is the only test of the
+# RuntimeError branch in get_global_bluez_manager_sync.
 def test_restore_discoveries_sync_no_running_loop(mock_linux: None) -> None:
     """Off the loop restore_discoveries_sync is a no-op, not an error."""
     mock_backend = Mock(seen_devices={})
@@ -2880,6 +2882,12 @@ def test_restore_discoveries_sync_no_running_loop(mock_linux: None) -> None:
     ):
         restore_discoveries_sync(Mock(_backend=mock_backend), "hci0")
     assert mock_backend.seen_devices == {}
+
+
+@pytest.mark.skipif("not bleak_retry_connector.const.IS_LINUX")
+def test_bleak_global_instances_imported() -> None:
+    """The bleak private the sync lookup relies on still imports."""
+    assert bleak_retry_connector.bleak_manager._global_instances is not None
 
 
 @pytest.mark.asyncio

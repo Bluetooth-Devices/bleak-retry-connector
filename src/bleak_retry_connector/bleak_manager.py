@@ -30,6 +30,7 @@ def get_global_bluez_manager_sync() -> BlueZManager | None:
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
+        _LOGGER.debug("get_global_bluez_manager_sync called off the event loop")
         return None
     return _global_instances.get(loop)
 
