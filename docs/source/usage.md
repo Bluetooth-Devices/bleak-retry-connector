@@ -443,9 +443,12 @@ def retry_bluetooth_connection_error(
 - **attempts**: Number of times to attempt the wrapped call before re-raising
   the underlying error (default: 2).
 
-The decorator catches the same `BLEAK_EXCEPTIONS` group used internally by
-`establish_connection` and backs off with `calculate_backoff_time()` between
-attempts. After the final attempt fails, the original exception propagates.
+The decorator retries `AttributeError`, `BleakError`, `EOFError` and
+`BrokenPipeError` — every exception in `BLEAK_RETRY_EXCEPTIONS` except
+`asyncio.TimeoutError`, which is deliberately excluded so a timeout set by the
+caller is not multiplied by the retry attempts. It backs off with
+`calculate_backoff_time()` between attempts. After the final attempt fails, the
+original exception propagates.
 
 ### Example
 
