@@ -14,7 +14,10 @@ from bleak import BleakGATTServiceCollection
 from bleak.backends.device import BLEDevice
 from bleak.exc import BleakError
 
-from .bleak_manager import get_global_bluez_manager_with_timeout
+from .bleak_manager import (
+    get_global_bluez_manager_sync,
+    get_global_bluez_manager_with_timeout,
+)
 from .const import (
     DISCONNECT_TIMEOUT,
     IS_LINUX,
@@ -256,6 +259,13 @@ class BleakSlotManager:
 async def _get_properties() -> dict[str, dict[str, dict[str, Any]]] | None:
     """Get the properties."""
     if bluez_manager := await get_global_bluez_manager_with_timeout():
+        return bluez_manager._properties  # pylint: disable=protected-access
+    return None
+
+
+def _get_properties_sync() -> dict[str, dict[str, dict[str, Any]]] | None:
+    """Get the properties from an already running BlueZ manager, or None."""
+    if bluez_manager := get_global_bluez_manager_sync():
         return bluez_manager._properties  # pylint: disable=protected-access
     return None
 

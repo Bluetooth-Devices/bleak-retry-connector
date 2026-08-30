@@ -562,6 +562,16 @@ async def restore_discoveries(scanner: BleakScanner, adapter: str) -> None
 
 No-op on non-Linux platforms.
 
+```python
+def restore_discoveries_sync(scanner: BleakScanner, adapter: str) -> None
+```
+
+Same seeding without awaiting, for callers that restart a scanner in place
+(bleak clears `seen_devices` on every `start()`). It reads the BlueZ manager
+bleak already built for the running event loop, so call it from the loop
+after the scanner has started; no-op when there is no such manager, off the
+loop, or on non-Linux platforms.
+
 ## get_device / get_device_by_adapter
 
 Look up a `BLEDevice` by MAC address against BlueZ's current view of the bus.
