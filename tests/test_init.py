@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -1957,6 +1958,21 @@ async def test_retry_bluetooth_connection_error_does_not_retry_timeout() -> None
             await test_function()
 
         assert mock_calculate_backoff_time.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_retry_bluetooth_connection_error_preserves_metadata() -> None:
+    """Test that the decorator does not mask the wrapped function."""
+
+    @retry_bluetooth_connection_error()
+    async def update_device(address: str) -> str:
+        """Refresh the device state."""
+        return address
+
+    assert update_device.__name__ == "update_device"
+    assert update_device.__doc__ == "Refresh the device state."
+    assert list(inspect.signature(update_device).parameters) == ["address"]
+    assert await update_device("AA:BB:CC:DD:EE:FF") == "AA:BB:CC:DD:EE:FF"
 
 
 @pytest.mark.asyncio
