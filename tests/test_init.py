@@ -40,6 +40,7 @@ from bleak_retry_connector import (
     get_device,
     get_device_by_adapter,
     restore_discoveries,
+    restore_discoveries_sync,
     retry_bluetooth_connection_error,
 )
 from bleak_retry_connector.bleak_manager import _reset_dbus_socket_cache
@@ -2797,6 +2798,70 @@ async def test_restore_discoveries_non_linux(mock_macos: None) -> None:
         await restore_discoveries(mock_scanner, "hci0")
 
     get_props.assert_not_called()
+    assert mock_backend.seen_devices == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif("not bleak_retry_connector.const.IS_LINUX")
+async def test_restore_discoveries_sync(mock_linux: None) -> None:
+    """restore_discoveries_sync reads the manager of the running loop."""
+
+    class FakeBluezManager:
+        _properties = {
+            "/org/bluez/hci1/dev_BD_24_6F_85_AA_61": {
+                "org.bluez.Device1": {
+                    "Address": "BD:24:6F:85:AA:61",
+                    "AddressType": "public",
+                    "Name": "Dream~BD246F85AA61",
+                    "Alias": "Dream~BD246F85AA61",
+                    "Paired": False,
+                    "Trusted": False,
+                    "Blocked": False,
+                    "LegacyPairing": False,
+                    "Connected": False,
+                    "UUIDs": [],
+                    "Adapter": "/org/bluez/hci1",
+                    "ServicesResolved": False,
+                    "RSSI": -60,
+                },
+            },
+        }
+
+    from bluetooth_adapters.history import load_history_from_managed_objects
+
+    seen_devices: dict[str, tuple[BLEDevice, AdvertisementData]] = {}
+    mock_scanner = Mock(_backend=Mock(seen_devices=seen_devices))
+    with (
+        patch.object(
+            bleak_retry_connector.bleak_manager,
+            "_global_instances",
+            {asyncio.get_running_loop(): FakeBluezManager()},
+        ),
+        patch.object(
+            bleak_retry_connector,
+            "load_history_from_managed_objects",
+            load_history_from_managed_objects,
+        ),
+    ):
+        restore_discoveries_sync(mock_scanner, "hci1")
+
+    assert len(seen_devices) == 1
+
+
+@pytest.mark.asyncio
+async def test_restore_discoveries_sync_no_manager(mock_linux: None) -> None:
+    """restore_discoveries_sync is a no-op when no manager is running."""
+    mock_backend = Mock(seen_devices={})
+    with patch.object(bleak_retry_connector.bleak_manager, "_global_instances", {}):
+        restore_discoveries_sync(Mock(_backend=mock_backend), "hci0")
+    assert mock_backend.seen_devices == {}
+
+
+@pytest.mark.asyncio
+async def test_restore_discoveries_sync_non_linux(mock_macos: None) -> None:
+    """restore_discoveries_sync is a no-op off Linux."""
+    mock_backend = Mock(seen_devices={})
+    restore_discoveries_sync(Mock(_backend=mock_backend), "hci0")
     assert mock_backend.seen_devices == {}
 
 
