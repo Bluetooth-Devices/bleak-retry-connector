@@ -2,6 +2,42 @@
 
 <!-- version list -->
 
+## v4.7.0 (2026-08-30)
+
+### Chores
+
+- Ignore .DS_Store ([#321](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/321),
+  [`de1cc83`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/de1cc839d5b94219fcdb0d4d23a5e8c082beacc7))
+
+- **ci**: Bump browniebroke/hacktoberfest-labeler-action from 2.6.0 to 2.7.0 in the github-actions
+  group ([#318](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/318),
+  [`52c6cc0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/52c6cc0e9c0572136ae330abee70b9cc9f4791a6))
+
+- **deps-dev**: Bump blockbuster from 1.5.26 to 1.5.27
+  ([#319](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/319),
+  [`b85c1a0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/b85c1a01b5feabea1862b7d67069c6882ee46fed))
+
+- **deps-dev**: Bump pytest-asyncio from 1.3.0 to 1.4.0
+  ([#295](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/295),
+  [`cce9119`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/cce9119e6dca5a0952b6efe11e76cc4cc2aaa9c7))
+
+- **pre-commit.ci**: Pre-commit autoupdate
+  ([#317](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/317),
+  [`28131b3`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/28131b3c2409ec0586c92f0b2d8b92b2c4c815ca))
+
+### Documentation
+
+- Fix misleading comment in disconnect_devices
+  ([#310](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/310),
+  [`24697b0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/24697b0713a05159de585ce00ad3aeedf8177378))
+
+### Features
+
+- Add restore_discoveries_sync
+  ([#320](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/320),
+  [`be0a8a0`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/be0a8a09b0423076442366f151878bd8bf1228d4))
+
+
 ## v4.6.3 (2026-07-22)
 
 ### Bug Fixes
