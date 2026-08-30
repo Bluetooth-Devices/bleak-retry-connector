@@ -2294,9 +2294,10 @@ async def test_has_valid_services_in_cache_success(mock_linux):
                         "Connected": False,
                     }
                 },
-                # Both services are present in properties
-                service_path: service_props,
-                service_path2: service_props2,
+                # Both services are present in properties. BlueZ nests the
+                # properties under the interface name, so mirror that shape.
+                service_path: {defs.GATT_SERVICE_INTERFACE: service_props},
+                service_path2: {defs.GATT_SERVICE_INTERFACE: service_props2},
             }
 
     bluez_manager = FakeBluezManager()
@@ -2409,6 +2410,59 @@ async def test_has_valid_services_in_cache_service_missing(mock_linux):
         use_services_cache=True,
     )
     assert client is not None
+
+
+@pytest.mark.asyncio
+async def test_has_valid_services_in_cache_service_interface_removed(mock_linux):
+    """Validation fails when only the GattService1 interface is gone.
+
+    BlueZ removes a vanished service with InterfacesRemoved, and bleak's
+    manager deletes just the interface from the path entry. The path key
+    survives, so the cache is stale even though the path is still present.
+    """
+    collection = BleakGATTServiceCollection()
+
+    service_path = "/org/bluez/hci0/dev_FA_23_9D_AA_45_46/service0001"
+    service_props = {
+        "UUID": "0000180a-0000-1000-8000-00805f9b34fb",
+        "Primary": True,
+        "Characteristics": [],
+    }
+    collection.add_service(
+        BleakGATTService(
+            obj=(service_path, service_props),
+            handle=1,
+            uuid="0000180a-0000-1000-8000-00805f9b34fb",
+        )
+    )
+
+    class FakeBluezManager:
+        def __init__(self):
+            self._services_cache = {"/org/bluez/hci0/dev_FA_23_9D_AA_45_46": collection}
+            self._properties = {
+                "/org/bluez/hci0/dev_FA_23_9D_AA_45_46": {
+                    "org.bluez.Device1": {
+                        "Address": "FA:23:9D:AA:45:46",
+                        "Connected": False,
+                    }
+                },
+                # The path is still on the bus, but the service interface
+                # was removed, which is what InterfacesRemoved leaves behind.
+                service_path: {},
+            }
+
+    bleak_retry_connector.bluez.get_global_bluez_manager_with_timeout = AsyncMock(
+        return_value=FakeBluezManager()
+    )
+    bleak_retry_connector.bluez.defs = defs
+
+    device = BLEDevice(
+        address="FA:23:9D:AA:45:46",
+        name="Test Device",
+        details={"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
+    )
+
+    assert await bleak_retry_connector._has_valid_services_in_cache(device) is False
 
 
 @pytest.mark.asyncio

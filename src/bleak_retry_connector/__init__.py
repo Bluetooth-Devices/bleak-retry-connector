@@ -4,6 +4,7 @@ __version__ = "4.6.3"
 
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any, ParamSpec, TypeVar
@@ -38,6 +39,9 @@ if IS_LINUX:
     from bluetooth_adapters import load_history_from_managed_objects
 
     from .dbus import disconnect_devices
+
+    with contextlib.suppress(ImportError):  # pragma: no cover
+        from bleak.backends.bluezdbus import defs  # pragma: no cover
 else:
     load_history_from_managed_objects = None
     disconnect_devices = None  # type: ignore[assignment]
@@ -316,8 +320,16 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
 
     # Check if all cached services are still present in properties
     # The cached_services is a BleakGATTServiceCollection object
+    #
+    # BlueZ signals a vanished service with InterfacesRemoved, and bleak's
+    # manager only deletes the interface from the path entry, leaving the
+    # path itself behind (possibly mapped to an empty dict). Checking for
+    # the path alone would therefore never see a removed service, so match
+    # the two-level lookup bleak performs when it builds the collection:
+    # properties[service_path][defs.GATT_SERVICE_INTERFACE]
     for service in cached_services:
-        if service.obj[0] not in properties:
+        service_path = service.obj[0]
+        if defs.GATT_SERVICE_INTERFACE not in properties.get(service_path, {}):
             # Service is in cache but not in properties (not on the bus)
             _LOGGER.debug(
                 "%s - %s: Cached service %s not found in properties, cache invalid",
