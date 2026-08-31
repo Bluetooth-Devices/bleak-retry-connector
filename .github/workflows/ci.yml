@@ -86,7 +86,7 @@ jobs:
       # - Create GitHub release
       - name: Python Semantic Release
         id: release
-        uses: python-semantic-release/python-semantic-release@v10.6.1
+        uses: python-semantic-release/python-semantic-release@v10.6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Upload package to PyPI
