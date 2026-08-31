@@ -29,6 +29,7 @@ If you're using ESPHome Bluetooth proxies, this package is **critical** because:
 from bleak_retry_connector import BleakClientWithServiceCache
 from bleak.backends.device import BLEDevice
 
+
 async def connect_with_cache(device: BLEDevice):
     client = BleakClientWithServiceCache(device)
     await client.connect()
@@ -100,10 +101,10 @@ client = await establish_connection(
 
 # After initial sync, switch to slow intervals to save battery
 await client.set_connection_params(
-    min_interval=800,   # 1000ms
-    max_interval=800,   # 1000ms
+    min_interval=800,  # 1000ms
+    max_interval=800,  # 1000ms
     latency=0,
-    timeout=600,        # 6000ms
+    timeout=600,  # 6000ms
 )
 ```
 
@@ -191,12 +192,11 @@ Returns the connected client instance of the specified `client_class`.
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 from bleak.backends.device import BLEDevice
 
+
 async def connect_to_device(device: BLEDevice):
     # Simple connection with retry
     client = await establish_connection(
-        BleakClientWithServiceCache,
-        device,
-        name=device.name or device.address
+        BleakClientWithServiceCache, device, name=device.name or device.address
     )
 
     # Use the client
@@ -220,7 +220,7 @@ async def connect_with_callback(device: BLEDevice):
         device,
         name=device.name or device.address,
         disconnected_callback=on_disconnect,
-        max_attempts=5  # Try up to 5 times
+        max_attempts=5,  # Try up to 5 times
     )
 
     return client
@@ -231,17 +231,16 @@ async def connect_with_callback(device: BLEDevice):
 ```python
 from bleak import BleakClient
 
+
 class CustomClient(BleakClient):
     async def custom_method(self):
         # Custom functionality
         pass
 
+
 async def connect_with_custom_client(device: BLEDevice):
     client = await establish_connection(
-        CustomClient,
-        device,
-        name=device.name,
-        max_attempts=3
+        CustomClient, device, name=device.name, max_attempts=3
     )
 
     # Use custom methods
@@ -259,15 +258,14 @@ from bleak_retry_connector import (
     BleakNotFoundError,
     BleakOutOfConnectionSlotsError,
     BleakAbortedError,
-    BleakConnectionError
+    BleakConnectionError,
 )
+
 
 async def connect_with_error_handling(device: BLEDevice):
     try:
         client = await establish_connection(
-            BleakClientWithServiceCache,
-            device,
-            name=device.name
+            BleakClientWithServiceCache, device, name=device.name
         )
         return client
 
@@ -296,9 +294,12 @@ When a device's firmware changes or services are updated, you might encounter mi
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 from bleak.exc import BleakError
 
+
 class CharacteristicMissingError(Exception):
     """Raised when a required characteristic is missing."""
+
     pass
+
 
 async def connect_and_validate_services(device: BLEDevice):
     """Connect and validate required characteristics exist."""
@@ -307,7 +308,7 @@ async def connect_and_validate_services(device: BLEDevice):
         BleakClientWithServiceCache,
         device,
         name=device.name or device.address,
-        use_services_cache=True
+        use_services_cache=True,
     )
 
     try:
@@ -317,11 +318,15 @@ async def connect_and_validate_services(device: BLEDevice):
 
         service = client.services.get_service(required_service_uuid)
         if not service:
-            raise CharacteristicMissingError(f"Service {required_service_uuid} not found")
+            raise CharacteristicMissingError(
+                f"Service {required_service_uuid} not found"
+            )
 
         char = service.get_characteristic(required_char_uuid)
         if not char:
-            raise CharacteristicMissingError(f"Characteristic {required_char_uuid} not found")
+            raise CharacteristicMissingError(
+                f"Characteristic {required_char_uuid} not found"
+            )
 
     except (CharacteristicMissingError, KeyError) as ex:
         # Services might have changed, clear cache and reconnect
@@ -334,19 +339,23 @@ async def connect_and_validate_services(device: BLEDevice):
             BleakClientWithServiceCache,
             device,
             name=device.name or device.address,
-            use_services_cache=False  # Force fresh service discovery
+            use_services_cache=False,  # Force fresh service discovery
         )
 
         # Validate again
         service = client.services.get_service(required_service_uuid)
         if not service:
             await client.disconnect()
-            raise CharacteristicMissingError(f"Service {required_service_uuid} still not found after cache clear")
+            raise CharacteristicMissingError(
+                f"Service {required_service_uuid} still not found after cache clear"
+            )
 
         char = service.get_characteristic(required_char_uuid)
         if not char:
             await client.disconnect()
-            raise CharacteristicMissingError(f"Characteristic {required_char_uuid} still not found after cache clear")
+            raise CharacteristicMissingError(
+                f"Characteristic {required_char_uuid} still not found after cache clear"
+            )
 
     return client
 ```
@@ -362,7 +371,7 @@ async def connect_with_full_options(device: BLEDevice):
         disconnected_callback=lambda c: print("Disconnected"),
         max_attempts=6,  # More attempts for difficult devices
         use_services_cache=True,  # Use caching for faster reconnects
-        timeout=30.0  # Pass additional kwargs to BleakClient
+        timeout=30.0,  # Pass additional kwargs to BleakClient
     )
 
     return client
@@ -379,8 +388,9 @@ from bleak_retry_connector import (
     BleakNotFoundError,
     BleakOutOfConnectionSlotsError,
     BleakAbortedError,
-    BleakConnectionError
+    BleakConnectionError,
 )
+
 
 async def main():
     # Scan for devices
@@ -401,7 +411,7 @@ async def main():
             BleakClientWithServiceCache,
             device,
             name=device.name or device.address,
-            max_attempts=4
+            max_attempts=4,
         )
 
         print("Connected successfully!")
@@ -416,9 +426,14 @@ async def main():
         await client.disconnect()
         print("Disconnected")
 
-    except (BleakNotFoundError, BleakOutOfConnectionSlotsError,
-            BleakAbortedError, BleakConnectionError) as e:
+    except (
+        BleakNotFoundError,
+        BleakOutOfConnectionSlotsError,
+        BleakAbortedError,
+        BleakConnectionError,
+    ) as e:
         print(f"Failed to connect: {e}")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -456,10 +471,12 @@ from bleak_retry_connector import (
     retry_bluetooth_connection_error,
 )
 
+
 @retry_bluetooth_connection_error(attempts=3)
 async def read_battery(client: BleakClientWithServiceCache) -> int:
     data = await client.read_gatt_char("00002a19-0000-1000-8000-00805f9b34fb")
     return data[0]
+
 
 async def main(device):
     client = await establish_connection(
@@ -596,7 +613,11 @@ Both return `None` on non-Linux platforms and when BlueZ has no matching
 object.
 
 ```python
-from bleak_retry_connector import get_device, establish_connection, BleakClientWithServiceCache
+from bleak_retry_connector import (
+    get_device,
+    establish_connection,
+    BleakClientWithServiceCache,
+)
 
 device = await get_device("AA:BB:CC:DD:EE:FF")
 if device is None:
