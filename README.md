@@ -49,6 +49,7 @@ import asyncio
 from bleak import BleakScanner
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 
+
 async def connect_to_device():
     # Find your device
     device = await BleakScanner.find_device_by_address("AA:BB:CC:DD:EE:FF")
@@ -62,7 +63,7 @@ async def connect_to_device():
         BleakClientWithServiceCache,  # Use BleakClientWithServiceCache for service caching
         device,
         device.name or "Unknown Device",
-        max_attempts=3  # Will retry up to 3 times with backoff
+        max_attempts=3,  # Will retry up to 3 times with backoff
     )
 
     try:
@@ -76,6 +77,7 @@ async def connect_to_device():
 
     finally:
         await client.disconnect()
+
 
 # Run the example
 asyncio.run(connect_to_device())
