@@ -716,3 +716,21 @@ manager to attach to.
   disconnect wait in `establish_connection` — to complete before giving up.
   Exposed so callers wrapping the same D-Bus operations can apply a matching
   ceiling.
+
+- **`bleak_retry_connector.bluez.MAX_ADAPTER`** (`16`): Highest BlueZ adapter
+  number searched when a device is looked up across adapters. A device's
+  D-Bus path is probed on `hci0` through `hci16` inclusive, which covers
+  hosts with up to seventeen controllers. BlueZ has no fixed upper bound on
+  adapter numbers and they climb as controllers are re-plugged, so a host
+  that reaches higher can raise the limit at startup, before the first
+  connection attempt. The value is read on every lookup. It lives on the
+  `bluez` module and is not re-exported from the package, so set it there:
+
+  ```python
+  import bleak_retry_connector.bluez
+
+  bleak_retry_connector.bluez.MAX_ADAPTER = 40
+  ```
+
+  Each lookup costs one dictionary probe per adapter number, so keep the
+  value close to the adapters the host actually has.
