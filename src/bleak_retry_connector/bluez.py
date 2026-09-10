@@ -576,10 +576,16 @@ def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
 
 # BlueZ names adapters hci0, hci1, ... with no fixed upper bound: a host with
 # several USB controllers can have adapters numbered into the teens, and the
-# number climbs further as adapters are re-plugged. Probe a generous range so a
-# device on a higher-numbered adapter is still found. The previous limit of
-# hci0-hci8 missed hci9 and up.
-MAX_ADAPTER = 20
+# number climbs further as adapters are re-plugged. Device paths are probed on
+# hci0 through hci<MAX_ADAPTER> inclusive. The previous limit of hci0-hci8
+# missed hci9 and up.
+#
+# The value is read on every call, so a host with adapters numbered above the
+# default can raise it at startup, before the first connection attempt:
+#
+#     import bleak_retry_connector.bluez
+#     bleak_retry_connector.bluez.MAX_ADAPTER = 40
+MAX_ADAPTER = 16
 
 
 def _get_possible_paths(path: str) -> Generator[str]:

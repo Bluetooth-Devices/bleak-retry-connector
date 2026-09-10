@@ -1523,7 +1523,19 @@ def test_get_possible_paths_reaches_high_numbered_adapters() -> None:
     paths = list(_get_possible_paths("/org/bluez/hciX/dev_FA_23_9D_AA_45_46"))
     assert "/org/bluez/hci0/dev_FA_23_9D_AA_45_46" in paths
     assert "/org/bluez/hci9/dev_FA_23_9D_AA_45_46" in paths
-    assert "/org/bluez/hci19/dev_FA_23_9D_AA_45_46" in paths
+    assert "/org/bluez/hci16/dev_FA_23_9D_AA_45_46" in paths
+    assert "/org/bluez/hci17/dev_FA_23_9D_AA_45_46" not in paths
+
+
+def test_get_possible_paths_honours_a_raised_max_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """MAX_ADAPTER is read on every call, so a host with adapters numbered
+    above the default can raise it at startup without changing the library."""
+    monkeypatch.setattr(bleak_retry_connector.bluez, "MAX_ADAPTER", 40)
+    paths = list(_get_possible_paths("/org/bluez/hciX/dev_FA_23_9D_AA_45_46"))
+    assert "/org/bluez/hci40/dev_FA_23_9D_AA_45_46" in paths
+    assert len(paths) == 41
 
 
 def test_get_possible_paths_handles_a_multi_digit_input_adapter() -> None:
