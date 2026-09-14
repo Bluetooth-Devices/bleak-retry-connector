@@ -144,10 +144,13 @@ OUT_OF_SLOTS_ERRORS = {
 # 2. The stack gives up after its connection establishment timeout
 #    (CONFIG_BT_BLE_ESTAB_LINK_CONN_TOUT, at least 10s in ESPHome) because the
 #    device never responded.
-# The time the connect attempt took tells the two apart.
+# The time the connect attempt took tells the two apart. A rejection can still
+# take a few seconds since bleak-esphome waits up to 2s for a free slot before
+# connecting and up to 2s for the slot to settle after a failure, so the cutoff
+# sits between that and the 10s minimum establishment timeout.
 # The 4-second backoff gives the controller time to finish cleaning up.
 CONNECTION_CANCELLED_ERRORS = {"ESP_GATT_CONN_CONN_CANCEL"}
-CONNECTION_CANCELLED_REJECTED_MAX_TIME = 5.0
+CONNECTION_CANCELLED_REJECTED_MAX_TIME = 8.0
 
 TRANSIENT_ERRORS = (
     {
@@ -177,9 +180,11 @@ DEVICE_MISSING_ADVICE = (
     "The device disappeared; Try restarting the scanner or moving the device closer"
 )
 
+BLUETOOTH_PROXIES_URL = "https://esphome.io/projects/?type=bluetooth"
+
 OUT_OF_SLOTS_ADVICE = (
     "The proxy/adapter is out of connection slots or the device is no longer reachable; "
-    "Add additional proxies (https://esphome.io/projects/?type=bluetooth) near this device"
+    f"Add additional proxies ({BLUETOOTH_PROXIES_URL}) near this device"
 )
 
 CONNECTION_REJECTED_ADVICE = (
@@ -192,7 +197,7 @@ CONNECTION_CANCELLED_TIMEOUT_ADVICE = (
     "The proxy/adapter gave up waiting for the device to respond; "
     "The device may be out of range or not accepting connections; "
     "Move the device closer or add additional proxies "
-    "(https://esphome.io/projects/?type=bluetooth) near this device"
+    f"({BLUETOOTH_PROXIES_URL}) near this device"
 )
 
 NORMAL_DISCONNECT = "Disconnected"
