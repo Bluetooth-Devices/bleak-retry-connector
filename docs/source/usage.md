@@ -164,7 +164,7 @@ Returns the connected client instance of the specified `client_class`.
 - **BleakNotFoundError**: Device was not found or disappeared
 
   - Raised when the device cannot be found
-  - Raised on `asyncio.TimeoutError` after all retries
+  - Raised on `asyncio.TimeoutError` after all retries, unless the timeout says no connection slot became available
   - Raised when `BleakDeviceNotFoundError` occurs
   - Raised when device is missing from the adapter
 
@@ -172,10 +172,11 @@ Returns the connected client instance of the specified `client_class`.
 
   - Raised when local Bluetooth adapters or ESP32 proxies are out of connection slots
   - Common with errors containing "connection slot" or "available connection"
+  - Also raised when bleak-esphome times out with "No free BLE connection slot became available"
   - For local adapters: disconnect unused devices or use a different adapter
   - For ESP32 proxies: add more proxies or disconnect other devices
 
-- **BleakAbortedError**: Connection was aborted due to interference or range issues
+- **BleakAbortedError**: Connection was aborted due to interference, range, or proxy controller issues
 
   - Raised for transient connection failures that suggest environmental issues
   - Common with errors like "le-connection-abort-by-local", "br-connection-canceled"

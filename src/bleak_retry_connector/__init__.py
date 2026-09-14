@@ -369,6 +369,12 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
 
+    # bleak-esphome raises a TimeoutError when no connection slot
+    # becomes available
+    if isinstance(exc, asyncio.TimeoutError) and any(
+        error in str(exc) for error in OUT_OF_SLOTS_ERRORS
+    ):
+        return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(
         exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
     ):
@@ -468,17 +474,21 @@ async def establish_connection(
             f"{attempt} attempt(s): {str(exc) or type(exc).__name__}"
         )
         # Sure would be nice if bleak gave us typed exceptions
-        # Checked before the timeout case since bleak-esphome raises
-        # a TimeoutError when no connection slot becomes available
-        if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
-            raise BleakOutOfConnectionSlotsError(
-                f"{msg}: {OUT_OF_SLOTS_ADVICE}"
-            ) from exc
         if isinstance(exc, asyncio.TimeoutError):
+            # bleak-esphome raises a TimeoutError when no connection slot
+            # becomes available
+            if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
+                raise BleakOutOfConnectionSlotsError(
+                    f"{msg}: {OUT_OF_SLOTS_ADVICE}"
+                ) from exc
             raise BleakNotFoundError(msg) from exc
         if isinstance(exc, BleakDeviceNotFoundError) or "not found" in str(exc):
             raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         if isinstance(exc, BleakError):
+            if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
+                raise BleakOutOfConnectionSlotsError(
+                    f"{msg}: {OUT_OF_SLOTS_ADVICE}"
+                ) from exc
             if any(error in str(exc) for error in CONNECTION_CANCELLED_ERRORS):
                 if connect_elapsed < CONNECTION_CANCELLED_REJECTED_MAX_TIME:
                     raise BleakAbortedError(

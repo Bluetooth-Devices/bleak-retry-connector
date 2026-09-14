@@ -1931,6 +1931,15 @@ def test_calculate_backoff_time():
         calculate_backoff_time(BleakError("ESP_GATT_CONN_CONN_CANCEL"))
         == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     )
+    assert (
+        calculate_backoff_time(
+            asyncio.TimeoutError(
+                "test [aa:bb:cc:dd:ee:ff]: No free BLE connection slot "
+                "became available (limit=3, in use=3)"
+            )
+        )
+        == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+    )
     assert calculate_backoff_time(EOFError()) == BLEAK_DBUS_BACKOFF_TIME
     assert calculate_backoff_time(BrokenPipeError()) == BLEAK_DBUS_BACKOFF_TIME
     assert calculate_backoff_time(asyncio.TimeoutError()) == BLEAK_DBUS_BACKOFF_TIME
