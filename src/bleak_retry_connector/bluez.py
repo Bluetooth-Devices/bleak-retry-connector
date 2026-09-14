@@ -574,12 +574,27 @@ def address_to_bluez_path(address: str, adapter: str | None = None) -> str:
     return f"/org/bluez/{adapter or 'hciX'}/dev_{address.upper().replace(':', '_')}"
 
 
+# BlueZ names adapters hci0, hci1, ... with no fixed upper bound: a host with
+# several USB controllers can have adapters numbered into the teens, and the
+# number climbs further as adapters are re-plugged. Device paths are probed on
+# hci0 through hci<MAX_ADAPTER> inclusive. The previous limit of hci0-hci8
+# missed hci9 and up.
+#
+# The value is read on every call, so a host with adapters numbered above the
+# default can raise it at startup, before the first connection attempt:
+#
+#     import bleak_retry_connector.bluez
+#     bleak_retry_connector.bluez.MAX_ADAPTER = 40
+MAX_ADAPTER = 16
+
+
 def _get_possible_paths(path: str) -> Generator[str]:
-    """Get the possible paths."""
-    # The path is deterministic so we splice up the string
-    # /org/bluez/hci2/dev_FA_23_9D_AA_45_46
-    for i in range(0, 9):
-        yield f"{path[0:14]}{i}{path[15:]}"
+    """Get the possible paths for a device across adapters."""
+    # The same device address appears under every adapter it is known on, so
+    # rebuild the path for each: /org/bluez/hci2/dev_FA_23_9D_AA_45_46
+    _, _, device = path.partition("/dev_")
+    for i in range(MAX_ADAPTER + 1):
+        yield f"/org/bluez/hci{i}/dev_{device}"
 
 
 def ble_device_from_properties(path: str, props: dict[str, Any]) -> BLEDevice:
