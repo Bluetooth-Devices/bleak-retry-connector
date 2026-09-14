@@ -15,8 +15,8 @@ This package provides robust retry logic and intelligent backoff strategies for 
 If you're using ESPHome Bluetooth proxies, this package is **critical** because:
 
 1. **Proper slot management** - ESP32 devices have limited connection slots that must be carefully managed
-2. **Handles ESP-specific errors** - Recognizes ESP32 error codes like `ESP_GATT_CONN_CONN_CANCEL` (out of slots)
-3. **Appropriate backoff timing** - Uses longer backoff (4 seconds) when slots are exhausted to allow proper cleanup
+2. **Handles ESP-specific errors** - Recognizes ESP32 error codes like `ESP_GATT_CONN_CONN_CANCEL` (connection cancelled by the controller)
+3. **Appropriate backoff timing** - Uses longer backoff (4 seconds) when slots are exhausted or the controller cancels a connection to allow proper cleanup
 4. **Prevents slot exhaustion** - Manages connection attempts to avoid overwhelming the proxy
 
 ## BleakClientWithServiceCache
@@ -171,7 +171,7 @@ Returns the connected client instance of the specified `client_class`.
 - **BleakOutOfConnectionSlotsError**: Adapter/proxy has no available connection slots
 
   - Raised when local Bluetooth adapters or ESP32 proxies are out of connection slots
-  - Common with errors containing "ESP_GATT_CONN_CONN_CANCEL", "connection slot", or "available connection"
+  - Common with errors containing "connection slot" or "available connection"
   - For local adapters: disconnect unused devices or use a different adapter
   - For ESP32 proxies: add more proxies or disconnect other devices
 
@@ -180,6 +180,7 @@ Returns the connected client instance of the specified `client_class`.
   - Raised for transient connection failures that suggest environmental issues
   - Common with errors like "le-connection-abort-by-local", "br-connection-canceled"
   - Indicates interference, range problems, or USB 3.0 port interference
+  - Also raised for "ESP_GATT_CONN_CONN_CANCEL", which means the ESP32 controller cancelled the connection before it was established; this usually points to a proxy firmware or controller problem rather than a lack of connection slots
 
 - **BleakConnectionError**: General connection failure after all retries
   - Raised for any other connection errors that don't fit the above categories

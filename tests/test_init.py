@@ -713,8 +713,8 @@ async def test_establish_connection_out_of_slots_advice():
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_esp_gatt_conn_conn_cancel_out_of_slots():
-    """Test ESP_GATT_CONN_CONN_CANCEL is treated as out of slots error."""
+async def test_establish_connection_esp_gatt_conn_conn_cancel_aborted():
+    """Test ESP_GATT_CONN_CONN_CANCEL is not reported as out of slots."""
 
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):
@@ -736,10 +736,48 @@ async def test_establish_connection_esp_gatt_conn_conn_cancel_out_of_slots():
         except BleakError as e:
             exc = e
 
-    assert isinstance(exc, BleakOutOfConnectionSlotsError)
+    assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s): "
-        "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter is "
+        "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter cancelled the "
+        "connection before it was established; This usually points to a "
+        "controller or firmware problem, not a lack of connection slots; "
+        "Check the proxy logs and update its firmware"
+    )
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_no_free_slot_timeout_out_of_slots():
+    """Test a TimeoutError waiting for a free slot is reported as out of slots."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise TimeoutError(
+                "test [aa:bb:cc:dd:ee:ff]: No free BLE connection slot "
+                "became available (limit=3, in use=3)"
+            )
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
+
+    assert isinstance(exc, BleakOutOfConnectionSlotsError)
+    assert str(exc) == (
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 4 attempt(s): "
+        "test [aa:bb:cc:dd:ee:ff]: No free BLE connection slot "
+        "became available (limit=3, in use=3): The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
         "(https://esphome.github.io/bluetooth-proxies/) near this device"

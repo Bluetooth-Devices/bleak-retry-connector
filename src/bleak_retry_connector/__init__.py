@@ -125,26 +125,33 @@ TRANSIENT_ERRORS_MEDIUM_BACKOFF = {
 
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
 
-# ESP_GATT_CONN_CONN_CANCEL (0x100) indicates the ESP32 rejected the connection due to
-# limited resources (HCI error 0x0d). This happens when ESPHome incorrectly marks a
-# connection slot as free at ESP_GATTC_DISCONNECT_EVT instead of waiting for
-# ESP_GATTC_CLOSE_EVT, causing a race where we try to use a slot that isn't actually
-# available yet. The 4-second backoff gives time for the slot to truly become available
-# and for the state to sync with Home Assistant.
-# See: https://github.com/espressif/esp-idf/issues/17452
 OUT_OF_SLOTS_ERRORS = {
     "available connection",
     "connection slot",
-    "ESP_GATT_CONN_CONN_CANCEL",
 }
 
-TRANSIENT_ERRORS = {
-    "le-connection-abort-by-local",
-    "br-connection-canceled",
-    "ESP_GATT_CONN_FAIL_ESTABLISH",
-    "ESP_GATT_CONN_TERMINATE_PEER_USER",
-    "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
-} | OUT_OF_SLOTS_ERRORS
+# ESP_GATT_CONN_CONN_CANCEL (0x100) means the ESP32 controller cancelled the
+# connection before it was established. It is not a reliable out of slots signal
+# since the ESPHome proxy answers with a different error when it has no free slot
+# and bleak-esphome waits for a free slot before connecting. Known causes are the
+# controller still releasing resources from the previous connection
+# (https://github.com/espressif/esp-idf/issues/17452) and the controller rejecting
+# the create connection command outright (for example HCI 0x0c Command Disallowed
+# when BLE 5.0 features are enabled, https://github.com/esphome/esphome/pull/18047).
+# The 4-second backoff gives the controller time to finish cleaning up.
+CONNECTION_CANCELLED_ERRORS = {"ESP_GATT_CONN_CONN_CANCEL"}
+
+TRANSIENT_ERRORS = (
+    {
+        "le-connection-abort-by-local",
+        "br-connection-canceled",
+        "ESP_GATT_CONN_FAIL_ESTABLISH",
+        "ESP_GATT_CONN_TERMINATE_PEER_USER",
+        "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
+    }
+    | OUT_OF_SLOTS_ERRORS
+    | CONNECTION_CANCELLED_ERRORS
+)
 
 # Currently the same as transient error
 ABORT_ERRORS = (
@@ -165,6 +172,12 @@ DEVICE_MISSING_ADVICE = (
 OUT_OF_SLOTS_ADVICE = (
     "The proxy/adapter is out of connection slots or the device is no longer reachable; "
     "Add additional proxies (https://esphome.github.io/bluetooth-proxies/) near this device"
+)
+
+CONNECTION_CANCELLED_ADVICE = (
+    "The proxy/adapter cancelled the connection before it was established; "
+    "This usually points to a controller or firmware problem, not a lack of "
+    "connection slots; Check the proxy logs and update its firmware"
 )
 
 NORMAL_DISCONNECT = "Disconnected"
@@ -354,7 +367,10 @@ def calculate_backoff_time(exc: Exception) -> float:
         return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(exc, BleakError):
         bleak_error = str(exc)
-        if any(error in bleak_error for error in OUT_OF_SLOTS_ERRORS):
+        if any(
+            error in bleak_error
+            for error in OUT_OF_SLOTS_ERRORS | CONNECTION_CANCELLED_ERRORS
+        ):
             return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
         if any(error in bleak_error for error in TRANSIENT_ERRORS_MEDIUM_BACKOFF):
             return BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME
@@ -436,14 +452,20 @@ async def establish_connection(
             f"{attempt} attempt(s): {str(exc) or type(exc).__name__}"
         )
         # Sure would be nice if bleak gave us typed exceptions
+        # Checked before the timeout case since bleak-esphome raises
+        # a TimeoutError when no connection slot becomes available
+        if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
+            raise BleakOutOfConnectionSlotsError(
+                f"{msg}: {OUT_OF_SLOTS_ADVICE}"
+            ) from exc
         if isinstance(exc, asyncio.TimeoutError):
             raise BleakNotFoundError(msg) from exc
         if isinstance(exc, BleakDeviceNotFoundError) or "not found" in str(exc):
             raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
         if isinstance(exc, BleakError):
-            if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
-                raise BleakOutOfConnectionSlotsError(
-                    f"{msg}: {OUT_OF_SLOTS_ADVICE}"
+            if any(error in str(exc) for error in CONNECTION_CANCELLED_ERRORS):
+                raise BleakAbortedError(
+                    f"{msg}: {CONNECTION_CANCELLED_ADVICE}"
                 ) from exc
             if any(error in str(exc) for error in ABORT_ERRORS):
                 raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
