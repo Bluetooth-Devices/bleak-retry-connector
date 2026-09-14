@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v4.7.1 (2026-09-14)
+
+### Bug Fixes
+
+- Stop reporting ESP_GATT_CONN_CONN_CANCEL as out of connection slots
+  ([#327](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/327),
+  [`41bea26`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/41bea2654ba7385a67107de1aaf0a8788c0b9024))
+
+### Chores
+
+- **ci**: Bump the github-actions group across 1 directory with 2 updates
+  ([#326](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/326),
+  [`ef8b0ef`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/ef8b0efa61ed9ed70bc77e023f3292682a016901))
+
+- **pre-commit.ci**: Pre-commit autoupdate
+  ([#328](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/328),
+  [`a4827f6`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/a4827f638e3e870633fd4bc09516b8d0313bade0))
+
+- **pre-commit.ci**: Pre-commit autoupdate
+  ([#323](https://github.com/Bluetooth-Devices/bleak-retry-connector/pull/323),
+  [`4e1aaf2`](https://github.com/Bluetooth-Devices/bleak-retry-connector/commit/4e1aaf2a6a600917f76c889ce59baface131ec90))
+
+
 ## v4.7.0 (2026-08-30)
 
 ### Chores
