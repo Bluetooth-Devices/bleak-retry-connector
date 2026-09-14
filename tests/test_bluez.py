@@ -1514,3 +1514,40 @@ async def test_get_connected_devices_no_properties(
         {"path": "/org/bluez/hci0/dev_FA_23_9D_AA_45_46"},
     )
     assert await get_connected_devices(device) == []
+
+
+async def test_allocate_slot_device_left_the_bus(
+    mock_linux: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A device removed from the bus fails open instead of raising."""
+
+    class FakeBluezManager:
+        def __init__(self) -> None:
+            self._properties: dict[str, Any] = {}
+
+        def add_device_watcher(self, path: str, **kwargs: Any) -> DeviceWatcher:
+            # Matches bleak: raises when the path is not in _properties.
+            raise BleakError(f"device '{path.split('/')[-1]}' not found")
+
+    monkeypatch.setattr(
+        bleak_retry_connector.bleak_manager,
+        "get_global_bluez_manager",
+        AsyncMock(return_value=FakeBluezManager()),
+    )
+    monkeypatch.setattr(bleak_retry_connector.bluez, "defs", defs)
+
+    slot_manager = BleakSlotManager()
+    await slot_manager.async_setup()
+    slot_manager.register_adapter("hci0", 1)
+
+    released: list[AllocationChangeEvent] = []
+    slot_manager.register_allocation_callback(released.append)
+
+    device = ble_device_from_properties(
+        "/org/bluez/hci0/dev_FA_23_9D_AA_45_46",
+        {"Address": "FA:23:9D:AA:45:46", "Alias": "FA:23:9D:AA:45:46"},
+    )
+
+    assert slot_manager.allocate_slot(device) is True
+    assert released == []
+    assert slot_manager.get_allocations("hci0") == Allocations("hci0", 1, 1, [])
