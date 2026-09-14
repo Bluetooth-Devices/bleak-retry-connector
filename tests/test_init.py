@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -739,10 +740,50 @@ async def test_establish_connection_esp_gatt_conn_conn_cancel_aborted():
     assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s): "
-        "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter cancelled the "
-        "connection before it was established; This usually points to a "
+        "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter controller rejected "
+        "the connection immediately; This usually points to a "
         "controller or firmware problem, not a lack of connection slots; "
         "Check the proxy logs and update its firmware"
+    )
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_esp_gatt_conn_conn_cancel_after_timeout():
+    """Test a slow ESP_GATT_CONN_CONN_CANCEL is reported as the device not responding."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakError("ESP_GATT_CONN_CONN_CANCEL")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+        patch(
+            "bleak_retry_connector.monotonic",
+            side_effect=itertools.count(step=20),
+        ),
+    ):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
+
+    assert isinstance(exc, BleakAbortedError)
+    assert str(exc) == (
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s): "
+        "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter gave up waiting for "
+        "the device to respond; The device may be out of range or not "
+        "accepting connections; Move the device closer or add additional "
+        "proxies (https://esphome.github.io/bluetooth-proxies/) near this device"
     )
 
 
