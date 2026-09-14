@@ -15,8 +15,8 @@ This package provides robust retry logic and intelligent backoff strategies for 
 If you're using ESPHome Bluetooth proxies, this package is **critical** because:
 
 1. **Proper slot management** - ESP32 devices have limited connection slots that must be carefully managed
-2. **Handles ESP-specific errors** - Recognizes ESP32 error codes like `ESP_GATT_CONN_CONN_CANCEL` (out of slots)
-3. **Appropriate backoff timing** - Uses longer backoff (4 seconds) when slots are exhausted to allow proper cleanup
+2. **Handles ESP-specific errors** - Recognizes ESP32 error codes like `ESP_GATT_CONN_CONN_CANCEL` (connection cancelled by the ESP32 Bluetooth stack)
+3. **Appropriate backoff timing** - Uses longer backoff (4 seconds) when slots are exhausted or the controller cancels a connection to allow proper cleanup
 4. **Prevents slot exhaustion** - Manages connection attempts to avoid overwhelming the proxy
 
 ## BleakClientWithServiceCache
@@ -165,22 +165,24 @@ Returns the connected client instance of the specified `client_class`.
 - **BleakNotFoundError**: Device was not found or disappeared
 
   - Raised when the device cannot be found
-  - Raised on `asyncio.TimeoutError` after all retries
+  - Raised on `asyncio.TimeoutError` after all retries, unless the timeout says no connection slot became available
   - Raised when `BleakDeviceNotFoundError` occurs
   - Raised when device is missing from the adapter
 
 - **BleakOutOfConnectionSlotsError**: Adapter/proxy has no available connection slots
 
   - Raised when local Bluetooth adapters or ESP32 proxies are out of connection slots
-  - Common with errors containing "ESP_GATT_CONN_CONN_CANCEL", "connection slot", or "available connection"
+  - Common with errors containing "connection slot" or "available connection"
+  - Also raised when bleak-esphome times out with "No free BLE connection slot became available"
   - For local adapters: disconnect unused devices or use a different adapter
   - For ESP32 proxies: add more proxies or disconnect other devices
 
-- **BleakAbortedError**: Connection was aborted due to interference or range issues
+- **BleakAbortedError**: Connection was aborted due to interference, range, or proxy controller issues
 
   - Raised for transient connection failures that suggest environmental issues
   - Common with errors like "le-connection-abort-by-local", "br-connection-canceled"
   - Indicates interference, range problems, or USB 3.0 port interference
+  - Also raised for "ESP_GATT_CONN_CONN_CANCEL", which the ESP32 Bluetooth stack reports when a connection is cancelled before it is established; if the attempt failed immediately the controller rejected it, which points to a proxy firmware or controller problem, otherwise the stack gave up because the device did not respond
 
 - **BleakConnectionError**: General connection failure after all retries
   - Raised for any other connection errors that don't fit the above categories

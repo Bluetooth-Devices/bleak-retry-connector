@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import itertools
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -708,13 +709,13 @@ async def test_establish_connection_out_of_slots_advice():
         "out of connection slots: The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
-        "(https://esphome.github.io/bluetooth-proxies/) near this device"
+        "(https://esphome.io/projects/?type=bluetooth) near this device"
     )
 
 
 @pytest.mark.asyncio
-async def test_establish_connection_esp_gatt_conn_conn_cancel_out_of_slots():
-    """Test ESP_GATT_CONN_CONN_CANCEL is treated as out of slots error."""
+async def test_establish_connection_esp_gatt_conn_conn_cancel_aborted():
+    """Test ESP_GATT_CONN_CONN_CANCEL is not reported as out of slots."""
 
     class FakeBleakClient(BleakClient):
         def __init__(self, *args, **kwargs):
@@ -736,13 +737,91 @@ async def test_establish_connection_esp_gatt_conn_conn_cancel_out_of_slots():
         except BleakError as e:
             exc = e
 
-    assert isinstance(exc, BleakOutOfConnectionSlotsError)
+    assert isinstance(exc, BleakAbortedError)
     assert str(exc) == (
         "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s): "
-        "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter is "
+        "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter controller rejected "
+        "the connection immediately; This usually points to a "
+        "controller or firmware problem, not a lack of connection slots; "
+        "Check the proxy logs and update its firmware"
+    )
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_esp_gatt_conn_conn_cancel_after_timeout():
+    """Test a slow ESP_GATT_CONN_CONN_CANCEL is reported as the device not responding."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise BleakError("ESP_GATT_CONN_CONN_CANCEL")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+        patch(
+            "bleak_retry_connector.monotonic",
+            side_effect=itertools.count(step=20),
+        ),
+    ):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
+
+    assert isinstance(exc, BleakAbortedError)
+    assert str(exc) == (
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 9 attempt(s): "
+        "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter gave up waiting for "
+        "the device to respond; The device may be out of range or not "
+        "accepting connections; Move the device closer or add additional "
+        "proxies (https://esphome.io/projects/?type=bluetooth) near this device"
+    )
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_no_free_slot_timeout_out_of_slots():
+    """Test a TimeoutError waiting for a free slot is reported as out of slots."""
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            raise asyncio.TimeoutError(
+                "test [aa:bb:cc:dd:ee:ff]: No free BLE connection slot "
+                "became available (limit=3, in use=3)"
+            )
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        try:
+            await establish_connection(
+                FakeBleakClient,
+                BLEDevice("aa:bb:cc:dd:ee:ff", "name", {"source": "esphome_proxy_1"}),
+                "test",
+            )
+        except BleakError as e:
+            exc = e
+
+    assert isinstance(exc, BleakOutOfConnectionSlotsError)
+    assert str(exc) == (
+        "test - aa:bb:cc:dd:ee:ff: Failed to connect after 4 attempt(s): "
+        "test [aa:bb:cc:dd:ee:ff]: No free BLE connection slot "
+        "became available (limit=3, in use=3): The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
-        "(https://esphome.github.io/bluetooth-proxies/) near this device"
+        "(https://esphome.io/projects/?type=bluetooth) near this device"
     )
 
 
@@ -1850,6 +1929,15 @@ def test_calculate_backoff_time():
     )
     assert (
         calculate_backoff_time(BleakError("ESP_GATT_CONN_CONN_CANCEL"))
+        == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
+    )
+    assert (
+        calculate_backoff_time(
+            asyncio.TimeoutError(
+                "test [aa:bb:cc:dd:ee:ff]: No free BLE connection slot "
+                "became available (limit=3, in use=3)"
+            )
+        )
         == BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     )
     assert calculate_backoff_time(EOFError()) == BLEAK_DBUS_BACKOFF_TIME

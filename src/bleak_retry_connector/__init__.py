@@ -6,6 +6,7 @@ __version__ = "4.7.0"
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from time import monotonic
 from typing import Any, ParamSpec, TypeVar
 
 from bleak import BleakClient, BleakScanner
@@ -125,26 +126,43 @@ TRANSIENT_ERRORS_MEDIUM_BACKOFF = {
 
 DEVICE_MISSING_ERRORS = {"org.freedesktop.DBus.Error.UnknownObject"}
 
-# ESP_GATT_CONN_CONN_CANCEL (0x100) indicates the ESP32 rejected the connection due to
-# limited resources (HCI error 0x0d). This happens when ESPHome incorrectly marks a
-# connection slot as free at ESP_GATTC_DISCONNECT_EVT instead of waiting for
-# ESP_GATTC_CLOSE_EVT, causing a race where we try to use a slot that isn't actually
-# available yet. The 4-second backoff gives time for the slot to truly become available
-# and for the state to sync with Home Assistant.
-# See: https://github.com/espressif/esp-idf/issues/17452
 OUT_OF_SLOTS_ERRORS = {
     "available connection",
     "connection slot",
-    "ESP_GATT_CONN_CONN_CANCEL",
 }
 
-TRANSIENT_ERRORS = {
-    "le-connection-abort-by-local",
-    "br-connection-canceled",
-    "ESP_GATT_CONN_FAIL_ESTABLISH",
-    "ESP_GATT_CONN_TERMINATE_PEER_USER",
-    "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
-} | OUT_OF_SLOTS_ERRORS
+# ESP_GATT_CONN_CONN_CANCEL (0x100) is set by the ESP32 Bluetooth stack itself,
+# never by the device, when a connection is cancelled before it is established.
+# It is not a reliable out of slots signal since the ESPHome proxy answers with a
+# different error when it has no free slot and bleak-esphome waits for a free slot
+# before connecting. It happens in two ways:
+# 1. The controller rejects the create connection command right away, for example
+#    HCI 0x0d while it is still releasing the previous connection
+#    (https://github.com/espressif/esp-idf/issues/17452) or HCI 0x0c Command
+#    Disallowed when BLE 5.0 features are enabled
+#    (https://github.com/esphome/esphome/pull/18047).
+# 2. The stack gives up after its connection establishment timeout
+#    (CONFIG_BT_BLE_ESTAB_LINK_CONN_TOUT, at least 10s in ESPHome) because the
+#    device never responded.
+# The time the connect attempt took tells the two apart. A rejection can still
+# take a few seconds since bleak-esphome waits up to 2s for a free slot before
+# connecting and up to 2s for the slot to settle after a failure, so the cutoff
+# sits between that and the 10s minimum establishment timeout.
+# The 4-second backoff gives the controller time to finish cleaning up.
+CONNECTION_CANCELLED_ERRORS = {"ESP_GATT_CONN_CONN_CANCEL"}
+CONNECTION_CANCELLED_REJECTED_MAX_TIME = 8.0
+
+TRANSIENT_ERRORS = (
+    {
+        "le-connection-abort-by-local",
+        "br-connection-canceled",
+        "ESP_GATT_CONN_FAIL_ESTABLISH",
+        "ESP_GATT_CONN_TERMINATE_PEER_USER",
+        "ESP_GATT_CONN_TERMINATE_LOCAL_HOST",
+    }
+    | OUT_OF_SLOTS_ERRORS
+    | CONNECTION_CANCELLED_ERRORS
+)
 
 # Currently the same as transient error
 ABORT_ERRORS = (
@@ -162,9 +180,24 @@ DEVICE_MISSING_ADVICE = (
     "The device disappeared; Try restarting the scanner or moving the device closer"
 )
 
+BLUETOOTH_PROXIES_URL = "https://esphome.io/projects/?type=bluetooth"
+
 OUT_OF_SLOTS_ADVICE = (
     "The proxy/adapter is out of connection slots or the device is no longer reachable; "
-    "Add additional proxies (https://esphome.github.io/bluetooth-proxies/) near this device"
+    f"Add additional proxies ({BLUETOOTH_PROXIES_URL}) near this device"
+)
+
+CONNECTION_REJECTED_ADVICE = (
+    "The proxy/adapter controller rejected the connection immediately; "
+    "This usually points to a controller or firmware problem, not a lack of "
+    "connection slots; Check the proxy logs and update its firmware"
+)
+
+CONNECTION_CANCELLED_TIMEOUT_ADVICE = (
+    "The proxy/adapter gave up waiting for the device to respond; "
+    "The device may be out of range or not accepting connections; "
+    "Move the device closer or add additional proxies "
+    f"({BLUETOOTH_PROXIES_URL}) near this device"
 )
 
 NORMAL_DISCONNECT = "Disconnected"
@@ -341,6 +374,12 @@ async def _has_valid_services_in_cache(device: BLEDevice) -> bool:
 def calculate_backoff_time(exc: Exception) -> float:
     """Calculate the backoff time based on the exception."""
 
+    # bleak-esphome raises a TimeoutError when no connection slot
+    # becomes available
+    if isinstance(exc, asyncio.TimeoutError) and any(
+        error in str(exc) for error in OUT_OF_SLOTS_ERRORS
+    ):
+        return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(
         exc, (BleakDBusError, EOFError, asyncio.TimeoutError, BrokenPipeError)
     ):
@@ -354,7 +393,10 @@ def calculate_backoff_time(exc: Exception) -> float:
         return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
     if isinstance(exc, BleakError):
         bleak_error = str(exc)
-        if any(error in bleak_error for error in OUT_OF_SLOTS_ERRORS):
+        if any(
+            error in bleak_error
+            for error in OUT_OF_SLOTS_ERRORS | CONNECTION_CANCELLED_ERRORS
+        ):
             return BLEAK_OUT_OF_SLOTS_BACKOFF_TIME
         if any(error in bleak_error for error in TRANSIENT_ERRORS_MEDIUM_BACKOFF):
             return BLEAK_TRANSIENT_MEDIUM_BACKOFF_TIME
@@ -423,6 +465,7 @@ async def establish_connection(
     connect_errors = 0
     transient_errors = 0
     attempt = 0
+    connect_elapsed = 0.0
 
     def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
@@ -437,6 +480,12 @@ async def establish_connection(
         )
         # Sure would be nice if bleak gave us typed exceptions
         if isinstance(exc, asyncio.TimeoutError):
+            # bleak-esphome raises a TimeoutError when no connection slot
+            # becomes available
+            if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
+                raise BleakOutOfConnectionSlotsError(
+                    f"{msg}: {OUT_OF_SLOTS_ADVICE}"
+                ) from exc
             raise BleakNotFoundError(msg) from exc
         if isinstance(exc, BleakDeviceNotFoundError) or "not found" in str(exc):
             raise BleakNotFoundError(f"{msg}: {DEVICE_MISSING_ADVICE}") from exc
@@ -444,6 +493,14 @@ async def establish_connection(
             if any(error in str(exc) for error in OUT_OF_SLOTS_ERRORS):
                 raise BleakOutOfConnectionSlotsError(
                     f"{msg}: {OUT_OF_SLOTS_ADVICE}"
+                ) from exc
+            if any(error in str(exc) for error in CONNECTION_CANCELLED_ERRORS):
+                if connect_elapsed < CONNECTION_CANCELLED_REJECTED_MAX_TIME:
+                    raise BleakAbortedError(
+                        f"{msg}: {CONNECTION_REJECTED_ADVICE}"
+                    ) from exc
+                raise BleakAbortedError(
+                    f"{msg}: {CONNECTION_CANCELLED_TIMEOUT_ADVICE}"
                 ) from exc
             if any(error in str(exc) for error in ABORT_ERRORS):
                 raise BleakAbortedError(f"{msg}: {ABORT_ADVICE}") from exc
@@ -476,6 +533,7 @@ async def establish_connection(
                 attempt,
             )
 
+        connect_started = monotonic()
         try:
             async with asyncio_timeout(BLEAK_SAFETY_TIMEOUT):
                 # Only use cache if we have valid services in the cache
@@ -562,6 +620,7 @@ async def establish_connection(
             await wait_for_disconnect(device, backoff_time)
             _raise_if_needed(name, device.address, exc)
         except BLEAK_EXCEPTIONS as exc:
+            connect_elapsed = monotonic() - connect_started
             bleak_error = str(exc)
             # BleakDeviceNotFoundError can mean that the adapter has run out of
             # connection slots.
