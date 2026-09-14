@@ -6,6 +6,7 @@ __version__ = "4.7.0"
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
+from functools import wraps
 from typing import Any, ParamSpec, TypeVar
 
 from bleak import BleakClient, BleakScanner
@@ -614,6 +615,7 @@ def retry_bluetooth_connection_error(
         we need to retry the operation.
         """
 
+        @wraps(func)
         async def _async_wrap_bluetooth_connection_error_retry(  # type: ignore[return]
             *args: P.args, **kwargs: P.kwargs
         ) -> T:
