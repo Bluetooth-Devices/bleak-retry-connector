@@ -179,7 +179,7 @@ DEVICE_MISSING_ADVICE = (
 
 OUT_OF_SLOTS_ADVICE = (
     "The proxy/adapter is out of connection slots or the device is no longer reachable; "
-    "Add additional proxies (https://esphome.github.io/bluetooth-proxies/) near this device"
+    "Add additional proxies (https://esphome.io/projects/?type=bluetooth) near this device"
 )
 
 CONNECTION_REJECTED_ADVICE = (
@@ -192,7 +192,7 @@ CONNECTION_CANCELLED_TIMEOUT_ADVICE = (
     "The proxy/adapter gave up waiting for the device to respond; "
     "The device may be out of range or not accepting connections; "
     "Move the device closer or add additional proxies "
-    "(https://esphome.github.io/bluetooth-proxies/) near this device"
+    "(https://esphome.io/projects/?type=bluetooth) near this device"
 )
 
 NORMAL_DISCONNECT = "Disconnected"

@@ -709,7 +709,7 @@ async def test_establish_connection_out_of_slots_advice():
         "out of connection slots: The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
-        "(https://esphome.github.io/bluetooth-proxies/) near this device"
+        "(https://esphome.io/projects/?type=bluetooth) near this device"
     )
 
 
@@ -783,7 +783,7 @@ async def test_establish_connection_esp_gatt_conn_conn_cancel_after_timeout():
         "ESP_GATT_CONN_CONN_CANCEL: The proxy/adapter gave up waiting for "
         "the device to respond; The device may be out of range or not "
         "accepting connections; Move the device closer or add additional "
-        "proxies (https://esphome.github.io/bluetooth-proxies/) near this device"
+        "proxies (https://esphome.io/projects/?type=bluetooth) near this device"
     )
 
 
@@ -821,7 +821,7 @@ async def test_establish_connection_no_free_slot_timeout_out_of_slots():
         "became available (limit=3, in use=3): The proxy/adapter is "
         "out of connection slots or the device is no "
         "longer reachable; Add additional proxies "
-        "(https://esphome.github.io/bluetooth-proxies/) near this device"
+        "(https://esphome.io/projects/?type=bluetooth) near this device"
     )
 
 
