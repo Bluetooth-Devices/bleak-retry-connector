@@ -755,7 +755,7 @@ async def test_establish_connection_no_free_slot_timeout_out_of_slots():
             pass
 
         async def connect(self, *args, **kwargs):
-            raise TimeoutError(
+            raise asyncio.TimeoutError(
                 "test [aa:bb:cc:dd:ee:ff]: No free BLE connection slot "
                 "became available (limit=3, in use=3)"
             )
