@@ -523,6 +523,68 @@ async def test_establish_connection_has_transient_error():
 
 
 @pytest.mark.asyncio
+async def test_establish_connection_overall_timeout_stops_transient_retries():
+    """overall_timeout bounds the call even though transient errors keep happening.
+
+    Without ``overall_timeout`` this device would be retried up to
+    ``MAX_TRANSIENT_ERRORS`` (9) times, since a transient error never counts
+    toward ``max_attempts``. See #324.
+    """
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            raise BleakError("le-connection-abort-by-local")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with (
+        patch("bleak_retry_connector.calculate_backoff_time", return_value=0),
+        patch(
+            "bleak_retry_connector.monotonic",
+            side_effect=itertools.count(0.0, 1.0),
+        ),
+        pytest.raises(BleakAbortedError) as exc_info,
+    ):
+        await establish_connection(
+            FakeBleakClient, MagicMock(), "test", overall_timeout=5.0
+        )
+
+    assert attempts < MAX_TRANSIENT_ERRORS
+    assert "overall_timeout of 5.0s exceeded" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_establish_connection_overall_timeout_none_is_unchanged():
+    """Default overall_timeout=None does not change existing behavior."""
+    attempts = 0
+
+    class FakeBleakClient(BleakClient):
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def connect(self, *args, **kwargs):
+            nonlocal attempts
+            attempts += 1
+            if attempts < MAX_TRANSIENT_ERRORS:
+                raise BleakError("le-connection-abort-by-local")
+
+        async def disconnect(self, *args, **kwargs):
+            pass
+
+    with patch("bleak_retry_connector.calculate_backoff_time", return_value=0):
+        client = await establish_connection(FakeBleakClient, MagicMock(), "test")
+    assert isinstance(client, FakeBleakClient)
+    assert attempts == 9
+
+
+@pytest.mark.asyncio
 async def test_establish_connection_has_transient_broken_pipe_error():
     attempts = 0
 
