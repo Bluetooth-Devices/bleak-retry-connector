@@ -458,19 +458,34 @@ async def establish_connection(
     ble_device_callback: Callable[[], BLEDevice] | None = None,
     use_services_cache: bool = True,
     pair: bool = False,
+    overall_timeout: float | None = None,
     **kwargs: Any,
 ) -> AnyBleakClient:
-    """Establish a connection to the device."""
+    """Establish a connection to the device.
+
+    ``overall_timeout``, if given, bounds the wall-clock time of the whole
+    call. Without it, transient errors (out-of-slots, services-changed, a
+    dead D-Bus socket, ...) are retried up to ``MAX_TRANSIENT_ERRORS`` times
+    independently of ``max_attempts``, so a device that keeps failing in a
+    transient way can hold the call for minutes even when ``max_attempts``
+    is small. Defaults to ``None``, which preserves prior behavior.
+    """
     timeouts = 0
     connect_errors = 0
     transient_errors = 0
     attempt = 0
     connect_elapsed = 0.0
+    call_started = monotonic()
 
     def _raise_if_needed(name: str, description: str, exc: Exception) -> None:
         """Raise if we reach the max attempts."""
+        timed_out = (
+            overall_timeout is not None
+            and monotonic() - call_started >= overall_timeout
+        )
         if (
-            timeouts + connect_errors < max_attempts
+            not timed_out
+            and timeouts + connect_errors < max_attempts
             and transient_errors < MAX_TRANSIENT_ERRORS
         ):
             return
@@ -478,6 +493,8 @@ async def establish_connection(
             f"{name} - {description}: Failed to connect after "
             f"{attempt} attempt(s): {str(exc) or type(exc).__name__}"
         )
+        if timed_out:
+            msg += f" (overall_timeout of {overall_timeout}s exceeded)"
         # Sure would be nice if bleak gave us typed exceptions
         if isinstance(exc, asyncio.TimeoutError):
             # bleak-esphome raises a TimeoutError when no connection slot
