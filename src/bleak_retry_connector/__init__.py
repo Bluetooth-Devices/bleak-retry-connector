@@ -22,6 +22,7 @@ from .bluez import (  # noqa: F401
     _get_properties,
     _get_properties_sync,
     _get_services_cache,
+    adapter_path_from_device_path,
     clear_cache,
     device_source,
     get_connected_devices,
@@ -279,7 +280,7 @@ def ble_device_description(device: BLEDevice) -> str:
     if isinstance(details, dict):
         if path := details.get("path"):
             # /org/bluez/hci2
-            return f"{base_name} -> {path[0:15]}"
+            return f"{base_name} -> {adapter_path_from_device_path(path)}"
         if source := details.get("source"):
             return f"{base_name} -> {source}"
     return base_name
